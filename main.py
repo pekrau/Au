@@ -5,6 +5,7 @@ import os
 import re
 import tkinter as tk
 from tkinter import ttk
+import webbrowser
 
 import marko
 import marko.ast_renderer
@@ -17,6 +18,7 @@ FONT_NORMAL = (FONT_FAMILY, 12)
 FONT_ITALIC = (FONT_FAMILY, 12, "italic")
 FONT_BOLD = (FONT_FAMILY, 12, "bold")
 FONT_LARGE_BOLD = (FONT_FAMILY, 14, "bold")
+LINK_COLOR = "deepskyblue"
 
 
 def get_markdown_to_ast(markdown_text):
@@ -83,7 +85,7 @@ class Main:
                 name = os.path.splitext(path)[0]
                 subid = self.tree.insert(id, "end", text=name, tags=(tag, ))
                 self.texts[subpath]["listentry"] = subid
-                self.tree.tag_bind(tag, "<1>", OpenEditor(self, subpath))
+                self.tree.tag_bind(tag, "<Button-1>", OpenEditor(self, subpath))
             elif os.path.isdir(os.path.join(dirpath, path)):
                 subid = self.tree.insert(id, "end", text=path, tags=(tag, ))
                 self.texts[subpath]["listentry"] = subid
@@ -92,10 +94,10 @@ class Main:
     def open(self, subpath):
         try:
             editor = self.texts[subpath]["editor"]
+            editor.toplevel.lift()
         except KeyError:
             self.texts[subpath]["editor"] = editor = Editor(self, subpath)
-        editor.text.focus_set() # XXX Doesn't work for the first editor window!?
-        editor.toplevel.lift()
+        editor.text.focus_set()
 
     def create(self):
         print("create")
@@ -113,16 +115,6 @@ class Main:
 
     def mainloop(self):
         self.root.mainloop()
-
-
-class OpenEditor:
-
-    def __init__(self, main, path):
-        self.main = main
-        self.path = path
-
-    def __call__(self, event):
-        self.main.open(self.path)
 
 
 class Editor:
@@ -162,10 +154,30 @@ class Editor:
         self.text_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.text.configure(yscrollcommand=self.text_scroll_y.set)
 
+        self.info_frame = ttk.Frame(self.toplevel, padding=4)
+        self.info_frame.pack(fill=tk.X, expand=1)
+        self.info_frame.columnconfigure(0, weight=1)
+        self.info_frame.columnconfigure(1, weight=2)
+        self.info_frame.columnconfigure(2, weight=2)
+        self.size_var = tk.StringVar()
+        size_label = ttk.Label(self.info_frame)
+        size_label.grid(column=0, row=0, sticky=tk.W, padx=4)
+        size_label["textvariable"] = self.size_var
+        self.url_var = tk.StringVar()
+        url_label = ttk.Label(self.info_frame, anchor=tk.W)
+        url_label.grid(column=1, row=0, sticky=tk.W, padx=4)
+        url_label["textvariable"] = self.url_var
+        self.title_var = tk.StringVar()
+        title_label = ttk.Label(self.info_frame, anchor=tk.W)
+        title_label.grid(column=2, row=0, sticky=tk.W, padx=4)
+        title_label["textvariable"] = self.title_var
+
         self.text.tag_configure("italic", font=FONT_ITALIC)
         self.italic_start = None
         self.text.tag_configure("bold", font=FONT_BOLD)
         self.bold_start = None
+
+        self.links = Links(self)
 
         self.text.bind("<<Modified>>", self.was_modified)
         self.ignore_modified = 2
@@ -175,13 +187,28 @@ class Editor:
         if subpath == "test.md":
             ast = get_markdown_to_ast(markdown_text)
             print(json.dumps(ast, indent=4))
+            self.char_count = 0
             self.parse(ast)
+            self.size_var.set(f"{self.char_count} characters")
         else:
             self.text.insert("1.0", markdown_text)
             self.text.edit_modified(False)
 
+        self.text.update()
+        width = self.text.winfo_width() / 2
+        url_label.configure(wraplength=width)
+        title_label.configure(wraplength=width)
+
+    def close(self, event=None):
+        if self.text.edit_modified():
+            print("had been modified")
+        self.toplevel.destroy()
+        del self.main.texts[self.subpath]["editor"]
+
+    def show_link(self, url, title):
+        pass
+
     def parse(self, ast):
-        self.char_count = 0
         try:
             method = getattr(self, f"parse_{ast['element']}")
         except AttributeError:
@@ -220,10 +247,21 @@ class Editor:
         self.text.insert(tk.END, ast["children"])
         self.char_count += len(ast["children"])
 
+    def parse_line_break(self, ast):
+        self.text.insert(tk.END, "\n")
+        self.char_count += 1
+
     def parse_blank_line(self, ast):
         self.text.insert(tk.END, "\n")
         self.previous_blank_line = True
 
+    def parse_link(self, ast):
+        link_start = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.parse(child)
+        self.text.tag_add("link", link_start, self.text.index(tk.INSERT))
+        self.text.tag_add(self.links.add(ast), link_start, self.text.index(tk.INSERT))
+        
     def was_modified(self, event=None):
         if self.ignore_modified:
             self.text.edit_modified(False)
@@ -264,12 +302,52 @@ class Editor:
         else:
             print("Could not handle tagoff", data)
 
-    def close(self, event=None):
-        if self.text.edit_modified():
-            print("had been modified")
-        del self.main.texts[self.subpath]["editor"]
-        self.toplevel.destroy()
 
+class OpenEditor:
+    "Action to open an editor window."
+
+    def __init__(self, main, path):
+        self.main = main
+        self.path = path
+
+    def __call__(self, event):
+        self.main.open(self.path)
+
+
+class Links:
+    "Manage links in a text editor."
+
+    def __init__(self, editor):
+        self.editor = editor
+        self.editor.text.tag_configure("link", foreground=LINK_COLOR)
+        self.editor.text.tag_bind("link", "<Enter>", self.enter)
+        self.editor.text.tag_bind("link", "<Leave>", self.leave)
+        self.editor.text.tag_bind("link", "<Button-1>", self.click)
+        self.lookup = {}
+
+    def add(self, ast):
+        tag = f"link-{len(self.lookup)}"
+        self.lookup[tag] = dict(url=ast["dest"], title=ast["title"])
+        return tag
+
+    def enter(self, event):
+        self.editor.text.configure(cursor="hand2")
+        ast = self.get_link()
+        self.editor.url_var.set(ast["url"])
+        self.editor.title_var.set(ast["title"] or "-")
+
+    def leave(self, event):
+        self.editor.text.configure(cursor="")
+        self.editor.url_var.set("")
+        self.editor.title_var.set("")
+
+    def get_link(self):
+        for tag in self.editor.text.tag_names(tk.CURRENT):
+            if tag.startswith("link-"):
+                return self.lookup[tag]
+
+    def click(self, event):
+        webbrowser.open_new_tab(self.get_link()["url"])
 
 
 if __name__ == "__main__":
