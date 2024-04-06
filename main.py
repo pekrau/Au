@@ -18,6 +18,9 @@ AU64 = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABhGlDQ1BJQ0MgcHJvZmlsZQAA
 DEFAULT_ROOT_GEOMETRY = "400x400+700+0"
 DEFAULT_EDITOR_GEOMETRY = ""
 
+STATE_NAME = ".state.json"
+ARCHIVE_NAME = ".archive"
+
 FONT_FAMILY = "Arial"
 FONT_NORMAL_SIZE = 12
 FONT_LARGE_SIZE = 14
@@ -43,7 +46,7 @@ class Main:
     def __init__(self, dirpath):
         self.dirpath = dirpath
         try:
-            with open(os.path.join(self.dirpath, "state.json")) as infile:
+            with open(os.path.join(self.dirpath, STATE_NAME)) as infile:
                 self.state = json.load(infile)
             if "root" not in self.state:
                 raise ValueError
@@ -109,7 +112,8 @@ class Main:
 
     def add_dir_to_treeview(self, subdirpath="", id=""):
         dirpath = os.path.join(self.dirpath, subdirpath) if subdirpath else self.dirpath
-        for path in sorted(os.listdir(dirpath)):
+        paths = [p for p in os.listdir(dirpath) if not p.startswith(".")]
+        for path in sorted(paths):
             subpath = os.path.join(subdirpath, path) if subdirpath else path
             self.texts[subpath] = dict()
             tag = os.path.join(dirpath, path)
@@ -142,10 +146,11 @@ class Main:
             except KeyError:
                 pass
         self.state["root"]["geometry"] = self.root.geometry()
-        with open(os.path.join(self.dirpath, "state.json"), "w") as outfile:
+        with open(os.path.join(self.dirpath, STATE_NAME), "w") as outfile:
             json.dump(self.state, outfile, indent=2)
 
     def quit(self, event=None):
+        self.root.lift()
         for text in self.texts.values():
             try:
                 if text["editor"].modified:
@@ -342,7 +347,15 @@ class Editor:
         if not self.modified:
             return
         self.current_link_tag = None
-        filepath = os.path.join(self.main.dirpath, f"{self.subpath}.save")
+        # Create archive subdirectory if it does not exist.
+        archivedfilepath = os.path.join(self.main.dirpath, ARCHIVE_NAME, f"{self.subpath} {get_now()}")
+        archivepath = os.path.dirname(archivedfilepath)
+        if not os.path.exists(archivepath):
+            os.makedirs(archivepath)
+        # Move current file to the archive.
+        filepath = os.path.join(self.main.dirpath, self.subpath)
+        os.rename(filepath, archivedfilepath)
+        # Save the current contents in a new file.
         with open(filepath, "w") as outfile:
             for item in self.text.dump("1.0", tk.END):
                 try:
