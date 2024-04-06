@@ -3,8 +3,10 @@
 import json
 import os
 import re
+import time
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 import webbrowser
 
 import marko
@@ -13,12 +15,15 @@ import marko.ast_renderer
 
 AU64 = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABhGlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV/TSkWqDnaQ4pChOlkQleKoVShChVArtOpgcv2EJg1Jiouj4Fpw8GOx6uDirKuDqyAIfoA4OzgpukiJ/0sKLWI8OO7Hu3uPu3eA0Kwy1QxMAKpmGelkQszmVsXgKwLwYwBxRGRm6nOSlILn+LqHj693MZ7lfe7P0Z8vmAzwicSzTDcs4g3i+Kalc94nDrOynCc+Jx436ILEj1xXXH7jXHJY4JlhI5OeJw4Ti6UuVrqYlQ2VeJo4mlc1yheyLuc5b3FWq3XWvid/YaigrSxzneYIkljEEiSIUFBHBVVYiNGqkWIiTfsJD3/E8UvkUshVASPHAmpQITt+8D/43a1ZnJp0k0IJoOfFtj9GgeAu0GrY9vexbbdOAP8zcKV1/LUmMPNJeqOjRY+AwW3g4rqjKXvA5Q4w/KTLhuxIfppCsQi8n9E35YChW6Bvze2tvY/TByBDXaVugINDYKxE2ese7+7t7u3fM+3+fgBwYnKmw5NibQAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAAuIwAALiMBeKU/dgAAAAd0SU1FB+gEAw45EiZV65kAAAAZdEVYdENvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVBXgQ4XAAADoklEQVR42u2aWUiUURTHf5qVLa6kIVZQUBptRLtKYVBhQUFky0NZ2fbQQ1ESREbLQxJCEe0RVIhJRSumJZGV5qRmlla2SZstlo6mUKk5PXz5kN77+c1iOTP3wMcM93/u3Lm/Ofeeew/jYXmKBTc2T9zcFAAFQAFQABQABUABUAAUAAVAAVAAFAAFQAFwP/OypVNlFfSNat+vygSBfi4YAaaHxvzyH7ngEmhuhlMXjPmmXgFLJ684elhbFH3+GsJijPuXZ8HAfi4UAbfyrfO/U+hCS+DHT9h70roBDqVCQ6OLAHhYBk/Kxdq4YZINswRKX7gIgPRsubZ/q1y7dse6LxW/GTyGip/qGtv71tbbAaDKDDsPi7V1i2H8SFg5T6zvOgI1dU4eASadnD57qvY6d7pYr/sOhSWOylv/AYDFAqmX5froP+t/7HC5T1q6E0dA+TtIvSrWtq8Ffx/tfZ8ASFgm9jt+Ht5+6HQBYAzA7QK5NqPVnWBWtNw3574TLoGfDbA/Raz1C4YRYa2Ww1Dw6SH2P5wGjU1OFgElz6GoTKxtXA49vf9u8+0Nm1ZKToVF8PSVk0VApk4Oj54obp8WKe+TlWvn/P8lAPM3SNwnP/mFDxJrI4bAoFCxtvsYfKt3kixQoJP71yyCbl3FWg9vWL9UUkypgfuPOw8A3YrQaZ3cHb9Fe2yxc5kQPcG2vu3VF76YHRQBryvgxMWOoX4wDSo+29b31y+51tQE94odBCCng+/xd4vkWvdu+mlZZhWV2hKzG0Bjo5azO9KOnYEmya8ZoFNI/Wp2XLFGCqD0JeQWdyyALBM8k9QWQvvK+900idtfvIG1Oxy0CV7P0TnOpkDkGOMDZOdDdJxYu5EHwwa3bZelV4B1SRAUCDFTtENXXT0UlsKGJO3WafW5onVRtLYe+k+Wf1j1PQjwNT7AVzMERciP0mUZ0Ktnq528GoIjHR91NQXg17udJVBYIp/8+iXWTb7lhrgqVqy9r4SiJ23bgwIhOcH6CR5IhLg5du4BZzKM3/yM2swpcu1Clrh9RSzMiDA+RnICrJoPXTztAPDuIxw9K3ceGWYbgFHhcm3PKfj0pW27nw+kJMujp8WC/eHSAe3k6eVl5yaYq5ObF8ZASLBtAAaEQEwUZEg217sPxOW0PgFwcBusXgB5xWAqhkfPoH+I9mNEjYFJo61flrqboLuZ+n+AAqAAKAAKgAKgACgACoACoAAoAAqAAqAAuJ/9BkYG9/zutbrRAAAAAElFTkSuQmCC"
 
+DEFAULT_ROOT_GEOMETRY = "+700+0"
+DEFAULT_EDITOR_GEOMETRY = ""
+
 FONT_FAMILY = "Arial"
 FONT_NORMAL = (FONT_FAMILY, 12)
 FONT_ITALIC = (FONT_FAMILY, 12, "italic")
 FONT_BOLD = (FONT_FAMILY, 12, "bold")
 FONT_LARGE_BOLD = (FONT_FAMILY, 14, "bold")
-LINK_COLOR = "deepskyblue"
+LINK_COLOR = "blue"
 
 
 def get_markdown_to_ast(markdown_text):
@@ -30,9 +35,18 @@ class Main:
 
     def __init__(self, dirpath):
         self.dirpath = dirpath
+        try:
+            with open(os.path.join(self.dirpath, "state.json")) as infile:
+                self.state = json.load(infile)
+            if "root" not in self.state:
+                raise ValueError
+            if "editors" not in self.state:
+                raise ValueError
+        except (OSError, json.JSONDecodeError, ValueError):
+            self.state = dict(root=dict(), editors=dict())
         self.root = tk.Tk()
         self.root.title(os.path.basename(dirpath))
-        self.root.geometry("+700+0")
+        self.root.geometry(self.state["root"].get("geometry", DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
         self.au64 = tk.PhotoImage(data=AU64)
         self.root.iconphoto(False, self.au64)
@@ -46,34 +60,46 @@ class Main:
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
         self.menu_file.add_command(label="Create", command=self.create)
-        self.menu_file.add_command(label="Save", command=self.save)
-        self.menu_file.add_command(label="Quit", command=self.quit)
+        self.menu_file.add_command(label="Save", command=self.save,
+                                   accelerator="Ctrl-S")
+        self.root.bind("<Control-s>", self.save)
+        self.menu_file.add_command(label="Quit", command=self.quit,
+                                   accelerator="Ctrl-Q")
+        self.root.bind_all("<Control-q>", self.quit)
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
 
-        self.tree_frame = ttk.Frame(self.root, padding=4)
-        self.tree_frame.pack(fill=tk.BOTH, expand=1)
-        self.tree_frame.rowconfigure(0, weight=1)
-        self.tree_frame.columnconfigure(0, weight=1)
-        self.tree = ttk.Treeview(self.tree_frame,
-                                 columns=("size", "timestamp"),
-                                 selectmode="browse")
-        self.tree.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.tree.heading("size", text="Size")
-        self.tree.heading("timestamp", text="Timestamp")
-        self.tree_scroll_y = ttk.Scrollbar(self.tree_frame,
-                                           orient=tk.VERTICAL,
-                                           command=self.tree.yview)
-        self.tree_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.tree.configure(yscrollcommand=self.tree_scroll_y.set)
+        self.treeview_frame = ttk.Frame(self.root, padding=4)
+        self.treeview_frame.pack(fill=tk.BOTH, expand=1)
+        self.treeview_frame.rowconfigure(0, weight=1)
+        self.treeview_frame.columnconfigure(0, weight=1)
+        self.treeview = ttk.Treeview(self.treeview_frame,
+                                     columns=("changed", "characters", "timestamp"),
+                                     selectmode="browse")
+        self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.treeview.heading("changed", text="Changed")
+        self.treeview.column("changed", anchor=tk.CENTER)
+        self.treeview.heading("characters", text="Characters")
+        self.treeview.column("characters", anchor=tk.E)
+        self.treeview.heading("timestamp", text="Timestamp")
+        self.treeview.column("timestamp", anchor=tk.CENTER)
+        self.treeview_scroll_y = ttk.Scrollbar(self.treeview_frame,
+                                               orient=tk.VERTICAL,
+                                               command=self.treeview.yview)
+        self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
 
-        self.texts = {}
+        self.texts = dict()
         self.add_dir_to_treeview()
 
         self.root.update_idletasks()
         width, height = self.root.geometry().split("+", 1)[0].split("x")
         self.root.minsize(int(width), int(height))
+
+        for subpath, state in self.state["editors"].items():
+            if state.get("open"):
+                self.open(subpath)
 
     def add_dir_to_treeview(self, subdirpath="", id=""):
         dirpath = os.path.join(self.dirpath, subdirpath) if subdirpath else self.dirpath
@@ -83,11 +109,11 @@ class Main:
             tag = os.path.join(dirpath, path)
             if path.endswith(".md"):
                 name = os.path.splitext(path)[0]
-                subid = self.tree.insert(id, "end", text=name, tags=(tag, ))
+                subid = self.treeview.insert(id, "end", subpath, text=name, tags=(tag, ))
                 self.texts[subpath]["listentry"] = subid
-                self.tree.tag_bind(tag, "<Button-1>", OpenEditor(self, subpath))
+                self.treeview.tag_bind(tag, "<Button-1>", OpenEditor(self, subpath))
             elif os.path.isdir(os.path.join(dirpath, path)):
-                subid = self.tree.insert(id, "end", text=path, tags=(tag, ))
+                subid = self.treeview.insert(id, "end", subpath, text=path, tags=(tag, ))
                 self.texts[subpath]["listentry"] = subid
                 self.add_dir_to_treeview(os.path.join(subdirpath, path), subid)
 
@@ -102,15 +128,18 @@ class Main:
     def create(self):
         print("create")
 
-    def save(self):
+    def save(self, event=None):
         "Save contents of all open text editor windows."
         for text in self.texts.values():
             try:
                 text["editor"].save()
             except KeyError:
                 pass
+        self.state["root"]["geometry"] = self.root.geometry()
+        with open(os.path.join(self.dirpath, "state.json"), "w") as outfile:
+            json.dump(self.state, outfile, indent=2)
 
-    def quit(self):
+    def quit(self, event=None):
         self.root.destroy()
 
     def mainloop(self):
@@ -126,7 +155,13 @@ class Editor:
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(os.path.splitext(self.subpath)[0])
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
-        self.toplevel.bind("<Control-s>", self.save)
+
+        if self.subpath not in self.main.state["editors"]:
+            self.main.state["editors"][self.subpath] = dict()
+        try:
+            self.toplevel.geometry(self.main.state["editors"][self.subpath]["geometry"])
+        except KeyError:
+            pass
 
         self.menubar = tk.Menu(self.toplevel)
         self.toplevel["menu"] = self.menubar
@@ -135,8 +170,12 @@ class Editor:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Save", command=self.save)
-        self.menu_file.add_command(label="Close", command=self.close)
+        self.menu_file.add_command(label="Save", command=self.save,
+                                   accelerator="Ctrl-S")
+        self.toplevel.bind("<Control-s>", self.save)
+        self.menu_file.add_command(label="Close", command=self.close,
+                                   accelerator="Ctrl-Z")
+        self.toplevel.bind("<Control-z>", self.close)
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
@@ -179,34 +218,24 @@ class Editor:
 
         self.links = Links(self)
 
-        self.text.bind("<<Modified>>", self.was_modified)
-        self.ignore_modified = 2
-
-        with open(os.path.join(self.main.dirpath, self.subpath)) as infile:
+        path = os.path.join(self.main.dirpath, self.subpath)
+        self.timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(path)))
+        with open(path) as infile:
             markdown_text = infile.read()
-        if subpath == "test.md":
-            ast = get_markdown_to_ast(markdown_text)
-            print(json.dumps(ast, indent=4))
-            self.char_count = 0
-            self.parse(ast)
-            self.size_var.set(f"{self.char_count} characters")
-        else:
-            self.text.insert("1.0", markdown_text)
-            self.text.edit_modified(False)
+        ast = get_markdown_to_ast(markdown_text)
+        print(json.dumps(ast, indent=4))
+        self.char_count = 0
+        self.parse(ast)
+        self.update_metadata()
 
         self.text.update()
         width = self.text.winfo_width() / 2
         url_label.configure(wraplength=width)
         title_label.configure(wraplength=width)
 
-    def close(self, event=None):
-        if self.text.edit_modified():
-            print("had been modified")
-        self.toplevel.destroy()
-        del self.main.texts[self.subpath]["editor"]
-
-    def show_link(self, url, title):
-        pass
+        self.text.bind("<<Modified>>", self.handle_modified)
+        self.ignore_modified_event = True
+        self.text.edit_modified(False)
 
     def parse(self, ast):
         try:
@@ -262,16 +291,46 @@ class Editor:
         self.text.tag_add("link", link_start, self.text.index(tk.INSERT))
         self.text.tag_add(self.links.add(ast), link_start, self.text.index(tk.INSERT))
         
-    def was_modified(self, event=None):
-        if self.ignore_modified:
-            self.text.edit_modified(False)
-            self.ignore_modified -= 1
+    @property
+    def modified(self):
+        return self.text.edit_modified()
+
+    @property
+    def character_count(self):
+        return len(self.text.get("1.0", tk.END))
+
+    def update_metadata(self):
+        self.size_var.set(f"{self.character_count} characters")
+        self.main.treeview.set(self.subpath, "characters", str(self.character_count))
+        self.main.treeview.set(self.subpath, "timestamp", self.timestamp)
+
+    def handle_modified(self, event=None):
+        print("modified state is:", self.modified)
+        if not self.modified:
+            return
+        if self.ignore_modified_event:
+            self.ignore_modified_event = False
         else:
-            self.ignore_modified += 1
+            print("handle modified event")
+            self.ignore_modified_event = True
+            self.text.edit_modified(False)
+
+    def close(self, event=None):
+        if self.modified and \
+           not messagebox.askokcancel(title="Close?",
+                                      message="Modifications will not be saved. Really close?"):
+            return
+        self.main.state["editors"][self.subpath]["open"] = False
+        del self.main.texts[self.subpath]["editor"]
+        self.toplevel.destroy()
 
     def save(self, event=None):
-        if not self.text.edit_modified():
-            print("has not been modified")
+        state = self.main.state["editors"][self.subpath]
+        state["open"] = True
+        state["geometry"] = self.toplevel.geometry()
+        if not self.modified:
+            return
+        self.current_link_tag = None
         filepath = os.path.join(self.main.dirpath, f"{self.subpath}.save")
         with open(filepath, "w") as outfile:
             for item in self.text.dump("1.0", tk.END):
@@ -280,27 +339,59 @@ class Editor:
                 except AttributeError:
                     print("Could not handle", item)
                 else:
-                    method(outfile, item[1])
+                    method(outfile, item)
+        self.update_metadata()
+        self.ignore_modified_event = True
         self.text.edit_modified(False)
 
-    def save_text(self, outfile, data):
-        outfile.write(data)
+    def save_text(self, outfile, item):
+        outfile.write(item[1])
 
-    def save_tagon(self, outfile, data):
-        if data == "italic":
-            outfile.write("*")
-        elif data == "bold":
-            outfile.write("**")
+    def save_tagon(self, outfile, item):
+        try:
+            method = getattr(self, f"save_tagon_{item[1]}")
+        except AttributeError:
+            pass
         else:
-            print("Could not handle tagon", data)
+            method(outfile, item)
 
-    def save_tagoff(self, outfile, data):
-        if data == "italic":
-            outfile.write("*")
-        elif data == "bold":
-            outfile.write("**")
+    def save_tagon_italic(self, outfile, item):
+        outfile.write("*")
+
+    def save_tagon_bold(self, outfile, item):
+        outfile.write("**")
+
+    def save_tagon_link(self, outfile, item):
+        for tag in self.text.tag_names(item[2]):
+            if tag.startswith("link-"):
+                self.current_link_tag = tag
+                outfile.write("[")
+                return
+
+    def save_tagoff(self, outfile, item):
+        try:
+            method = getattr(self, f"save_tagoff_{item[1]}")
+        except AttributeError:
+            pass
         else:
-            print("Could not handle tagoff", data)
+            method(outfile, item)
+
+    def save_tagoff_italic(self, outfile, item):
+        outfile.write("*")
+
+    def save_tagoff_bold(self, outfile, item):
+        outfile.write("**")
+
+    def save_tagoff_link(self, outfile, item):
+        link = self.links.get_link(self.current_link_tag)
+        if link["title"]:
+            outfile.write(f"""]({link['url']} "{link['title']}")""")
+        else:
+            outfile.write(f"]({link['url']})")
+        self.current_link_tag = None
+
+    def save_mark(self, outfile, item):
+        pass
 
 
 class OpenEditor:
@@ -319,11 +410,11 @@ class Links:
 
     def __init__(self, editor):
         self.editor = editor
-        self.editor.text.tag_configure("link", foreground=LINK_COLOR)
+        self.editor.text.tag_configure("link", foreground=LINK_COLOR, underline=True)
         self.editor.text.tag_bind("link", "<Enter>", self.enter)
         self.editor.text.tag_bind("link", "<Leave>", self.leave)
         self.editor.text.tag_bind("link", "<Button-1>", self.click)
-        self.lookup = {}
+        self.lookup = dict()
 
     def add(self, ast):
         tag = f"link-{len(self.lookup)}"
@@ -332,7 +423,7 @@ class Links:
 
     def enter(self, event):
         self.editor.text.configure(cursor="hand2")
-        ast = self.get_link()
+        ast = self.get_current_link()
         self.editor.url_var.set(ast["url"])
         self.editor.title_var.set(ast["title"] or "-")
 
@@ -341,13 +432,16 @@ class Links:
         self.editor.url_var.set("")
         self.editor.title_var.set("")
 
-    def get_link(self):
+    def get_current_link(self):
         for tag in self.editor.text.tag_names(tk.CURRENT):
             if tag.startswith("link-"):
                 return self.lookup[tag]
 
+    def get_link(self, tag):
+        return self.lookup[tag]
+
     def click(self, event):
-        webbrowser.open_new_tab(self.get_link()["url"])
+        webbrowser.open_new_tab(self.get_current_link()["url"])
 
 
 if __name__ == "__main__":
