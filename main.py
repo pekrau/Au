@@ -15,20 +15,27 @@ import marko.ast_renderer
 
 AU64 = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABhGlDQ1BJQ0MgcHJvZmlsZQAAKJF9kT1Iw0AcxV/TSkWqDnaQ4pChOlkQleKoVShChVArtOpgcv2EJg1Jiouj4Fpw8GOx6uDirKuDqyAIfoA4OzgpukiJ/0sKLWI8OO7Hu3uPu3eA0Kwy1QxMAKpmGelkQszmVsXgKwLwYwBxRGRm6nOSlILn+LqHj693MZ7lfe7P0Z8vmAzwicSzTDcs4g3i+Kalc94nDrOynCc+Jx436ILEj1xXXH7jXHJY4JlhI5OeJw4Ti6UuVrqYlQ2VeJo4mlc1yheyLuc5b3FWq3XWvid/YaigrSxzneYIkljEEiSIUFBHBVVYiNGqkWIiTfsJD3/E8UvkUshVASPHAmpQITt+8D/43a1ZnJp0k0IJoOfFtj9GgeAu0GrY9vexbbdOAP8zcKV1/LUmMPNJeqOjRY+AwW3g4rqjKXvA5Q4w/KTLhuxIfppCsQi8n9E35YChW6Bvze2tvY/TByBDXaVugINDYKxE2ese7+7t7u3fM+3+fgBwYnKmw5NibQAAAAZiS0dEAP8A/wD/oL2nkwAAAAlwSFlzAAAuIwAALiMBeKU/dgAAAAd0SU1FB+gEAw45EiZV65kAAAAZdEVYdENvbW1lbnQAQ3JlYXRlZCB3aXRoIEdJTVBXgQ4XAAADoklEQVR42u2aWUiUURTHf5qVLa6kIVZQUBptRLtKYVBhQUFky0NZ2fbQQ1ESREbLQxJCEe0RVIhJRSumJZGV5qRmlla2SZstlo6mUKk5PXz5kN77+c1iOTP3wMcM93/u3Lm/Ofeeew/jYXmKBTc2T9zcFAAFQAFQABQABUABUAAUAAVAAVAAFAAFQAFwP/OypVNlFfSNat+vygSBfi4YAaaHxvzyH7ngEmhuhlMXjPmmXgFLJ684elhbFH3+GsJijPuXZ8HAfi4UAbfyrfO/U+hCS+DHT9h70roBDqVCQ6OLAHhYBk/Kxdq4YZINswRKX7gIgPRsubZ/q1y7dse6LxW/GTyGip/qGtv71tbbAaDKDDsPi7V1i2H8SFg5T6zvOgI1dU4eASadnD57qvY6d7pYr/sOhSWOylv/AYDFAqmX5froP+t/7HC5T1q6E0dA+TtIvSrWtq8Ffx/tfZ8ASFgm9jt+Ht5+6HQBYAzA7QK5NqPVnWBWtNw3574TLoGfDbA/Raz1C4YRYa2Ww1Dw6SH2P5wGjU1OFgElz6GoTKxtXA49vf9u8+0Nm1ZKToVF8PSVk0VApk4Oj54obp8WKe+TlWvn/P8lAPM3SNwnP/mFDxJrI4bAoFCxtvsYfKt3kixQoJP71yyCbl3FWg9vWL9UUkypgfuPOw8A3YrQaZ3cHb9Fe2yxc5kQPcG2vu3VF76YHRQBryvgxMWOoX4wDSo+29b31y+51tQE94odBCCng+/xd4vkWvdu+mlZZhWV2hKzG0Bjo5azO9KOnYEmya8ZoFNI/Wp2XLFGCqD0JeQWdyyALBM8k9QWQvvK+900idtfvIG1Oxy0CV7P0TnOpkDkGOMDZOdDdJxYu5EHwwa3bZelV4B1SRAUCDFTtENXXT0UlsKGJO3WafW5onVRtLYe+k+Wf1j1PQjwNT7AVzMERciP0mUZ0Ktnq528GoIjHR91NQXg17udJVBYIp/8+iXWTb7lhrgqVqy9r4SiJ23bgwIhOcH6CR5IhLg5du4BZzKM3/yM2swpcu1Clrh9RSzMiDA+RnICrJoPXTztAPDuIxw9K3ceGWYbgFHhcm3PKfj0pW27nw+kJMujp8WC/eHSAe3k6eVl5yaYq5ObF8ZASLBtAAaEQEwUZEg217sPxOW0PgFwcBusXgB5xWAqhkfPoH+I9mNEjYFJo61flrqboLuZ+n+AAqAAKAAKgAKgACgACoACoAAoAAqAAqAAuJ/9BkYG9/zutbrRAAAAAElFTkSuQmCC"
 
-DEFAULT_ROOT_GEOMETRY = "+700+0"
+DEFAULT_ROOT_GEOMETRY = "400x400+700+0"
 DEFAULT_EDITOR_GEOMETRY = ""
 
 FONT_FAMILY = "Arial"
-FONT_NORMAL = (FONT_FAMILY, 12)
-FONT_ITALIC = (FONT_FAMILY, 12, "italic")
-FONT_BOLD = (FONT_FAMILY, 12, "bold")
-FONT_LARGE_BOLD = (FONT_FAMILY, 14, "bold")
+FONT_NORMAL_SIZE = 12
+FONT_LARGE_SIZE = 14
+FONT_NORMAL = (FONT_FAMILY, FONT_NORMAL_SIZE)
+FONT_ITALIC = (FONT_FAMILY, FONT_NORMAL_SIZE, "italic")
+FONT_BOLD = (FONT_FAMILY, FONT_NORMAL_SIZE, "bold")
+FONT_LARGE_BOLD = (FONT_FAMILY, FONT_LARGE_SIZE, "bold")
+
 LINK_COLOR = "blue"
+TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 def get_markdown_to_ast(markdown_text):
     "Convert Markdown to AST."
     return marko.Markdown(renderer=marko.ast_renderer.ASTRenderer).convert(markdown_text)
+def get_now():
+    "Get formatted string for the current local time."
+    return time.strftime(TIME_FORMAT, time.localtime())
 
 class Main:
     "Root window listing sections and texts."
@@ -50,7 +57,7 @@ class Main:
         self.root.option_add("*tearOff", tk.FALSE)
         self.au64 = tk.PhotoImage(data=AU64)
         self.root.iconphoto(False, self.au64)
-        self.root.protocol("WM_DELETE_WINDOW", self.quit)
+        self.root.minsize(400, 400)
 
         self.menubar = tk.Menu(self.root)
         self.root["menu"] = self.menubar
@@ -78,10 +85,12 @@ class Main:
                                      columns=("changed", "characters", "timestamp"),
                                      selectmode="browse")
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.treeview.heading("changed", text="Changed")
-        self.treeview.column("changed", anchor=tk.CENTER)
+        self.treeview.heading("changed", text=" ", anchor=tk.CENTER)
+        self.treeview.column("changed", anchor=tk.CENTER, stretch=False,
+                             minwidth=2*FONT_NORMAL_SIZE, width=2*FONT_NORMAL_SIZE)
         self.treeview.heading("characters", text="Characters")
-        self.treeview.column("characters", anchor=tk.E)
+        self.treeview.column("characters", anchor=tk.E,
+                             minwidth=6*FONT_NORMAL_SIZE, width=10*FONT_NORMAL_SIZE)
         self.treeview.heading("timestamp", text="Timestamp")
         self.treeview.column("timestamp", anchor=tk.CENTER)
         self.treeview_scroll_y = ttk.Scrollbar(self.treeview_frame,
@@ -92,10 +101,7 @@ class Main:
 
         self.texts = dict()
         self.add_dir_to_treeview()
-
         self.root.update_idletasks()
-        width, height = self.root.geometry().split("+", 1)[0].split("x")
-        self.root.minsize(int(width), int(height))
 
         for subpath, state in self.state["editors"].items():
             if state.get("open"):
@@ -140,6 +146,14 @@ class Main:
             json.dump(self.state, outfile, indent=2)
 
     def quit(self, event=None):
+        for text in self.texts.values():
+            try:
+                if text["editor"].modified:
+                    if not messagebox.askokcancel(title="Quit?",
+                                                  message="Modifications will not be saved. Really quit?"):
+                        return
+            except KeyError:
+                pass
         self.root.destroy()
 
     def mainloop(self):
@@ -219,7 +233,7 @@ class Editor:
         self.links = Links(self)
 
         path = os.path.join(self.main.dirpath, self.subpath)
-        self.timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(os.path.getmtime(path)))
+        self.timestamp = time.strftime(TIME_FORMAT, time.localtime(os.path.getmtime(path)))
         with open(path) as infile:
             markdown_text = infile.read()
         ast = get_markdown_to_ast(markdown_text)
@@ -305,21 +319,18 @@ class Editor:
         self.main.treeview.set(self.subpath, "timestamp", self.timestamp)
 
     def handle_modified(self, event=None):
-        print("modified state is:", self.modified)
-        if not self.modified:
-            return
+        print(self.modified, self.ignore_modified_event)
         if self.ignore_modified_event:
             self.ignore_modified_event = False
-        else:
-            print("handle modified event")
-            self.ignore_modified_event = True
-            self.text.edit_modified(False)
+        if not self.modified:
+            return
+        self.main.treeview.set(self.subpath, "changed", "*")
 
     def close(self, event=None):
-        if self.modified and \
-           not messagebox.askokcancel(title="Close?",
-                                      message="Modifications will not be saved. Really close?"):
-            return
+        if self.modified:
+            if not messagebox.askokcancel(title="Close?",
+                                          message="Modifications will not be saved. Really close?"):
+                return
         self.main.state["editors"][self.subpath]["open"] = False
         del self.main.texts[self.subpath]["editor"]
         self.toplevel.destroy()
@@ -341,6 +352,7 @@ class Editor:
                 else:
                     method(outfile, item)
         self.update_metadata()
+        self.main.treeview.set(self.subpath, "changed", "")
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
