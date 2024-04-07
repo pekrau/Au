@@ -24,12 +24,15 @@ class Editor:
         self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
 
-        if self.filepath not in self.main.state["editors"]:
-            self.main.state["editors"][self.filepath] = dict()
         try:
-            self.toplevel.geometry(self.main.state["editors"][self.filepath]["geometry"])
+            state = self.main.state["editors"][self.filepath]
+        except KeyError:
+            self.main.state["editors"][self.filepath] = state = dict()
+        try:
+            self.toplevel.geometry(state["geometry"])
         except KeyError:
             pass
+        state["open"] = True
 
         self.menubar = tk.Menu(self.toplevel)
         self.toplevel["menu"] = self.menubar
@@ -56,6 +59,9 @@ class Editor:
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        self.menu_edit.add_command(label="Link", command=self.link)
+        self.menu_edit.add_command(label="Bold", command=self.bold)
+        self.menu_edit.add_command(label="Italic", command=self.italic)
 
         self.text_frame= ttk.Frame(self.toplevel, padding=4)
         self.text_frame.pack(fill=tk.BOTH, expand=1)
@@ -127,6 +133,19 @@ class Editor:
     def move_cursor_end(self, event=None):
         self.text.mark_set(tk.INSERT, tk.END)
         self.text.see(tk.END)
+
+    def link(self):
+        print(f"{self.text.selection_get()=}")
+
+    def bold(self):
+        self.text.tag_add("bold", tk.SEL_FIRST, tk.SEL_LAST)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
+
+    def italic(self):
+        self.text.tag_add("italic", tk.SEL_FIRST, tk.SEL_LAST)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
 
     def parse(self, ast):
         try:
@@ -210,7 +229,7 @@ class Editor:
         self.close(force=True)
         self.main.treeview.delete(self.filepath)
         self.move_file_to_archive()
-        self.main.state_save()
+        self.main.save_state()
 
     def close(self, event=None, force=False):
         if self.modified and not force:
@@ -219,7 +238,7 @@ class Editor:
                                           message="Modifications will not be saved. Really close?"):
                 return
         self.main.state["editors"][self.filepath]["open"] = False
-        del self.main.texts[self.filepath]["editor"]
+        self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
 
     def save_as(self, event=None):
@@ -244,6 +263,7 @@ class Editor:
             return
         self.write_file(filepath)
         self.main.add_text_to_treeview(filepath[len(self.main.absdirpath)+1:])
+        self.main.open(filepath)
 
     def move_file_to_archive(self):
         """Move the current file to the archive.

@@ -8,7 +8,7 @@ Written in Python 3 using Tkinter.
 
 | Hotkey | Action                                  |
 | ------ | --------------------------------------- |
-| Ctrl-S | Save all texts.                         |
+| Ctrl-S | Save state; open window positions.      |
 
 
 ### Text editor window

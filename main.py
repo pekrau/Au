@@ -47,10 +47,13 @@ class Main:
         self.menubar.add_cascade(menu=self.menu_file, label="File")
         self.menu_file.add_command(label="Create section", command=self.create_section)
         self.menu_file.add_command(label="Create text", command=self.create_text)
-        self.menu_file.add_command(label="Save",
-                                   command=self.save,
+        self.menu_file.add_separator()
+        self.menu_file.add_command(label="Save state",
+                                   command=self.save_state,
                                    accelerator="Ctrl-S")
-        self.root.bind("<Control-s>", self.save)
+        self.root.bind("<Control-s>", self.save_state)
+        self.menu_file.add_command(label="Save texts", command=self.save_texts)
+        self.menu_file.add_separator()
         self.menu_file.add_command(label="Quit", command=self.quit)
 
         self.menu_edit = tk.Menu(self.menubar)
@@ -63,6 +66,7 @@ class Main:
         self.treeview = ttk.Treeview(self.treeview_frame,
                                      columns=("changed", "characters", "timestamp"),
                                      selectmode="browse")
+        self.treeview.tag_configure("section", background="lightgray")
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.treeview.heading("#0", text="Text")
         self.treeview.heading("changed", text=" ", anchor=tk.CENTER)
@@ -107,7 +111,11 @@ class Main:
             if itemname.endswith(".md"):
                 self.add_text_to_treeview(filepath)
             elif os.path.isdir(os.path.join(self.absdirpath, filepath)):
-                self.treeview.insert(subdirpath, "end", iid=filepath, text=itemname, tags=(filepath, ))
+                self.treeview.insert(subdirpath,
+                                     tk.END,
+                                     iid=filepath,
+                                     text=itemname,
+                                     tags=("section", filepath, ))
                 self.add_dir_to_treeview(filepath)
             else:
                 pass            # Skip all other files.
@@ -115,8 +123,10 @@ class Main:
     def add_text_to_treeview(self, filepath):
         parent, filename = os.path.split(filepath)
         self.texts[filepath] = dict()
+        if not self.state["editors"].get(filepath):
+            self.state["editors"][filepath] = dict(open=False)
         name = os.path.splitext(filename)[0]
-        self.treeview.insert(parent, "end", iid=filepath, text=name, tags=(filepath, ))
+        self.treeview.insert(parent, tk.END, iid=filepath, text=name, tags=(filepath, ))
         self.treeview.tag_bind(filepath, "<Button-1>", OpenEditor(self, filepath))
 
     def open(self, filepath):
@@ -131,7 +141,6 @@ class Main:
         dirpath = filedialog.askdirectory(parent=self.root,
                                           title="Create directory for section",
                                           initialdir=self.absdirpath)
-        print(f"{dirpath}")
         if not dirpath:
             return
         if not dirpath.startswith(self.absdirpath):
@@ -150,21 +159,54 @@ class Main:
                                  title="Contains extension",
                                  message=f"The section name '{subdirpath}' may not contain an extension.")
             return
+        os.makedirs(dirpath)
+        self.treeview.insert(os.path.split(subdirpath)[0],
+                             tk.END,
+                             iid=dirpath,
+                             text=os.path.basename(subdirpath),
+                             tags=("section", dirpath,))
 
     def create_text(self):
-        pass
+        try:
+            dirpath = os.path.join(self.absdirpath, self.treeview.selection()[0])
+        except IndexError:
+            dirpath = self.absdirpath
+        filepath = filedialog.asksaveasfilename(parent=self.root,
+                                                title="Create text file",
+                                                initialdir=dirpath,
+                                                filetypes=[("Markdown files", "*.md")],
+                                                defaultextension=".md")
+        if not filepath:
+            return
+        if not filepath.startswith(self.absdirpath):
+            messagebox.showerror(parent=self.toplevel,
+                                 title="Wrong directory",
+                                 message=f"Must be (subdirectory of) {self.main.absdirpath}")
+            return
+        if os.path.splitext(filepath)[1] != ".md":
+            messagebox.showerror(parent=self.toplevel,
+                                 title="Wrong extension",
+                                 message="File extension must be '.md'.")
+            return
+        with open(filepath, "w") as outfile:
+            pass
+        self.add_text_to_treeview(filepath[len(self.absdirpath)+1:])
 
-    def save(self, event=None):
-        "Save contents of all open text editor windows."
+    def save_texts(self, event=None):
+        "Save contents of all open text editor windows, and the state."
         for text in self.texts.values():
             try:
                 text["editor"].save()
             except KeyError:
                 pass
-        self.state["root"]["geometry"] = self.root.geometry()
-        self.state_save()
+        self.save_state()
 
-    def state_save(self):
+    def save_state(self, event=None):
+        self.state["root"]["geometry"] = self.root.geometry()
+        for filepath, text in self.texts.items():
+            state = self.state["editors"][filepath]
+            if state.get("open"):
+                state["geometry"] = self.texts[filepath]["editor"].toplevel.geometry()
         with open(self.statepath, "w") as outfile:
             json.dump(self.state, outfile, indent=2)
 
