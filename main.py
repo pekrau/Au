@@ -5,6 +5,7 @@ import os
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import filedialog
 from tkinter import messagebox
 
 import constants
@@ -44,7 +45,8 @@ class Main:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Create", command=self.create)
+        self.menu_file.add_command(label="Create section", command=self.create_section)
+        self.menu_file.add_command(label="Create text", command=self.create_text)
         self.menu_file.add_command(label="Save",
                                    command=self.save,
                                    accelerator="Ctrl-S")
@@ -125,8 +127,32 @@ class Main:
             ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath)
         ed.text.focus_set()
 
-    def create(self):
-        print("create")
+    def create_section(self):
+        dirpath = filedialog.askdirectory(parent=self.root,
+                                          title="Create directory for section",
+                                          initialdir=self.absdirpath)
+        print(f"{dirpath}")
+        if not dirpath:
+            return
+        if not dirpath.startswith(self.absdirpath):
+            messagebox.showerror(parent=self.root,
+                                 title="Wrong directory",
+                                 message=f"Must be (subdirectory of) {self.main.absdirpath}")
+            return
+        subdirpath = dirpath[len(self.absdirpath)+1:]
+        if os.path.isdir(dirpath):
+            messagebox.showerror(parent=self.root,
+                                 title="Already exists",
+                                 message=f"The section name '{subdirpath}' is already in use.")
+            return
+        if os.path.splitext(dirpath)[1]:
+            messagebox.showerror(parent=self.root,
+                                 title="Contains extension",
+                                 message=f"The section name '{subdirpath}' may not contain an extension.")
+            return
+
+    def create_text(self):
+        pass
 
     def save(self, event=None):
         "Save contents of all open text editor windows."
@@ -146,8 +172,9 @@ class Main:
         for text in self.texts.values():
             try:
                 if text["editor"].modified:
-                    if not messagebox.askokcancel(title="Quit?",
-                                                  message="Modifications will not be saved. Really quit?"):
+                    if not messagebox.askokcancel(parent=self.root,
+                                                  title="Quit?",
+                                                  message="All unsaved changes will be lost. Really quit?"):
                         return
             except KeyError:
                 pass

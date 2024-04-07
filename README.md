@@ -1,4 +1,4 @@
-# au: Simple authoring editor and tool for Markdown text.
+# Au: Simple Markdown authoring tool
 
 Written in Python 3 using Tkinter.
 
