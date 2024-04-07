@@ -6,13 +6,15 @@ Written in Python 3 using Tkinter.
 
 ### Main window
 
-|--------|-----------------------------------------|
+| Hotkey | Action                                  |
+| ------ | --------------------------------------- |
 | Ctrl-S | Save all texts.                         |
 
 
 ### Text editor window
 
-|--------|-------------------------------------------|
+| Hotkey | Action                                    |
+| ------ | ----------------------------------------- |
 | Ctrl-S | Save text.                                |
 | Ctrl-W | Close window.                             |
 | Ctrl-N | Move cursor to next line.                 |
