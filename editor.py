@@ -135,17 +135,29 @@ class Editor:
         self.text.see(tk.END)
 
     def link(self):
-        print(f"{self.text.selection_get()=}")
+        try:
+            self.text.tag_add("link", tk.SEL_FIRST, tk.SEL_LAST)
+            # XXX
+            self.ignore_modified_event = True
+            self.text.edit_modified(True)
+        except tk.TclError:
+            pass
 
     def bold(self):
-        self.text.tag_add("bold", tk.SEL_FIRST, tk.SEL_LAST)
-        self.ignore_modified_event = True
-        self.text.edit_modified(True)
+        try:
+            self.text.tag_add("bold", tk.SEL_FIRST, tk.SEL_LAST)
+            self.ignore_modified_event = True
+            self.text.edit_modified(True)
+        except tk.TclError:
+            pass
 
     def italic(self):
-        self.text.tag_add("italic", tk.SEL_FIRST, tk.SEL_LAST)
-        self.ignore_modified_event = True
-        self.text.edit_modified(True)
+        try:
+            self.text.tag_add("italic", tk.SEL_FIRST, tk.SEL_LAST)
+            self.ignore_modified_event = True
+            self.text.edit_modified(True)
+        except tk.TclError:
+            pass
 
     def parse(self, ast):
         try:
@@ -219,7 +231,7 @@ class Editor:
             self.ignore_modified_event = False
         if not self.modified:
             return
-        self.main.treeview.set(self.filepath, "changed", "*")
+        self.main.treeview.item(self.filepath, tags=("changed",))
 
     def delete(self):
         if not messagebox.askokcancel(parent=self.toplevel,
@@ -288,7 +300,9 @@ class Editor:
         self.move_file_to_archive()
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
         self.update_metadata()
-        self.main.treeview.set(self.filepath, "changed", "")
+        tags = set(self.main.treeview.item(self.filepath, "tags"))
+        tags.discard("changed")
+        self.main.treeview.item(self.filepath, tags=tuple(tags))
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 

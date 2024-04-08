@@ -68,7 +68,8 @@ class Main:
         self.treeview = ttk.Treeview(self.treeview_frame,
                                      columns=("changed", "characters", "timestamp"),
                                      selectmode="browse")
-        self.treeview.tag_configure("section", background="lightgray")
+        self.treeview.tag_configure("section", background="gainsboro")
+        self.treeview.tag_configure("changed", background="lightpink")
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.treeview.heading("#0", text="Text")
         self.treeview.heading("changed", text=" ", anchor=tk.CENTER)
@@ -129,7 +130,9 @@ class Main:
             self.state["editors"][filepath] = dict(open=False)
         name = os.path.splitext(filename)[0]
         self.treeview.insert(parent, tk.END, iid=filepath, text=name, tags=(filepath, ))
-        self.treeview.tag_bind(filepath, "<Button-1>", OpenEditor(self, filepath))
+        self.treeview.tag_bind(filepath,
+                               "<Double-Button-1>",
+                               OpenEditor(self, filepath))
 
     def open(self, filepath):
         try:
@@ -212,29 +215,41 @@ class Main:
 
     def create_text(self):
         try:
-            dirpath = os.path.join(self.absdirpath, self.treeview.selection()[0])
-        except IndexError:
-            dirpath = self.absdirpath
+            dirpath = self.treeview.selection()[0]
+            absdirpath = os.path.join(self.absdirpath, dirpath)
+            if not os.path.isdir(absdirpath):
+                raise ValueError
+        except (IndexError, ValueError):
+            absdirpath = self.absdirpath
         filepath = filedialog.asksaveasfilename(parent=self.root,
                                                 title="Create text file",
-                                                initialdir=dirpath,
+                                                initialdir=absdirpath,
                                                 filetypes=[("Markdown files", "*.md")],
-                                                defaultextension=".md")
+                                                defaultextension=".md",
+                                                confirmoverwrite=False)
         if not filepath:
             return
         if not filepath.startswith(self.absdirpath):
-            messagebox.showerror(parent=self.toplevel,
+            messagebox.showerror(parent=self.root,
                                  title="Wrong directory",
                                  message=f"Must be (subdirectory of) {self.main.absdirpath}")
             return
         if os.path.splitext(filepath)[1] != ".md":
-            messagebox.showerror(parent=self.toplevel,
+            messagebox.showerror(parent=self.root,
                                  title="Wrong extension",
                                  message="File extension must be '.md'.")
             return
+        if os.path.exists(filepath):
+            messagebox.showerror(parent=self.root,
+                                 title="Exists",
+                                 message=f"The text file '{filepath}'  already exists.")
+            return
+            
         with open(filepath, "w") as outfile:
-            pass
-        self.add_text_to_treeview(filepath[len(self.absdirpath)+1:])
+            pass                # Empty file
+        filepath = filepath[len(self.absdirpath)+1:]
+        self.add_text_to_treeview(filepath)
+        self.open(filepath)
 
     def save_texts(self, event=None):
         "Save contents of all open text editor windows, and the state."
