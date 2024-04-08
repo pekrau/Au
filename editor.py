@@ -2,7 +2,6 @@
 
 import json
 import os
-import time
 
 import tkinter as tk
 from tkinter import ttk
@@ -24,15 +23,11 @@ class Editor:
         self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
 
+        config = self.main.configuration["texts"].setdefault(self.filepath, dict())
         try:
-            state = self.main.state["editors"][self.filepath]
-        except KeyError:
-            self.main.state["editors"][self.filepath] = state = dict()
-        try:
-            self.toplevel.geometry(state["geometry"])
+            self.toplevel.geometry(config["geometry"])
         except KeyError:
             pass
-        state["open"] = True
 
         self.menubar = tk.Menu(self.toplevel)
         self.toplevel["menu"] = self.menubar
@@ -109,7 +104,7 @@ class Editor:
         self.links = Links(self)
 
         path = os.path.join(self.main.absdirpath, self.filepath)
-        self.timestamp = utils.get_timestamp(time.localtime(os.path.getmtime(path)))
+        self.timestamp = utils.get_timestamp(path)
         with open(path) as infile:
             markdown_text = infile.read()
         ast = utils.get_markdown_to_ast(markdown_text)
@@ -231,7 +226,7 @@ class Editor:
             self.ignore_modified_event = False
         if not self.modified:
             return
-        self.main.treeview.item(self.filepath, tags=("changed",))
+        self.main.treeview.item(self.filepath, tags=("modified",))
 
     def delete(self):
         if not messagebox.askokcancel(parent=self.toplevel,
@@ -241,7 +236,7 @@ class Editor:
         self.close(force=True)
         self.main.treeview.delete(self.filepath)
         self.move_file_to_archive()
-        self.main.save_state()
+        self.main.save_configuration()
 
     def close(self, event=None, force=False):
         if self.modified and not force:
@@ -249,7 +244,6 @@ class Editor:
                                           title="Close?",
                                           message="Modifications will not be saved. Really close?"):
                 return
-        self.main.state["editors"][self.filepath]["open"] = False
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
 
@@ -291,9 +285,6 @@ class Editor:
         os.rename(os.path.join(self.main.absdirpath, self.filepath), archivedfilepath)
 
     def save(self, event=None):
-        state = self.main.state["editors"][self.filepath]
-        state["open"] = True
-        state["geometry"] = self.toplevel.geometry()
         if not self.modified:
             return
         self.current_link_tag = None
@@ -301,7 +292,7 @@ class Editor:
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
         self.update_metadata()
         tags = set(self.main.treeview.item(self.filepath, "tags"))
-        tags.discard("changed")
+        tags.discard("modified")
         self.main.treeview.item(self.filepath, tags=tuple(tags))
         self.ignore_modified_event = True
         self.text.edit_modified(False)

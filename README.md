@@ -8,7 +8,15 @@ Written in Python 3 using Tkinter.
 
 | Hotkey | Action                                  |
 | ------ | --------------------------------------- |
-| Ctrl-S | Save state; open window positions.      |
+| Ctrl-S | Save state; positions of open windows.  |
+| Up     | Select previous item in the tree.   |
+| Down   | Select next item in the tree.       |
+| Left   | Move down into the subtree.             |
+| Right  | Move up out of the subtree.             |
+| Ctrl-Up    | Move current item to the previous position. |
+| Ctrl-Down  | Move current item to the next position. |
+| Ctrl-Right | Move current item down into the subtree. |
+| Ctrl-Left  | Move current item up out of the subtree. |
 
 
 ### Text editor window

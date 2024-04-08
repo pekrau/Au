@@ -20,23 +20,22 @@ class Main:
     def __init__(self, absdirpath):
         self.absdirpath = absdirpath
         try:
-            with open(self.statepath) as infile:
-                self.state = json.load(infile)
-            if "root" not in self.state:
-                raise ValueError
-            if "editors" not in self.state:
+            with open(self.configurationpath) as infile:
+                self.configuration = json.load(infile)
+            if "main" not in self.configuration:
                 raise ValueError
         except (OSError, json.JSONDecodeError, ValueError):
-            self.state = dict(root=dict(), editors=dict())
+            self.configuration = dict(main=dict(), texts=dict())
+        self.texts = dict()
+        self.links_lookup = dict()
+
         self.root = tk.Tk()
         self.root.title(os.path.basename(dirpath))
-        self.root.geometry(self.state["root"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
+        self.root.geometry(self.configuration["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
         self.au64 = tk.PhotoImage(data=constants.AU64)
         self.root.iconphoto(False, self.au64)
         self.root.minsize(400, 400)
-
-        self.links_lookup = dict()
 
         self.menubar = tk.Menu(self.root)
         self.root["menu"] = self.menubar
@@ -46,10 +45,10 @@ class Main:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Save state",
-                                   command=self.save_state,
+        self.menu_file.add_command(label="Save configuration",
+                                   command=self.save_configuration,
                                    accelerator="Ctrl-S")
-        self.root.bind("<Control-s>", self.save_state)
+        self.root.bind("<Control-s>", self.save_configuration)
         self.menu_file.add_command(label="Save texts", command=self.save_texts)
         self.menu_file.add_separator()
         self.menu_file.add_command(label="Quit", command=self.quit)
@@ -69,7 +68,7 @@ class Main:
                                      columns=("characters", "timestamp"),
                                      selectmode="browse")
         self.treeview.tag_configure("section", background="gainsboro")
-        self.treeview.tag_configure("changed", background="lightpink")
+        self.treeview.tag_configure("modified", background="lightpink")
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.treeview.heading("#0", text="Text")
         self.treeview.heading("characters", text="Characters")
@@ -84,49 +83,126 @@ class Main:
                                                command=self.treeview.yview)
         self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
+        self.treeview.bind("<Control-Up>", self.move_item_up)
+        self.treeview.bind("<Control-Down>", self.move_item_down)
+        self.treeview.bind("<Control-Right>", self.move_item_down_into_subtree)
+        self.treeview.bind("<Control-Left>", self.move_item_up_out_of_subtree)
 
-        self.texts = dict()
-        self.add_dir_to_treeview()
+        self.setup_treeview()
         self.root.update_idletasks()
 
-        for filepath, state in self.state["editors"].items():
-            if state.get("open"):
+        for filepath, config in self.configuration["texts"].items():
+            if config.get("geometry"):
                 self.open(filepath)
+        self.treeview.focus_set()
 
     @property
-    def statepath(self):
-        return os.path.join(self.absdirpath, constants.STATE_FILENAME)
+    def configurationpath(self):
+        return os.path.join(self.absdirpath, constants.CONFIGURATION_FILENAME)
 
-    def add_dir_to_treeview(self, subdirpath=""):
-        if subdirpath:
-            absdirpath = os.path.join(self.absdirpath, subdirpath)
-        else:
-            absdirpath = self.absdirpath
-        itemnames = [n for n in os.listdir(absdirpath or ".") if not n.startswith(".")]
-        for itemname in sorted(itemnames):
-            filepath = os.path.join(subdirpath, itemname)
-            if itemname.endswith(".md"):
-                self.add_text_to_treeview(filepath)
-            elif os.path.isdir(os.path.join(self.absdirpath, filepath)):
-                self.treeview.insert(subdirpath,
-                                     tk.END,
-                                     iid=filepath,
-                                     text=itemname,
-                                     tags=("section", filepath, ))
-                self.add_dir_to_treeview(filepath)
+    def setup_treeview(self):
+        "Insert the data for the treeview from the configuration."
+        for filepath in self.configuration["texts"]:
+            parent, filename = os.path.split(filepath)
+            name, ext = os.path.splitext(filename)
+            absfilepath = os.path.join(self.absdirpath, filepath)
+            if ext == ".md":
+                self.treeview.insert(parent, tk.END, iid=filepath, text=name,
+                                     tags=(filepath, ),
+                                     values=("?", utils.get_timestamp(absfilepath)))
+                self.treeview.tag_bind(filepath,
+                                       "<Double-Button-1>",
+                                       OpenEditor(self, filepath))
+                self.texts[filepath] = dict()
             else:
-                pass            # Skip all other files.
+                self.treeview.insert(parent, tk.END, iid=filepath, text=name,
+                                     tags=("section", filepath))
+        # XXX remove files that actually do not exist
+        # XXX add files and dirs that exist, but not in the configuration
 
-    def add_text_to_treeview(self, filepath):
-        parent, filename = os.path.split(filepath)
-        self.texts[filepath] = dict()
-        if not self.state["editors"].get(filepath):
-            self.state["editors"][filepath] = dict(open=False)
-        name = os.path.splitext(filename)[0]
-        self.treeview.insert(parent, tk.END, iid=filepath, text=name, tags=(filepath, ))
-        self.treeview.tag_bind(filepath,
-                               "<Double-Button-1>",
-                               OpenEditor(self, filepath))
+    def get_ordered_items(self):
+        "Get the full names of all items in the treeview."
+        names = []
+        for name in self.treeview.get_children():
+            names.append(name)
+            names.extend(self.get_children(name))
+        return names
+
+    def get_children(self, parentname):
+        "Get the full names of all items recursively below the given parent."
+        names = []
+        for child in self.treeview.get_children(parentname):
+            names.append(child)
+            names.extend(self.get_children(child))
+        return names
+
+    def move_item_up(self, event=None):
+        "Move the currently selected item up in its level of the treeview."
+        try:
+            selection = self.treeview.selection()
+            if not selection:
+                raise ValueError
+        except ValueError:
+            pass
+        else:
+            iid = selection[0]
+            parent = self.treeview.parent(iid)
+            index = self.treeview.index(iid)
+            max_index = len(self.treeview.get_children(parent)) - 1
+            index -= 1
+            if index < 0:
+                index = max_index
+            self.treeview.move(iid, parent, index)
+        return "break"
+
+    def move_item_down(self, event=None):
+        "Move the currently selected item down in its level of the treeview."
+        try:
+            selection = self.treeview.selection()
+            if not selection:
+                raise ValueError
+        except ValueError:
+            pass
+        else:
+            iid = selection[0]
+            parent = self.treeview.parent(iid)
+            index = self.treeview.index(iid)
+            max_index = len(self.treeview.get_children(parent)) - 1
+            index += 1
+            if index > max_index:
+                index = 0
+            self.treeview.move(iid, parent, index)
+        return "break"
+
+    def move_item_down_into_subtree(self, event=None):
+        "Move the currently selected item down one level in the treeview."
+        try:
+            selection = self.treeview.selection()
+            if not selection:
+                raise ValueError
+        except ValueError:
+            pass
+        else:
+            iid = selection[0]
+            parent = self.treeview.parent(iid)
+            index = self.treeview.index(iid)
+            # XXX actually move it
+        return "break"
+
+    def move_item_up_out_of_subtree(self, event=None):
+        "Move the currently selected item up one level in the treeview."
+        try:
+            selection = self.treeview.selection()
+            if not selection:
+                raise ValueError
+        except ValueError:
+            pass
+        else:
+            iid = selection[0]
+            parent = self.treeview.parent(iid)
+            index = self.treeview.index(iid)
+            # XXX actually move it
+        return "break"
 
     def open(self, filepath):
         try:
@@ -204,7 +280,7 @@ class Main:
                           f"{archivedirpath}/{filename} {utils.get_timestamp()}")
         # Remove the entry in the main window.
         self.treeview.delete(dirpath)
-        # Actually remove the files.
+        # Actually remove the directory and files.
         shutil.rmtree(absdirpath)
 
     def create_text(self):
@@ -246,22 +322,31 @@ class Main:
         self.open(filepath)
 
     def save_texts(self, event=None):
-        "Save contents of all open text editor windows, and the state."
+        "Save contents of all open text editor windows, and the configuration."
         for text in self.texts.values():
             try:
                 text["editor"].save()
             except KeyError:
                 pass
-        self.save_state()
 
-    def save_state(self, event=None):
-        self.state["root"]["geometry"] = self.root.geometry()
+    def save_configuration(self, event=None):
+        """Save the current configuration. 
+        The contents of the dictionary must first be updated.
+        Get geometry and item order from the respective widgets.
+        """
+        self.configuration["main"]["geometry"] = self.root.geometry()
+        # Get the order of the texts as shown in the treeview.
+        # This relies on the dictionary keeping the order of the items.
+        self.configuration["texts"] = dict([(f, dict()) for f in self.get_ordered_items()])
         for filepath, text in self.texts.items():
-            state = self.state["editors"][filepath]
-            if state.get("open"):
-                state["geometry"] = self.texts[filepath]["editor"].toplevel.geometry()
-        with open(self.statepath, "w") as outfile:
-            json.dump(self.state, outfile, indent=2)
+            try:
+                editor = text["editor"]
+            except KeyError:
+                pass
+            else:
+                self.configuration["texts"][filepath] = dict(geometry=editor.toplevel.geometry())
+        with open(self.configurationpath, "w") as outfile:
+            json.dump(self.configuration, outfile, indent=2)
 
     def quit(self, event=None):
         for text in self.texts.values():
