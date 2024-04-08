@@ -2,6 +2,7 @@
 
 import json
 import os
+import shutil
 
 import tkinter as tk
 from tkinter import ttk
@@ -45,9 +46,6 @@ class Main:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Create section", command=self.create_section)
-        self.menu_file.add_command(label="Create text", command=self.create_text)
-        self.menu_file.add_separator()
         self.menu_file.add_command(label="Save state",
                                    command=self.save_state,
                                    accelerator="Ctrl-S")
@@ -58,6 +56,10 @@ class Main:
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        self.menu_edit.add_command(label="Create section", command=self.create_section)
+        self.menu_edit.add_command(label="Delete section", command=self.delete_section)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Create text", command=self.create_text)
 
         self.treeview_frame = ttk.Frame(self.root, padding=4)
         self.treeview_frame.pack(fill=tk.BOTH, expand=1)
@@ -139,14 +141,14 @@ class Main:
 
     def create_section(self):
         dirpath = filedialog.askdirectory(parent=self.root,
-                                          title="Create directory for section",
+                                          title="Create section directory",
                                           initialdir=self.absdirpath)
         if not dirpath:
             return
         if not dirpath.startswith(self.absdirpath):
             messagebox.showerror(parent=self.root,
                                  title="Wrong directory",
-                                 message=f"Must be (subdirectory of) {self.main.absdirpath}")
+                                 message=f"Must be subdirectory of '{self.main.absdirpath}'.")
             return
         subdirpath = dirpath[len(self.absdirpath)+1:]
         if os.path.isdir(dirpath):
@@ -165,6 +167,48 @@ class Main:
                              iid=dirpath,
                              text=os.path.basename(subdirpath),
                              tags=("section", dirpath,))
+
+    def delete_section(self):
+        selection = self.treeview.selection()
+        if not selection:
+            return
+        dirpath = selection[0]
+        if not dirpath:
+            return
+        absdirpath = os.path.join(self.absdirpath, dirpath)
+        if not os.path.isdir(absdirpath):
+            return
+        if not messagebox.askokcancel(title="Really delete section?",
+                                      message=f"Do you wish to delete the section '{dirpath}' and all its contents?"):
+            return
+        section = list(os.walk(absdirpath))
+        archivepath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
+        if not os.path.exists(archivepath):
+            os.makedirs(archivepath)
+        for sectiondir, dirnames, filenames in section:
+            subdirpath = sectiondir[len(self.absdirpath)+1:]
+            # Archive the files.
+            # 'join' does the wrong thing with directory name starting with period '.'.
+            # archivedirpath = os.path.join(archivepath, sectiondir)
+            archivedirpath = f"{archivepath}/{subdirpath}"
+            if not os.path.exists(archivedirpath):
+                os.mkdir(archivedirpath)
+            # Close any open editors for the affected files.
+            for filename in filenames:
+                subfilepath = os.path.join(subdirpath, filename)
+                try:
+                    editor = self.texts[subfilepath]["editor"]
+                except KeyError:
+                    pass
+                else:
+                    editor.close(force=True)
+            for filename in filenames:
+                os.rename(os.path.join(sectiondir, filename),
+                          f"{archivedirpath}/{filename} {utils.get_timestamp()}")
+        # Remove the entry in the main window.
+        self.treeview.delete(dirpath)
+        # Actually remove the files.
+        shutil.rmtree(absdirpath)
 
     def create_text(self):
         try:

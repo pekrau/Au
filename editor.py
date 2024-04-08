@@ -266,7 +266,7 @@ class Editor:
         self.main.open(filepath)
 
     def move_file_to_archive(self):
-        """Move the current file to the archive.
+        """Move the current text file to the archive.
         Create the archive subdirectory if it does not exist.
         Append the current timestamp to the filename.
         """
