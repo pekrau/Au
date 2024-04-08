@@ -66,18 +66,12 @@ class Main:
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
         self.treeview = ttk.Treeview(self.treeview_frame,
-                                     columns=("changed", "characters", "timestamp"),
+                                     columns=("characters", "timestamp"),
                                      selectmode="browse")
         self.treeview.tag_configure("section", background="gainsboro")
         self.treeview.tag_configure("changed", background="lightpink")
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.treeview.heading("#0", text="Text")
-        self.treeview.heading("changed", text=" ", anchor=tk.CENTER)
-        self.treeview.column("changed", 
-                             anchor=tk.CENTER,
-                             stretch=False,
-                             minwidth=2*constants.FONT_NORMAL_SIZE,
-                             width=2*constants.FONT_NORMAL_SIZE)
         self.treeview.heading("characters", text="Characters")
         self.treeview.column("characters",
                              anchor=tk.E,
