@@ -13,6 +13,8 @@ import constants
 import editor
 import utils
 
+VERSION = (0, 1, 0)
+
 
 class Main:
     "Root window listing sections and texts."
@@ -59,6 +61,21 @@ class Main:
         self.menu_edit.add_command(label="Delete section", command=self.delete_section)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Create text", command=self.create_text)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Move item up",
+                                   command=self.move_item_up,
+                                   accelerator="Ctrl-up")
+        self.menu_edit.add_command(label="Move item down",
+                                   command=self.move_item_down,
+                                   accelerator="Ctrl-down")
+        self.menu_edit.add_command(label="Move item into subtree",
+                                   command=self.move_item_into_subtree,
+                                   accelerator="Ctrl-down")
+        self.menu_edit.add_command(label="Move item out of subtree",
+                                   command=self.move_item_out_of_subtree,
+                                   accelerator="Ctrl-up")
+
+        self.menubar.add_command(label="Help", command=self.help)
 
         self.treeview_frame = ttk.Frame(self.root, padding=4)
         self.treeview_frame.pack(fill=tk.BOTH, expand=1)
@@ -83,18 +100,24 @@ class Main:
                                                command=self.treeview.yview)
         self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
+
         self.treeview.bind("<Control-Up>", self.move_item_up)
         self.treeview.bind("<Control-Down>", self.move_item_down)
-        self.treeview.bind("<Control-Right>", self.move_item_down_into_subtree)
-        self.treeview.bind("<Control-Left>", self.move_item_up_out_of_subtree)
+        self.treeview.bind("<Control-Right>", self.move_item_into_subtree)
+        self.treeview.bind("<Control-Left>", self.move_item_out_of_subtree)
 
         self.setup_treeview()
-        self.root.update_idletasks()
 
         for filepath, config in self.configuration["texts"].items():
             if config.get("geometry"):
                 self.open(filepath)
         self.treeview.focus_set()
+
+        self.root.update_idletasks()
+        self.save_configuration()
+
+    def help(self, event=None):
+        print("help")
 
     @property
     def configurationpath(self):
@@ -102,7 +125,33 @@ class Main:
 
     def setup_treeview(self):
         "Insert the data for the treeview from the configuration."
-        for filepath in self.configuration["texts"]:
+        texts = self.configuration["texts"].copy()
+
+        # Get directories and files that actually exist.
+        pos = len(self.absdirpath) + 1
+        archivedirpath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
+        existing_items = set()
+        for dirpath, dirnames, filenames in os.walk(self.absdirpath):
+            if dirpath.startswith(archivedirpath):
+                continue
+            filename = dirpath[pos:]
+            if filename:
+                existing_items.add(filename)
+            for filename in filenames:
+                if not filename.endswith(constants.CONFIGURATION_FILENAME):
+                    existing_items.add(os.path.join(dirpath, filename)[pos:])
+
+        # Remove files that do not exist.
+        for filename in set(texts.keys()).difference(existing_items):
+            texts.pop(filename)
+
+        # Add files and dirs that exist, but are not in the configuration.
+        for filename in existing_items.difference(texts.keys()):
+            print(f"add {filename}")
+            texts[filename] = dict()
+
+        # Set up the treeview display.
+        for filepath in texts:
             parent, filename = os.path.split(filepath)
             name, ext = os.path.splitext(filename)
             absfilepath = os.path.join(self.absdirpath, filepath)
@@ -117,24 +166,6 @@ class Main:
             else:
                 self.treeview.insert(parent, tk.END, iid=filepath, text=name,
                                      tags=("section", filepath))
-        # XXX remove files that actually do not exist
-        # XXX add files and dirs that exist, but not in the configuration
-
-    def get_ordered_items(self):
-        "Get the full names of all items in the treeview."
-        names = []
-        for name in self.treeview.get_children():
-            names.append(name)
-            names.extend(self.get_children(name))
-        return names
-
-    def get_children(self, parentname):
-        "Get the full names of all items recursively below the given parent."
-        names = []
-        for child in self.treeview.get_children(parentname):
-            names.append(child)
-            names.extend(self.get_children(child))
-        return names
 
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
@@ -174,7 +205,7 @@ class Main:
             self.treeview.move(iid, parent, index)
         return "break"
 
-    def move_item_down_into_subtree(self, event=None):
+    def move_item_into_subtree(self, event=None):
         "Move the currently selected item down one level in the treeview."
         try:
             selection = self.treeview.selection()
@@ -189,7 +220,7 @@ class Main:
             # XXX actually move it
         return "break"
 
-    def move_item_up_out_of_subtree(self, event=None):
+    def move_item_out_of_subtree(self, event=None):
         "Move the currently selected item up one level in the treeview."
         try:
             selection = self.treeview.selection()
@@ -359,6 +390,22 @@ class Main:
             except KeyError:
                 pass
         self.root.destroy()
+
+    def get_ordered_items(self):
+        "Get the full names of all items in the treeview."
+        names = []
+        for name in self.treeview.get_children():
+            names.append(name)
+            names.extend(self.get_children(name))
+        return names
+
+    def get_children(self, parentname):
+        "Get the full names of all items recursively below the given parent."
+        names = []
+        for child in self.treeview.get_children(parentname):
+            names.append(child)
+            names.extend(self.get_children(child))
+        return names
 
     def mainloop(self):
         self.root.mainloop()
