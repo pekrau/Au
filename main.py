@@ -13,6 +13,7 @@ from tkinter import messagebox
 import constants
 import editor
 import utils
+import help_text
 
 VERSION = (0, 1, 2)
 
@@ -26,9 +27,11 @@ class Main:
             with open(self.configurationpath) as infile:
                 self.configuration = json.load(infile)
             if "main" not in self.configuration:
-                raise ValueError
+                raise ValueError # Invalid JSON data, most likely.
+            if "help" not in self.configuration:
+                self.configuration["help"] = dict()
         except (OSError, json.JSONDecodeError, ValueError):
-            self.configuration = dict(main=dict(), texts=dict())
+            self.configuration = dict(main=dict(), help=dict(), texts=dict())
         self.texts = dict()
         self.links_lookup = dict()
 
@@ -39,6 +42,7 @@ class Main:
         self.au64 = tk.PhotoImage(data=constants.AU64)
         self.root.iconphoto(False, self.au64)
         self.root.minsize(400, 400)
+        self.root.bind_all("<Control-h>", self.open_help_text)
 
         self.menubar = tk.Menu(self.root)
         self.root["menu"] = self.menubar
@@ -82,7 +86,7 @@ class Main:
                                    command=self.move_item_out_of_subtree,
                                    accelerator="Ctrl-up")
 
-        self.menubar.add_command(label="Help", command=self.help)
+        self.menubar.add_command(label="Help", command=self.open_help_text)
 
         self.treeview_frame = ttk.Frame(self.root, padding=4)
         self.treeview_frame.pack(fill=tk.BOTH, expand=1)
@@ -119,14 +123,21 @@ class Main:
 
         for filepath, config in self.configuration["texts"].items():
             if config.get("geometry"):
-                self.open(filepath)
+                self.open_text(filepath=filepath)
         self.treeview.focus_set()
+
+        if self.configuration["help"].get("geometry"):
+            self.help_text = help_text.HelpText(self, self.configuration["help"])
+        else:
+            self.help_text = None
 
         self.root.update_idletasks()
         self.save_configuration()
 
-    def help(self, event=None):
-        print("help")
+    def open_help_text(self, event=None):
+        if self.help_text is None:
+            self.help_text = help_text.HelpText(self, self.configuration["help"])
+        self.help_text.toplevel.lift()
 
     @property
     def configurationpath(self):
@@ -253,13 +264,13 @@ class Main:
             # XXX actually move it
         return "break"
 
-    def open(self, filepath):
-        try:
-            ed = self.texts[filepath]["editor"]
-            ed.toplevel.lift()
-        except KeyError:
-            ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath)
-        ed.text.focus_set()
+    # def open(self, filepath):
+    #     try:
+    #         ed = self.texts[filepath]["editor"]
+    #         ed.toplevel.lift()
+    #     except KeyError:
+    #         ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath)
+    #     ed.text.focus_set()
 
     def create_section(self):
         dirpath = filedialog.askdirectory(parent=self.root,
@@ -381,7 +392,7 @@ class Main:
             pass                # Empty file
         filepath = filepath[len(self.absdirpath)+1:]
         self.add_treeview_entry(filepath)
-        self.open(filepath)
+        self.open_text(filepath=filepath)
 
     def delete_text(self, filepath=None):
         if filepath is None:
@@ -425,6 +436,10 @@ class Main:
         Get geometry and item order from the respective widgets.
         """
         self.configuration["main"]["geometry"] = self.root.geometry()
+        if self.help_text:
+            self.configuration["help"] = self.help_text.get_configuration()
+        else:
+            self.configuration["help"] = dict()
         # Get the order of the texts as shown in the treeview.
         # This relies on the dictionary keeping the order of the items.
         self.configuration["texts"] = dict([(f, dict()) for f in self.get_ordered_items()])
@@ -434,7 +449,7 @@ class Main:
             except KeyError:
                 pass
             else:
-                self.configuration["texts"][filepath] = dict(geometry=editor.toplevel.geometry())
+                self.configuration["texts"][filepath] = editor.get_configuration()
         with open(self.configurationpath, "w") as outfile:
             json.dump(self.configuration, outfile, indent=2)
 

@@ -121,6 +121,9 @@ class Editor:
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
+    def get_configuration(self):
+        return dict(geometry=self.toplevel.geometry())
+
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
         self.text.see("1.0")
@@ -270,7 +273,7 @@ class Editor:
             return
         self.write_file(filepath)
         self.main.add_text_to_treeview(filepath[len(self.main.absdirpath)+1:])
-        self.main.open(filepath)
+        self.main.open_text(filepath=filepath)
 
     def save(self, event=None):
         if not self.modified:
@@ -355,7 +358,7 @@ class Links:
                                        underline=True)
         self.editor.text.tag_bind("link", "<Enter>", self.enter)
         self.editor.text.tag_bind("link", "<Leave>", self.leave)
-        self.editor.text.tag_bind("link", "<Button-1>", self.click)
+        self.editor.text.tag_bind("link", "<Button-1>", self.link_click)
 
     def add(self, ast):
         tag = f"link-{len(self.editor.main.links_lookup)}"
@@ -381,5 +384,5 @@ class Links:
     def get_link(self, tag):
         return self.editor.main.links_lookup[tag]
 
-    def click(self, event):
+    def link_click(self, event):
         webbrowser.open_new_tab(self.get_current_link()["url"])
