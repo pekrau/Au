@@ -15,7 +15,7 @@ import editor
 import utils
 import help_text
 
-VERSION = (0, 1, 2)
+VERSION = (0, 1, 3)
 
 
 class Main:
@@ -39,10 +39,10 @@ class Main:
         self.root.title(os.path.basename(dirpath))
         self.root.geometry(self.configuration["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
-        self.au64 = tk.PhotoImage(data=constants.AU64)
-        self.root.iconphoto(False, self.au64)
         self.root.minsize(400, 400)
         self.root.bind_all("<Control-h>", self.open_help_text)
+        self.au64 = tk.PhotoImage(data=constants.AU64)
+        self.root.iconphoto(False, self.au64, self.au64)
 
         self.menubar = tk.Menu(self.root)
         self.root["menu"] = self.menubar
@@ -120,10 +120,17 @@ class Main:
         self.treeview.bind("<Control-Left>", self.move_item_out_of_subtree)
 
         self.setup_treeview()
+        self.root.update_idletasks()
+        self.root.lift()
 
-        for filepath, config in self.configuration["texts"].items():
-            if config.get("geometry"):
-                self.open_text(filepath=filepath)
+        for filepath in self.texts:
+            try:
+                config = self.configuration["texts"][filepath]
+            except KeyError:
+                pass
+            else:
+                if config.get("geometry"):
+                    self.open_text(filepath=filepath)
         self.treeview.focus_set()
 
         if self.configuration["help"].get("geometry"):
@@ -131,7 +138,6 @@ class Main:
         else:
             self.help_text = None
 
-        self.root.update_idletasks()
         self.save_configuration()
 
     def open_help_text(self, event=None):
@@ -232,14 +238,53 @@ class Main:
     def move_item_into_subtree(self, event=None):
         "Move the currently selected item down one level in the treeview."
         try:
-            iid = self.treeview.selection()[0]
+            oldpath = self.treeview.selection()[0]
         except IndexError:
             pass
         else:
-            parent = self.treeview.parent(iid)
-            index = self.treeview.index(iid)
-            # XXX actually move it
-        return "break"
+            prevpath = self.treeview.prev(oldpath)
+            if not prevpath:    # This item is first.
+                return
+            dirpath, ext = os.path.splitext(prevpath)
+            if ext:             # Previous item is a text, not a section.
+                return
+            newpath = os.path.join(dirpath, os.path.basename(oldpath))
+            newabspath = os.path.join(self.absdirpath, newpath)
+            if os.path.exists(newabspath):
+                tk_messagebox.showerror(
+                    parent=self.root,
+                    title="Error",
+                    message="Cannot move item into section; name collision.")
+                return
+            os.rename(os.path.join(self.absdirpath, oldpath), newabspath)
+            # Move text file.
+            if os.path.isfile(newabspath):
+                self.texts[newpath] = self.texts.pop(oldpath)
+                try:
+                    self.texts[newpath]["editor"].rename(newpath)
+                except KeyError:
+                    pass
+                self.treeview.insert(
+                    dirpath,
+                    tk.END,
+                    iid=newpath,
+                    text=os.path.splitext(os.path.split(newpath)[1])[0],
+                    tags=(newpath, ),
+                    values=("?", utils.get_timestamp(newabspath)))
+                self.treeview.tag_bind(
+                    newpath,
+                    "<Double-Button-1>",
+                    functools.partial(self.open_text, filepath=newpath))
+            # XXX Move section and its items.
+            else:
+                print("move dir and change all its children")
+            self.treeview.delete(oldpath)
+            self.treeview.selection_set(newpath)
+            self.treeview.see(newpath)
+            self.treeview.focus(newpath)
+            self.save_configuration()
+        finally:
+            return "break"
 
     def move_item_out_of_subtree(self, event=None):
         "Move the currently selected item up one level in the treeview."
@@ -263,10 +308,11 @@ class Main:
                     message="Cannot move item out of section; name collision.")
                 return
             os.rename(os.path.join(self.absdirpath, oldpath), newabspath)
+            # Move text file.
             if os.path.isfile(newabspath):
                 self.texts[newpath] = self.texts.pop(oldpath)
                 try:
-                    self.texts[oldpath]["editor"].rename(newpath)
+                    self.texts[newpath]["editor"].rename(newpath)
                 except KeyError:
                     pass
                 self.treeview.insert(superparent,
@@ -275,19 +321,27 @@ class Main:
                                      text=os.path.splitext(filename)[0],
                                      tags=(newpath, ),
                                      values=("?", utils.get_timestamp(newabspath)))
+                
                 self.treeview.tag_bind(
                     newpath,
                     "<Double-Button-1>",
                     functools.partial(self.open_text, filepath=newpath))
+            # XXX Move section and its items.
             else:
                 print("move dir and change all its children")
             self.treeview.delete(oldpath)
+            self.treeview.selection_set(newpath)
+            self.treeview.see(newpath)
+            self.treeview.focus(newpath)
             self.save_configuration()
-        # finally:
-        return "break"
+        finally:
+            return "break"
+
+    def move_to_subtree(self, oldpath, newpath):
+        pass
 
     def create_section(self):
-        dirpath = tkinter.tk_filedialog.askdirectory(
+        dirpath = tk_filedialog.askdirectory(
             parent=self.root,
             title="Create section directory",
             initialdir=self.absdirpath)
@@ -383,7 +437,7 @@ class Main:
                 raise ValueError
         except (IndexError, ValueError):
             absdirpath = self.absdirpath
-        filepath = tkinter.tk_filedialog.asksaveasfilename(
+        filepath = tk_filedialog.asksaveasfilename(
             parent=self.root,
             title="Create text file",
             initialdir=absdirpath,
@@ -417,7 +471,7 @@ class Main:
         self.add_treeview_entry(filepath)
         self.open_text(filepath=filepath)
 
-    def delete_text(self, filepath=None):
+    def delete_text(self, filepath=None, force=False):
         if filepath is None:
             try:
                 filepath = self.treeview.selection()[0]
@@ -427,7 +481,7 @@ class Main:
             return
         if not os.path.isfile(os.path.join(self.absdirpath, filepath)):
             return
-        if not tk_messagebox.askokcancel(
+        if not force and not tk_messagebox.askokcancel(
                 title="Delete text?",
                 message=f"Really delete text '{filepath}'?"):
             return

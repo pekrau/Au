@@ -64,8 +64,8 @@ class Editor:
         self.text_frame.columnconfigure(0, weight=1)
 
         self.text = tk.Text(self.text_frame,
-                            width=80,
-                            height=50,
+                            width=constants.DEFAULT_TEXT_WIDTH,
+                            height=constants.DEFAULT_TEXT_HEIGHT,
                             padx=10,
                             font=constants.FONT_NORMAL,
                             wrap=tk.WORD,
@@ -242,7 +242,7 @@ class Editor:
                 message=f"Really delete text '{self.filepath}'?"):
             return
         self.close(force=True)
-        self.main.delete_text(self.filepath)
+        self.main.delete_text(self.filepath, force=True)
 
     def delete_text(self, filepath):
         self.main.treeview.delete(self.filepath)
