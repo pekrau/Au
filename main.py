@@ -1,5 +1,6 @@
 "Authoring editor based on Tkinter."
 
+import functools
 import json
 import os
 import shutil
@@ -13,7 +14,7 @@ import constants
 import editor
 import utils
 
-VERSION = (0, 1, 0)
+VERSION = (0, 1, 2)
 
 
 class Main:
@@ -60,7 +61,13 @@ class Main:
         self.menu_edit.add_command(label="Create section", command=self.create_section)
         self.menu_edit.add_command(label="Delete section", command=self.delete_section)
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Create text", command=self.create_text)
+        self.menu_edit.add_command(label="Open text",
+                                   command=self.open_text,
+                                   accelerator="Ctrl-O")
+        self.menu_edit.add_command(label="Create text",
+                                   command=self.create_text,
+                                   accelerator="Ctrl-N")
+        self.menu_edit.add_command(label="Delete text", command=self.delete_text)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Move item up",
                                    command=self.move_item_up,
@@ -101,6 +108,8 @@ class Main:
         self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
 
+        self.treeview.bind("<Control-o>", self.open_text)
+        self.treeview.bind("<Control-n>", self.create_text)
         self.treeview.bind("<Control-Up>", self.move_item_up)
         self.treeview.bind("<Control-Down>", self.move_item_down)
         self.treeview.bind("<Control-Right>", self.move_item_into_subtree)
@@ -138,8 +147,9 @@ class Main:
             if filename:
                 existing_items.add(filename)
             for filename in filenames:
-                if not filename.endswith(constants.CONFIGURATION_FILENAME):
-                    existing_items.add(os.path.join(dirpath, filename)[pos:])
+                if filename.endswith(constants.CONFIGURATION_FILENAME): continue
+                if filename.endswith(constants.HELP_FILENAME): continue
+                existing_items.add(os.path.join(dirpath, filename)[pos:])
 
         # Remove files that do not exist.
         for filename in set(texts.keys()).difference(existing_items):
@@ -147,25 +157,33 @@ class Main:
 
         # Add files and dirs that exist, but are not in the configuration.
         for filename in existing_items.difference(texts.keys()):
-            print(f"add {filename}")
             texts[filename] = dict()
 
         # Set up the treeview display.
         for filepath in texts:
-            parent, filename = os.path.split(filepath)
-            name, ext = os.path.splitext(filename)
-            absfilepath = os.path.join(self.absdirpath, filepath)
-            if ext == ".md":
-                self.treeview.insert(parent, tk.END, iid=filepath, text=name,
-                                     tags=(filepath, ),
-                                     values=("?", utils.get_timestamp(absfilepath)))
-                self.treeview.tag_bind(filepath,
-                                       "<Double-Button-1>",
-                                       OpenEditor(self, filepath))
-                self.texts[filepath] = dict()
-            else:
-                self.treeview.insert(parent, tk.END, iid=filepath, text=name,
-                                     tags=("section", filepath))
+            self.add_treeview_entry(filepath)
+
+    def add_treeview_entry(self, filepath):
+        parent, filename = os.path.split(filepath)
+        name, ext = os.path.splitext(filename)
+        absfilepath = os.path.join(self.absdirpath, filepath)
+        if ext == ".md":
+            self.treeview.insert(parent,
+                                 tk.END,
+                                 iid=filepath,
+                                 text=name,
+                                 tags=(filepath, ),
+                                 values=("?", utils.get_timestamp(absfilepath)))
+            self.treeview.tag_bind(filepath,
+                                   "<Double-Button-1>",
+                                   functools.partial(self.open_text, filepath=filepath))
+            self.texts[filepath] = dict()
+        else:
+            self.treeview.insert(parent,
+                                 tk.END,
+                                 iid=filepath,
+                                 text=name,
+                                 tags=("section", filepath))
 
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
@@ -314,7 +332,20 @@ class Main:
         # Actually remove the directory and files.
         shutil.rmtree(absdirpath)
 
-    def create_text(self):
+    def open_text(self, event=None, filepath=None):
+        if filepath is None:
+            try:
+                filepath = self.treeview.selection()[0]
+            except IndexError:
+                pass
+        try:
+            ed = self.texts[filepath]["editor"]
+            ed.toplevel.lift()
+        except KeyError:
+            ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath)
+        ed.text.focus_set()
+
+    def create_text(self, event=None):
         try:
             dirpath = self.treeview.selection()[0]
             absdirpath = os.path.join(self.absdirpath, dirpath)
@@ -349,8 +380,36 @@ class Main:
         with open(filepath, "w") as outfile:
             pass                # Empty file
         filepath = filepath[len(self.absdirpath)+1:]
-        self.add_text_to_treeview(filepath)
+        self.add_treeview_entry(filepath)
         self.open(filepath)
+
+    def delete_text(self, filepath=None):
+        if filepath is None:
+            try:
+                filepath = self.treeview.selection()[0]
+            except IndexError:
+                return
+        print(f"{filepath=}")
+        if not filepath.endswith(".md"):
+            return
+        if not os.path.isfile(os.path.join(self.absdirpath, filepath)):
+            return
+        self.treeview.delete(filepath)
+        self.move_file_to_archive(filepath)
+        self.save_configuration()
+
+    def move_file_to_archive(self, filepath):
+        """Move the text file to the archive.
+        Create the archive subdirectory if it does not exist.
+        Append the current timestamp to the filename.
+        """
+        # Create archive subdirectory if it does not exist.
+        archivedfilepath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME, f"{filepath} {utils.get_timestamp()}")
+        archivepath = os.path.dirname(archivedfilepath)
+        if not os.path.exists(archivepath):
+            os.makedirs(archivepath)
+        # Move current file to archive.
+        os.rename(os.path.join(self.absdirpath, filepath), archivedfilepath)
 
     def save_texts(self, event=None):
         "Save contents of all open text editor windows, and the configuration."
@@ -409,18 +468,6 @@ class Main:
 
     def mainloop(self):
         self.root.mainloop()
-
-
-class OpenEditor:
-    "Action to open an editor window."
-
-    def __init__(self, main, path):
-        self.main = main
-        self.path = path
-
-    def __call__(self, event):
-        self.main.open(self.path)
-
 
 
 if __name__ == "__main__":

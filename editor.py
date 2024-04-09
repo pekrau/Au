@@ -132,7 +132,7 @@ class Editor:
     def link(self):
         try:
             self.text.tag_add("link", tk.SEL_FIRST, tk.SEL_LAST)
-            # XXX
+            # XXX popup window to get URL and title.
             self.ignore_modified_event = True
             self.text.edit_modified(True)
         except tk.TclError:
@@ -234,9 +234,10 @@ class Editor:
                                       message=f"Really delete text '{self.filepath}'?"):
             return
         self.close(force=True)
+        self.main.delete_text(self.filepath)
+
+    def delete_text(self, filepath):
         self.main.treeview.delete(self.filepath)
-        self.move_file_to_archive()
-        self.main.save_configuration()
 
     def close(self, event=None, force=False):
         if self.modified and not force:
@@ -271,24 +272,11 @@ class Editor:
         self.main.add_text_to_treeview(filepath[len(self.main.absdirpath)+1:])
         self.main.open(filepath)
 
-    def move_file_to_archive(self):
-        """Move the current text file to the archive.
-        Create the archive subdirectory if it does not exist.
-        Append the current timestamp to the filename.
-        """
-        # Create archive subdirectory if it does not exist.
-        archivedfilepath = os.path.join(self.main.absdirpath, constants.ARCHIVE_DIRNAME, f"{self.filepath} {utils.get_timestamp()}")
-        archivepath = os.path.dirname(archivedfilepath)
-        if not os.path.exists(archivepath):
-            os.makedirs(archivepath)
-        # Move current file to archive.
-        os.rename(os.path.join(self.main.absdirpath, self.filepath), archivedfilepath)
-
     def save(self, event=None):
         if not self.modified:
             return
         self.current_link_tag = None
-        self.move_file_to_archive()
+        self.main.move_file_to_archive(self.filepath)
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
         self.update_metadata()
         tags = set(self.main.treeview.item(self.filepath, "tags"))
