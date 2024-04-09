@@ -7,8 +7,8 @@ import shutil
 
 import tkinter as tk
 from tkinter import ttk
-from tkinter import filedialog
-from tkinter import messagebox
+from tkinter import filedialog as tk_filedialog
+from tkinter import messagebox as tk_messagebox
 
 import constants
 import editor
@@ -75,16 +75,16 @@ class Main:
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Move item up",
                                    command=self.move_item_up,
-                                   accelerator="Ctrl-up")
+                                   accelerator="Ctrl-Up")
         self.menu_edit.add_command(label="Move item down",
                                    command=self.move_item_down,
-                                   accelerator="Ctrl-down")
+                                   accelerator="Ctrl-Down")
         self.menu_edit.add_command(label="Move item into subtree",
                                    command=self.move_item_into_subtree,
-                                   accelerator="Ctrl-down")
+                                   accelerator="Ctrl-Left")
         self.menu_edit.add_command(label="Move item out of subtree",
                                    command=self.move_item_out_of_subtree,
-                                   accelerator="Ctrl-up")
+                                   accelerator="Ctrl-Right")
 
         self.menubar.add_command(label="Help", command=self.open_help_text)
 
@@ -127,7 +127,7 @@ class Main:
         self.treeview.focus_set()
 
         if self.configuration["help"].get("geometry"):
-            self.help_text = help_text.HelpText(self, self.configuration["help"])
+            self.help_text = help_text.HelpText(self)
         else:
             self.help_text = None
 
@@ -136,8 +136,9 @@ class Main:
 
     def open_help_text(self, event=None):
         if self.help_text is None:
-            self.help_text = help_text.HelpText(self, self.configuration["help"])
+            self.help_text = help_text.HelpText(self)
         self.help_text.toplevel.lift()
+        return "break"
 
     @property
     def configurationpath(self):
@@ -199,13 +200,10 @@ class Main:
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
         try:
-            selection = self.treeview.selection()
-            if not selection:
-                raise ValueError
-        except ValueError:
+            iid = self.treeview.selection()[0]
+        except IndexError:
             pass
         else:
-            iid = selection[0]
             parent = self.treeview.parent(iid)
             index = self.treeview.index(iid)
             max_index = len(self.treeview.get_children(parent)) - 1
@@ -218,13 +216,10 @@ class Main:
     def move_item_down(self, event=None):
         "Move the currently selected item down in its level of the treeview."
         try:
-            selection = self.treeview.selection()
-            if not selection:
-                raise ValueError
-        except ValueError:
+            iid = self.treeview.selection()[0]
+        except IndexError:
             pass
         else:
-            iid = selection[0]
             parent = self.treeview.parent(iid)
             index = self.treeview.index(iid)
             max_index = len(self.treeview.get_children(parent)) - 1
@@ -237,13 +232,10 @@ class Main:
     def move_item_into_subtree(self, event=None):
         "Move the currently selected item down one level in the treeview."
         try:
-            selection = self.treeview.selection()
-            if not selection:
-                raise ValueError
-        except ValueError:
+            iid = self.treeview.selection()[0]
+        except IndexError:
             pass
         else:
-            iid = selection[0]
             parent = self.treeview.parent(iid)
             index = self.treeview.index(iid)
             # XXX actually move it
@@ -252,47 +244,73 @@ class Main:
     def move_item_out_of_subtree(self, event=None):
         "Move the currently selected item up one level in the treeview."
         try:
-            selection = self.treeview.selection()
-            if not selection:
-                raise ValueError
-        except ValueError:
+            oldpath = self.treeview.selection()[0]
+        except IndexError:
             pass
         else:
-            iid = selection[0]
-            parent = self.treeview.parent(iid)
-            index = self.treeview.index(iid)
-            # XXX actually move it
+            parent, filename = os.path.split(oldpath)
+            # Already at top level.
+            if not parent:
+                return
+            parentindex = self.treeview.index(parent)
+            superparent = os.path.split(parent)[0]
+            newpath = os.path.join(superparent, filename)
+            newabspath = os.path.join(self.absdirpath, newpath)
+            if os.path.exists(newabspath):
+                tk_messagebox.showerror(
+                    parent=self.root,
+                    title="Error",
+                    message="Cannot move item out of section; name collision.")
+                return
+            os.rename(os.path.join(self.absdirpath, oldpath), newabspath)
+            if os.path.isfile(newabspath):
+                self.texts[newpath] = self.texts.pop(oldpath)
+                try:
+                    self.texts[oldpath]["editor"].rename(newpath)
+                except KeyError:
+                    pass
+                self.treeview.insert(superparent,
+                                     parentindex+1,
+                                     iid=newpath,
+                                     text=os.path.splitext(filename)[0],
+                                     tags=(newpath, ),
+                                     values=("?", utils.get_timestamp(newabspath)))
+                self.treeview.tag_bind(
+                    newpath,
+                    "<Double-Button-1>",
+                    functools.partial(self.open_text, filepath=newpath))
+            else:
+                print("move dir and change all its children")
+            self.treeview.delete(oldpath)
+            self.save_configuration()
+        # finally:
         return "break"
 
-    # def open(self, filepath):
-    #     try:
-    #         ed = self.texts[filepath]["editor"]
-    #         ed.toplevel.lift()
-    #     except KeyError:
-    #         ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath)
-    #     ed.text.focus_set()
-
     def create_section(self):
-        dirpath = filedialog.askdirectory(parent=self.root,
-                                          title="Create section directory",
-                                          initialdir=self.absdirpath)
+        dirpath = tkinter.tk_filedialog.askdirectory(
+            parent=self.root,
+            title="Create section directory",
+            initialdir=self.absdirpath)
         if not dirpath:
             return
         if not dirpath.startswith(self.absdirpath):
-            messagebox.showerror(parent=self.root,
-                                 title="Wrong directory",
-                                 message=f"Must be subdirectory of '{self.main.absdirpath}'.")
+            tk_messagebox.showerror(
+                parent=self.root,
+                title="Wrong directory",
+                message=f"Must be subdirectory of '{self.main.absdirpath}'.")
             return
         subdirpath = dirpath[len(self.absdirpath)+1:]
         if os.path.isdir(dirpath):
-            messagebox.showerror(parent=self.root,
-                                 title="Already exists",
-                                 message=f"The section name '{subdirpath}' is already in use.")
+            tk_messagebox.showerror(
+                parent=self.root,
+                title="Already exists",
+                message=f"The section name '{subdirpath}' is already in use.")
             return
         if os.path.splitext(dirpath)[1]:
-            messagebox.showerror(parent=self.root,
-                                 title="Contains extension",
-                                 message=f"The section name '{subdirpath}' may not contain an extension.")
+            tk_messagebox.showerror(
+                parent=self.root,
+                title="Contains extension",
+                message=f"The section name '{subdirpath}' may not contain an extension.")
             return
         os.makedirs(dirpath)
         self.treeview.insert(os.path.split(subdirpath)[0],
@@ -311,8 +329,9 @@ class Main:
         absdirpath = os.path.join(self.absdirpath, dirpath)
         if not os.path.isdir(absdirpath):
             return
-        if not messagebox.askokcancel(title="Really delete section?",
-                                      message=f"Do you wish to delete the section '{dirpath}' and all its contents?"):
+        if not tk_messagebox.askokcancel(
+                title="Delete section?",
+                message=f"Really delete section '{dirpath}' and all its contents?"):
             return
         section = list(os.walk(absdirpath))
         archivepath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
@@ -330,11 +349,11 @@ class Main:
             for filename in filenames:
                 subfilepath = os.path.join(subdirpath, filename)
                 try:
-                    editor = self.texts[subfilepath]["editor"]
+                    ed = self.texts[subfilepath]["editor"]
                 except KeyError:
                     pass
                 else:
-                    editor.close(force=True)
+                    ed.close(force=True)
             for filename in filenames:
                 os.rename(os.path.join(sectiondir, filename),
                           f"{archivedirpath}/{filename} {utils.get_timestamp()}")
@@ -364,28 +383,32 @@ class Main:
                 raise ValueError
         except (IndexError, ValueError):
             absdirpath = self.absdirpath
-        filepath = filedialog.asksaveasfilename(parent=self.root,
-                                                title="Create text file",
-                                                initialdir=absdirpath,
-                                                filetypes=[("Markdown files", "*.md")],
-                                                defaultextension=".md",
-                                                confirmoverwrite=False)
+        filepath = tkinter.tk_filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Create text file",
+            initialdir=absdirpath,
+            filetypes=[("Markdown files", "*.md")],
+            defaultextension=".md",
+            confirmoverwrite=False)
         if not filepath:
             return
         if not filepath.startswith(self.absdirpath):
-            messagebox.showerror(parent=self.root,
-                                 title="Wrong directory",
-                                 message=f"Must be (subdirectory of) {self.main.absdirpath}")
+            tk_messagebox.showerror(
+                parent=self.root,
+                title="Wrong directory",
+                message=f"Must be (subdirectory of) {self.main.absdirpath}")
             return
         if os.path.splitext(filepath)[1] != ".md":
-            messagebox.showerror(parent=self.root,
-                                 title="Wrong extension",
-                                 message="File extension must be '.md'.")
+            tk_messagebox.showerror(
+                parent=self.root,
+                title="Wrong extension",
+                message="File extension must be '.md'.")
             return
         if os.path.exists(filepath):
-            messagebox.showerror(parent=self.root,
-                                 title="Exists",
-                                 message=f"The text file '{filepath}'  already exists.")
+            tk_messagebox.showerror(
+                parent=self.root,
+                title="Exists",
+                message=f"The text file '{filepath}'  already exists.")
             return
             
         with open(filepath, "w") as outfile:
@@ -400,11 +423,20 @@ class Main:
                 filepath = self.treeview.selection()[0]
             except IndexError:
                 return
-        print(f"{filepath=}")
         if not filepath.endswith(".md"):
             return
         if not os.path.isfile(os.path.join(self.absdirpath, filepath)):
             return
+        if not tk_messagebox.askokcancel(
+                title="Delete text?",
+                message=f"Really delete text '{filepath}'?"):
+            return
+        try:
+            ed = self.texts[filepath]["editor"]
+        except KeyError:
+            pass
+        else:
+            ed.close(force=True)
         self.treeview.delete(filepath)
         self.move_file_to_archive(filepath)
         self.save_configuration()
@@ -457,9 +489,10 @@ class Main:
         for text in self.texts.values():
             try:
                 if text["editor"].modified:
-                    if not messagebox.askokcancel(parent=self.root,
-                                                  title="Quit?",
-                                                  message="All unsaved changes will be lost. Really quit?"):
+                    if not tk_messagebox.askokcancel(
+                            parent=self.root,
+                            title="Quit?",
+                            message="All unsaved changes will be lost. Really quit?"):
                         return
             except KeyError:
                 pass

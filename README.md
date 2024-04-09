@@ -8,7 +8,10 @@ Written in Python 3 using Tkinter.
 
 | Hotkey | Action                                  |
 | ------ | --------------------------------------- |
-| Ctrl-S | Save state; positions of open windows.  |
+| Ctrl-H | Bring up help text window. |
+| Ctrl-O | Open text window. |
+| Ctrl-N | Create a new text and open its window. |
+| Ctrl-S | Save current configuration.  |
 | Up     | Select previous item in the tree.   |
 | Down   | Select next item in the tree.       |
 | Left   | Move down into the subtree.             |
@@ -23,6 +26,7 @@ Written in Python 3 using Tkinter.
 
 | Hotkey | Action                                    |
 | ------ | ----------------------------------------- |
+| Ctrl-H | Bring up help text window.                |
 | Ctrl-S | Save text.                                |
 | Ctrl-W | Close window.                             |
 | Ctrl-N | Move cursor to next line.                 |

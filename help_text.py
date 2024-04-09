@@ -13,14 +13,14 @@ import utils
 class HelpText:
     "Help text window."
 
-    def __init__(self, main, configuration):
+    def __init__(self, main):
         self.main = main
         self.main.help_window = self
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title("Au help")
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
         try:
-            self.toplevel.geometry(configuration["geometry"])
+            self.toplevel.geometry(self.main.configuration["geometry"])
         except KeyError:
             pass
 

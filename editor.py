@@ -2,12 +2,12 @@
 
 import json
 import os
+import webbrowser
 
 import tkinter as tk
 from tkinter import ttk
-from tkinter import filedialog
-from tkinter import messagebox
-import webbrowser
+from tkinter import filedialog as tk_filedialog
+from tkinter import messagebox as tk_messagebox
 
 import constants
 import utils
@@ -124,6 +124,10 @@ class Editor:
     def get_configuration(self):
         return dict(geometry=self.toplevel.geometry())
 
+    def rename(self, newpath):
+        self.filepath = newpath
+        self.toplevel.title(os.path.splitext(self.filepath)[0])
+
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
         self.text.see("1.0")
@@ -232,9 +236,10 @@ class Editor:
         self.main.treeview.item(self.filepath, tags=("modified",))
 
     def delete(self):
-        if not messagebox.askokcancel(parent=self.toplevel,
-                                      title="Delete?",
-                                      message=f"Really delete text '{self.filepath}'?"):
+        if not tk_messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Delete text?",
+                message=f"Really delete text '{self.filepath}'?"):
             return
         self.close(force=True)
         self.main.delete_text(self.filepath)
@@ -244,9 +249,10 @@ class Editor:
 
     def close(self, event=None, force=False):
         if self.modified and not force:
-            if not messagebox.askokcancel(parent=self.toplevel,
-                                          title="Close?",
-                                          message="Modifications will not be saved. Really close?"):
+            if not tk_messagebox.askokcancel(
+                    parent=self.toplevel,
+                    title="Close?",
+                    message="Modifications will not be saved. Really close?"):
                 return
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
@@ -254,25 +260,28 @@ class Editor:
     def save_as(self, event=None):
         dirpath = os.path.split(self.filepath)[0]
         initialdir = os.path.join(self.main.absdirpath, dirpath)
-        filepath = filedialog.asksaveasfilename(parent=self.toplevel,
-                                                title="Save text as...",
-                                                initialdir=initialdir,
-                                                filetypes=[("Markdown files", "*.md")],
-                                                defaultextension=".md")
+        filepath = tk_filedialog.asksaveasfilename(
+            parent=self.toplevel,
+            title="Save text as...",
+            initialdir=initialdir,
+            filetypes=[("Markdown files", "*.md")],
+            defaultextension=".md")
         if not filepath:
             return
         if not filepath.startswith(self.main.absdirpath):
-            messagebox.showerror(parent=self.toplevel,
-                                 title="Wrong directory",
-                                 message=f"Must be (subdirectory of) {self.main.absdirpath}")
+            tk_messagebox.showerror(
+                parent=self.toplevel,
+                title="Wrong directory",
+                message=f"Must be (subdirectory of) {self.main.absdirpath}")
             return
         if os.path.splitext(filepath)[1] != ".md":
-            messagebox.showerror(parent=self.toplevel,
-                                 title="Wrong extension",
-                                 message="File extension must be '.md'.")
+            tk_messagebox.showerror(
+                parent=self.toplevel,
+                title="Wrong extension",
+                message="File extension must be '.md'.")
             return
         self.write_file(filepath)
-        self.main.add_text_to_treeview(filepath[len(self.main.absdirpath)+1:])
+        self.main.add_treeview_entry(filepath[len(self.main.absdirpath)+1:])
         self.main.open_text(filepath=filepath)
 
     def save(self, event=None):
