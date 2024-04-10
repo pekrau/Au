@@ -178,8 +178,14 @@ class Main:
             texts[filename] = dict()
 
         # Set up the treeview display.
+        first = None
         for filepath in texts:
+            if first is None:
+                first = filepath
             self.add_treeview_entry(filepath)
+        if first:
+            self.treeview.selection_set(first)
+            self.treeview.focus(first)
 
     def add_treeview_entry(self, filepath):
         parent, filename = os.path.split(filepath)
@@ -196,7 +202,7 @@ class Main:
                                    "<Double-Button-1>",
                                    functools.partial(self.open_text, filepath=filepath))
             self.texts[filepath] = dict()
-        else:
+        elif os.path.isdir(absfilepath):
             self.treeview.insert(parent,
                                  tk.END,
                                  iid=filepath,
