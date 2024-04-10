@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as tk_filedialog
 from tkinter import messagebox as tk_messagebox
+from tkinter import simpledialog as tk_simpledialog
 
 from icecream import ic
 
@@ -64,18 +65,19 @@ class Main:
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        self.menu_edit.add_command(label="Rename section", command=self.rename_section)
         self.menu_edit.add_command(label="Create section", command=self.create_section)
         self.menu_edit.add_command(label="Delete section", command=self.delete_section)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Open text",
                                    command=self.open_text,
                                    accelerator="Ctrl-O")
+        self.menu_edit.add_command(label="Rename text", command=self.rename_text)
         self.menu_edit.add_command(label="Create text",
                                    command=self.create_text,
                                    accelerator="Ctrl-N")
         self.menu_edit.add_command(label="Delete text", command=self.delete_text)
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Rename item", command=self.rename_item)
         self.menu_edit.add_command(label="Move item up",
                                    command=self.move_item_up,
                                    accelerator="Ctrl-Up")
@@ -212,30 +214,59 @@ class Main:
                                  text=name,
                                  tags=("section", filepath))
 
-    def rename_item(self):
-        "Rename text or section; to be called via menu entry."
-        try:
-            iid = self.treeview.selection()[0]
-        except IndexError:
-            return
+    def rename_section(self):
+        pass
 
-    def rename_text(self, oldfilepath, newfilepath):
-        "Update after text renaming."
-        index = self.treeview.index(oldfilepath)
-        values = self.treeview.item(oldfilepath, "values")
-        self.treeview.delete(oldfilepath)
+    def rename_text(self, oldpath=None, widget=None):
+        "Rename text; to be called via menu entry."
+        if oldpath is None:
+            try:
+                oldpath = self.treeview.selection()[0]
+            except IndexError:
+                return
+        parent, oldname = os.path.split(oldpath)
+        oldname, ext = os.path.splitext(oldname)
+        if ext != ".md":
+            tk_messagebox.showerror(title="Error",
+                                    message="Selected item is no a text.")
+            return
+        oldabspath = os.path.join(self.absdirpath, oldpath)
+        newname = self.get_newname(parent=widget)
+        newname = os.path.splitext(newname)[0]
+        newpath = os.path.join(parent, newname)
+        newpath += ".md"
+        self.texts[newpath] = self.texts.pop(oldpath)
+        index = self.treeview.index(oldpath)
+        values = self.treeview.item(oldpath, "values")
+        selected = self.treeview.selection()
+        self.treeview.delete(oldpath)
         self.treeview.insert(
-            os.path.split(newfilepath)[0],
+            parent,
             index,
-            iid=newfilepath,
-            text=os.path.splitext(os.path.split(newfilepath)[1])[0],
-            tags=(newfilepath, ),
+            iid=newpath,
+            text=newname,
+            tags=(newpath, ),
             values=values)
         self.treeview.tag_bind(
-            newfilepath,
+            newpath,
             "<Double-Button-1>",
-            functools.partial(self.open_text, filepath=newfilepath))
-        self.texts[newfilepath] = self.texts.pop(oldfilepath)
+            functools.partial(self.open_text, filepath=newpath))
+        try:
+            ed = self.texts[newpath]["editor"]
+        except KeyError:
+            pass
+        else:
+            ed.toplevel.title(os.path.join(parent, newname))
+            ed.filepath = newpath
+        os.rename(os.path.join(self.absdirpath, oldpath),
+                  os.path.join(self.absdirpath, newpath))
+        self.save_configuration()
+
+    def get_newname(self, parent=None):
+        return tk_simpledialog.askstring(
+            parent=parent or self.root,
+            title="New name",
+            prompt="Give the new name for the item:")
 
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
@@ -391,7 +422,7 @@ class Main:
             tk_messagebox.showerror(
                 parent=self.root,
                 title="Wrong directory",
-                message=f"Must be subdirectory of '{self.main.absdirpath}'.")
+                message=f"Must be subdirectory of '{self.absdirpath}'.")
             return
         subdirpath = dirpath[len(self.absdirpath)+1:]
         if os.path.isdir(dirpath):
@@ -490,7 +521,7 @@ class Main:
             tk_messagebox.showerror(
                 parent=self.root,
                 title="Wrong directory",
-                message=f"Must be (subdirectory of) {self.main.absdirpath}")
+                message=f"Must be (subdirectory of) {self.absdirpath}")
             return
         if os.path.splitext(filepath)[1] != ".md":
             tk_messagebox.showerror(

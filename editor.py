@@ -57,7 +57,7 @@ class Editor:
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Rename", command=self.rename_item)
+        self.menu_edit.add_command(label="Rename", command=self.rename)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Link", command=self.link)
         self.menu_edit.add_command(label="Bold", command=self.bold)
@@ -85,6 +85,7 @@ class Editor:
 
         self.info_frame = ttk.Frame(self.toplevel, padding=4)
         self.info_frame.pack(fill=tk.X, expand=1)
+        self.info_frame.rowconfigure(0, weight=1)
         self.info_frame.columnconfigure(0, weight=1)
         self.info_frame.columnconfigure(1, weight=2)
         self.info_frame.columnconfigure(2, weight=2)
@@ -129,32 +130,8 @@ class Editor:
     def get_configuration(self):
         return dict(geometry=self.toplevel.geometry())
 
-    def rename_item(self, newname=None):
-        if newname is None:
-            newname = tk_simpledialog.askstring(
-                parent=self.toplevel,
-                title="New name",
-                prompt="Give the new name for the text:")
-            if not newname:
-                return
-        newname = os.path.splitext(newname)[0]
-        parent, oldfilename = os.path.split(self.filepath)
-        oldabspath = os.path.join(self.main.absdirpath, self.filepath)
-
-        # Rename text.
-        if os.path.splitext(self.filepath)[1] == ".md":
-            self.toplevel.title(newname)
-            newfilepath = os.path.join(parent, newname + ".md")
-            newabsfilepath = os.path.join(self.main.absdirpath, newfilepath)
-            os.rename(oldabspath, newabsfilepath)
-            self.main.rename_text(self.filepath, newfilepath)
-            self.filepath = newfilepath
-
-        # Rename section and handle its children.
-        else:
-            pass
-
-        self.toplevel.title(os.path.splitext(self.filepath)[0])
+    def rename(self):
+        self.main.rename_text(oldpath=self.filepath, widget=self.toplevel)
 
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
@@ -166,12 +143,24 @@ class Editor:
 
     def link(self):
         try:
-            self.text.tag_add("link", tk.SEL_FIRST, tk.SEL_LAST)
-            # XXX popup window to get URL and title.
-            self.ignore_modified_event = True
-            self.text.edit_modified(True)
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
-            pass
+            return
+        url = tk_simpledialog.askstring(
+            parent=self.toplevel,
+            title="Link URL?",
+            prompt="Give URL for link:")
+        if not url:
+            return
+        try:
+            url, title = url.strip().split(" ", 1)
+            title = title.strip()
+        except ValueError:
+            title = None
+        self.links.new(url, title, first, last)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
 
     def bold(self):
         try:
@@ -240,8 +229,7 @@ class Editor:
         link_start = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.parse(child)
-        self.text.tag_add("link", link_start, self.text.index(tk.INSERT))
-        self.text.tag_add(self.links.add(ast), link_start, self.text.index(tk.INSERT))
+        self.links.add(ast, link_start, tk.INSERT)
         
     @property
     def modified(self):
@@ -397,16 +385,20 @@ class Links:
         self.editor.text.tag_bind("link", "<Leave>", self.leave)
         self.editor.text.tag_bind("link", "<Button-1>", self.link_click)
 
-    def add(self, ast):
+    def add(self, ast, first, last):
+        self.new(ast["dest"], ast["title"], first=first, last=last)
+
+    def new(self, url, title, first, last):
         tag = f"link-{len(self.editor.main.links_lookup)}"
-        self.editor.main.links_lookup[tag] = dict(url=ast["dest"], title=ast["title"])
-        return tag
+        self.editor.main.links_lookup[tag] = dict(url=url, title=title)
+        self.editor.text.tag_add("link", first, last)
+        self.editor.text.tag_add(tag, first, last)
 
     def enter(self, event):
         self.editor.text.configure(cursor="hand2")
-        ast = self.get_current_link()
-        self.editor.url_var.set(ast["url"])
-        self.editor.title_var.set(ast["title"] or "-")
+        data = self.get_current_link()
+        self.editor.url_var.set(data["url"])
+        self.editor.title_var.set(data["title"] or "-")
 
     def leave(self, event):
         self.editor.text.configure(cursor="")
