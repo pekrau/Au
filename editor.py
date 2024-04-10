@@ -8,6 +8,9 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import filedialog as tk_filedialog
 from tkinter import messagebox as tk_messagebox
+from tkinter import simpledialog as tk_simpledialog
+
+from icecream import ic
 
 import constants
 import utils
@@ -38,7 +41,7 @@ class Editor:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Save as...", command=self.save_as)
+        self.menu_file.add_command(label="Create copy...", command=self.save_as)
         self.menu_file.add_command(label="Save",
                                    command=self.save,
                                    accelerator="Ctrl-S")
@@ -54,6 +57,8 @@ class Editor:
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        self.menu_edit.add_command(label="Rename", command=self.rename_item)
+        self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Link", command=self.link)
         self.menu_edit.add_command(label="Bold", command=self.bold)
         self.menu_edit.add_command(label="Italic", command=self.italic)
@@ -124,8 +129,31 @@ class Editor:
     def get_configuration(self):
         return dict(geometry=self.toplevel.geometry())
 
-    def rename(self, newpath):
-        self.filepath = newpath
+    def rename_item(self, newname=None):
+        if newname is None:
+            newname = tk_simpledialog.askstring(
+                parent=self.toplevel,
+                title="New name",
+                prompt="Give the new name for the text:")
+            if not newname:
+                return
+        newname = os.path.splitext(newname)[0]
+        parent, oldfilename = os.path.split(self.filepath)
+        oldabspath = os.path.join(self.main.absdirpath, self.filepath)
+
+        # Rename text.
+        if os.path.splitext(self.filepath)[1] == ".md":
+            self.toplevel.title(newname)
+            newfilepath = os.path.join(parent, newname + ".md")
+            newabsfilepath = os.path.join(self.main.absdirpath, newfilepath)
+            os.rename(oldabspath, newabsfilepath)
+            self.main.rename_text(self.filepath, newfilepath)
+            self.filepath = newfilepath
+
+        # Rename section and handle its children.
+        else:
+            pass
+
         self.toplevel.title(os.path.splitext(self.filepath)[0])
 
     def move_cursor_home(self, event=None):
@@ -165,7 +193,7 @@ class Editor:
         try:
             method = getattr(self, f"parse_{ast['element']}")
         except AttributeError:
-            print("Could not handle", ast['element'])
+            ic("Could not handle", ast['element'])
         else:
             method(ast)
 
@@ -303,7 +331,7 @@ class Editor:
                 try:
                     method = getattr(self, f"save_{item[0]}")
                 except AttributeError:
-                    print("Could not handle", item)
+                    ic("Could not handle", item)
                 else:
                     method(outfile, item)
 

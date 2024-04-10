@@ -10,12 +10,14 @@ from tkinter import ttk
 from tkinter import filedialog as tk_filedialog
 from tkinter import messagebox as tk_messagebox
 
+from icecream import ic
+
 import constants
 import editor
 import utils
 import help_text
 
-VERSION = (0, 1, 3)
+VERSION = (0, 1, 4)
 
 
 class Main:
@@ -73,6 +75,7 @@ class Main:
                                    accelerator="Ctrl-N")
         self.menu_edit.add_command(label="Delete text", command=self.delete_text)
         self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Rename item", command=self.rename_item)
         self.menu_edit.add_command(label="Move item up",
                                    command=self.move_item_up,
                                    accelerator="Ctrl-Up")
@@ -209,6 +212,31 @@ class Main:
                                  text=name,
                                  tags=("section", filepath))
 
+    def rename_item(self):
+        "Rename text or section; to be called via menu entry."
+        try:
+            iid = self.treeview.selection()[0]
+        except IndexError:
+            return
+
+    def rename_text(self, oldfilepath, newfilepath):
+        "Update after text renaming."
+        index = self.treeview.index(oldfilepath)
+        values = self.treeview.item(oldfilepath, "values")
+        self.treeview.delete(oldfilepath)
+        self.treeview.insert(
+            os.path.split(newfilepath)[0],
+            index,
+            iid=newfilepath,
+            text=os.path.splitext(os.path.split(newfilepath)[1])[0],
+            tags=(newfilepath, ),
+            values=values)
+        self.treeview.tag_bind(
+            newfilepath,
+            "<Double-Button-1>",
+            functools.partial(self.open_text, filepath=newfilepath))
+        self.texts[newfilepath] = self.texts.pop(oldfilepath)
+
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
         try:
@@ -262,14 +290,20 @@ class Main:
                     title="Error",
                     message="Cannot move item into section; name collision.")
                 return
+
+            # This works for both text file and section directory.
             os.rename(os.path.join(self.absdirpath, oldpath), newabspath)
+
             # Move text file.
             if os.path.isfile(newabspath):
                 self.texts[newpath] = self.texts.pop(oldpath)
                 try:
-                    self.texts[newpath]["editor"].rename(newpath)
+                    ed = self.texts[newpath]["editor"]
                 except KeyError:
                     pass
+                else:
+                    ed.filepath = newpath
+                    ed.toplevel.title(os.path.splitext(newpath)[0])
                 self.treeview.insert(
                     dirpath,
                     tk.END,
@@ -283,7 +317,7 @@ class Main:
                     functools.partial(self.open_text, filepath=newpath))
             # XXX Move section and its items.
             else:
-                print("move dir and change all its children")
+                ic("move dir and change all its children")
             self.treeview.delete(oldpath)
             self.treeview.selection_set(newpath)
             self.treeview.see(newpath)
@@ -334,7 +368,7 @@ class Main:
                     functools.partial(self.open_text, filepath=newpath))
             # XXX Move section and its items.
             else:
-                print("move dir and change all its children")
+                ic("move dir and change all its children")
             self.treeview.delete(oldpath)
             self.treeview.selection_set(newpath)
             self.treeview.see(newpath)
