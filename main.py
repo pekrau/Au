@@ -18,7 +18,7 @@ import editor
 import utils
 import help_text
 
-VERSION = (0, 2, 0)
+VERSION = (0, 2, 1)
 
 
 class Main:
@@ -30,7 +30,7 @@ class Main:
             with open(self.configurationpath) as infile:
                 self.configuration = json.load(infile)
             if "main" not in self.configuration:
-                raise ValueError # Invalid JSON data, most likely.
+                raise ValueError # When invalid JSON.
             if "help" not in self.configuration:
                 self.configuration["help"] = dict()
         except (OSError, json.JSONDecodeError, ValueError):
@@ -623,7 +623,7 @@ class Main:
     def quit(self, event=None):
         for text in self.texts.values():
             try:
-                if text["editor"].modified:
+                if text["editor"].is_modified:
                     if not tk_messagebox.askokcancel(
                             parent=self.root,
                             title="Quit?",

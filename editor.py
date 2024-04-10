@@ -115,18 +115,25 @@ class Editor:
         with open(path) as infile:
             markdown_text = infile.read()
         ast = utils.get_markdown_to_ast(markdown_text)
-        # print(json.dumps(ast, indent=4))
+        ic(ast)
         self.parse(ast)
-        self.update_metadata()
+        self.info_update()
 
         self.text.update()
         width = self.text.winfo_width() / 2
         url_label.configure(wraplength=width)
         title_label.configure(wraplength=width)
 
+        self.text.bind("<Key>", self.key_press)
         self.text.bind("<<Modified>>", self.handle_modified)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
+
+    def key_press(self, event):
+        if event.char in constants.AFFECTS_CHARACTER_COUNT:
+            self.info_update(size_only=True)
+        else:
+            ic(event)
 
     def get_configuration(self):
         return dict(geometry=self.toplevel.geometry())
@@ -233,22 +240,23 @@ class Editor:
         self.links.add(ast, link_start, tk.INSERT)
         
     @property
-    def modified(self):
+    def is_modified(self):
         return self.text.edit_modified()
 
     @property
     def character_count(self):
         return len(self.text.get("1.0", tk.END))
 
-    def update_metadata(self):
+    def info_update(self, size_only=False):
         self.size_var.set(f"{self.character_count} characters")
         self.main.treeview.set(self.filepath, "characters", str(self.character_count))
-        self.main.treeview.set(self.filepath, "timestamp", self.timestamp)
+        if not size_only:
+            self.main.treeview.set(self.filepath, "timestamp", self.timestamp)
 
     def handle_modified(self, event=None):
         if self.ignore_modified_event:
             self.ignore_modified_event = False
-        if not self.modified:
+        if not self.is_modified:
             return
         self.menubar.configure(background=constants.MODIFIED_COLOR)
         self.main.flag_treeview_entry(self.filepath)
@@ -266,7 +274,7 @@ class Editor:
         self.main.treeview.delete(self.filepath)
 
     def close(self, event=None, force=False):
-        if self.modified and not force:
+        if self.is_modified and not force:
             if not tk_messagebox.askokcancel(
                     parent=self.toplevel,
                     title="Close?",
@@ -303,13 +311,13 @@ class Editor:
         self.main.open_text(filepath=filepath)
 
     def save(self, event=None):
-        if not self.modified:
+        if not self.is_modified:
             return
         self.current_link_tag = None
         self.main.move_file_to_archive(self.filepath)
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
         self.menubar.configure(background="#d9d9d9")
-        self.update_metadata()
+        self.info_update()
         self.main.flag_treeview_entry(self.filepath, False)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
