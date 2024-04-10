@@ -18,7 +18,7 @@ import editor
 import utils
 import help_text
 
-VERSION = (0, 1, 4)
+VERSION = (0, 2, 0)
 
 
 class Main:
@@ -46,6 +46,7 @@ class Main:
         self.root.bind_all("<Control-h>", self.open_help_text)
         self.au64 = tk.PhotoImage(data=constants.AU64)
         self.root.iconphoto(False, self.au64, self.au64)
+        self.root.protocol("WM_DELETE_WINDOW", self.quit)
 
         self.menubar = tk.Menu(self.root)
         self.root["menu"] = self.menubar
@@ -100,8 +101,8 @@ class Main:
         self.treeview = ttk.Treeview(self.treeview_frame,
                                      columns=("characters", "timestamp"),
                                      selectmode="browse")
-        self.treeview.tag_configure("section", background="gainsboro")
-        self.treeview.tag_configure("modified", background="lightpink")
+        self.treeview.tag_configure("section", background=constants.SECTION_COLOR)
+        self.treeview.tag_configure("modified", background=constants.MODIFIED_COLOR)
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.treeview.heading("#0", text="Text")
         self.treeview.heading("characters", text="Characters")
@@ -193,11 +194,11 @@ class Main:
             self.treeview.focus(first)
 
     def add_treeview_entry(self, filepath):
-        parent, filename = os.path.split(filepath)
+        section, filename = os.path.split(filepath)
         name, ext = os.path.splitext(filename)
         absfilepath = os.path.join(self.absdirpath, filepath)
         if ext == ".md":
-            self.treeview.insert(parent,
+            self.treeview.insert(section,
                                  tk.END,
                                  iid=filepath,
                                  text=name,
@@ -208,32 +209,40 @@ class Main:
                                    functools.partial(self.open_text, filepath=filepath))
             self.texts[filepath] = dict()
         elif os.path.isdir(absfilepath):
-            self.treeview.insert(parent,
+            self.treeview.insert(section,
                                  tk.END,
                                  iid=filepath,
                                  text=name,
                                  tags=("section", filepath))
 
+    def flag_treeview_entry(self, filepath, modified=True):
+        tags = set(self.treeview.item(filepath, "tags"))
+        if modified:
+            tags.add("modified")
+        else:
+            tags.discard("modified")
+        self.treeview.item(filepath, tags=tuple(tags))
+
     def rename_section(self):
         pass
 
-    def rename_text(self, oldpath=None, widget=None):
+    def rename_text(self, parent=None, oldpath=None):
         "Rename text; to be called via menu entry."
         if oldpath is None:
             try:
                 oldpath = self.treeview.selection()[0]
             except IndexError:
                 return
-        parent, oldname = os.path.split(oldpath)
+        section, oldname = os.path.split(oldpath)
         oldname, ext = os.path.splitext(oldname)
         if ext != ".md":
             tk_messagebox.showerror(title="Error",
                                     message="Selected item is no a text.")
             return
         oldabspath = os.path.join(self.absdirpath, oldpath)
-        newname = self.get_newname(parent=widget)
+        newname = self.get_newname(parent=parent)
         newname = os.path.splitext(newname)[0]
-        newpath = os.path.join(parent, newname)
+        newpath = os.path.join(section, newname)
         newpath += ".md"
         self.texts[newpath] = self.texts.pop(oldpath)
         index = self.treeview.index(oldpath)
@@ -241,7 +250,7 @@ class Main:
         selected = self.treeview.selection()
         self.treeview.delete(oldpath)
         self.treeview.insert(
-            parent,
+            section,
             index,
             iid=newpath,
             text=newname,
@@ -256,7 +265,7 @@ class Main:
         except KeyError:
             pass
         else:
-            ed.toplevel.title(os.path.join(parent, newname))
+            ed.toplevel.title(os.path.join(section, newname))
             ed.filepath = newpath
         os.rename(os.path.join(self.absdirpath, oldpath),
                   os.path.join(self.absdirpath, newpath))
@@ -498,6 +507,7 @@ class Main:
             ed.toplevel.lift()
         except KeyError:
             ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath)
+        self.treeview.see(filepath)
         ed.text.focus_set()
 
     def create_text(self, event=None):

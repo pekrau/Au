@@ -1,5 +1,6 @@
 "Text editor window."
 
+import collections
 import json
 import os
 import webbrowser
@@ -131,7 +132,7 @@ class Editor:
         return dict(geometry=self.toplevel.geometry())
 
     def rename(self):
-        self.main.rename_text(oldpath=self.filepath, widget=self.toplevel)
+        self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
 
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
@@ -249,7 +250,8 @@ class Editor:
             self.ignore_modified_event = False
         if not self.modified:
             return
-        self.main.treeview.item(self.filepath, tags=("modified",))
+        self.menubar.configure(background=constants.MODIFIED_COLOR)
+        self.main.flag_treeview_entry(self.filepath)
 
     def delete(self):
         if not tk_messagebox.askokcancel(
@@ -306,10 +308,9 @@ class Editor:
         self.current_link_tag = None
         self.main.move_file_to_archive(self.filepath)
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
+        self.menubar.configure(background="#d9d9d9")
         self.update_metadata()
-        tags = set(self.main.treeview.item(self.filepath, "tags"))
-        tags.discard("modified")
-        self.main.treeview.item(self.filepath, tags=tuple(tags))
+        self.main.flag_treeview_entry(self.filepath, False)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
@@ -384,13 +385,14 @@ class Links:
         self.editor.text.tag_bind("link", "<Enter>", self.enter)
         self.editor.text.tag_bind("link", "<Leave>", self.leave)
         self.editor.text.tag_bind("link", "<Button-1>", self.link_click)
+        self.editor.text.tag_bind("link", "<Button-3>", self.link_edit)
 
     def add(self, ast, first, last):
         self.new(ast["dest"], ast["title"], first=first, last=last)
 
     def new(self, url, title, first, last):
         tag = f"link-{len(self.editor.main.links_lookup)}"
-        self.editor.main.links_lookup[tag] = dict(url=url, title=title)
+        self.editor.main.links_lookup[tag] = dict(tag=tag, url=url, title=title)
         self.editor.text.tag_add("link", first, last)
         self.editor.text.tag_add(tag, first, last)
 
@@ -415,3 +417,49 @@ class Links:
 
     def link_click(self, event):
         webbrowser.open_new_tab(self.get_current_link()["url"])
+
+    def link_edit(self, event):
+        link = self.get_current_link()
+        if not link:
+            return
+        edit = LinkEdit(self.editor.toplevel, link["url"], link["title"])
+        if edit.result:
+            if edit.result["url"]:
+                link["url"] = edit.result["url"]
+                link["title"] = edit.result["title"]
+            else:
+                region = self.editor.text.tag_nextrange(link["tag"], "1.0")
+                self.editor.text.tag_remove("link", *region)
+                self.editor.text.tag_remove(link["tag"], *region)
+                # Do not remove entry from main.links: the count must be preserved.
+            self.editor.ignore_modified_event = True
+            self.editor.text.edit_modified(True)
+
+
+class LinkEdit(tk_simpledialog.Dialog):
+    "Dialog window for editing URL and title for a link."
+
+    def __init__(self, parent, url, title):
+        self.initial = dict(url=url, title=title)
+        self.result = None
+        super().__init__(parent, title="Edit link")
+
+    def body(self, body):
+        label = ttk.Label(body, text="URL")
+        label.grid(row=0, column=0)
+        self.url_entry = tk.Entry(body)
+        if self.initial["url"]:
+            self.url_entry.insert(0, self.initial["url"])
+        self.url_entry.grid(row=0, column=1)
+        label = ttk.Label(body, text="Title")
+        label.grid(row=1, column=0)
+        self.title_entry = tk.Entry(body)
+        if self.initial["title"]:
+            self.title_entry.insert(0, self.initial["title"])
+        self.title_entry.grid(row=1, column=1)
+        return self.url_entry
+
+    def validate(self):
+        self.result = dict(url=self.url_entry.get(),
+                           title=self.title_entry.get())
+        return True
