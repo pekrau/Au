@@ -17,8 +17,9 @@ import constants
 import editor
 import utils
 import help_text
+import docx_interface
 
-VERSION = (0, 2, 3)
+VERSION = (0, 3, 0)
 
 
 class Main:
@@ -64,14 +65,16 @@ class Main:
         self.root.bind("<Control-s>", self.save_configuration)
         self.menu_file.add_command(label="Save texts", command=self.save_texts)
         self.menu_file.add_separator()
-        self.menu_file.add_command(label="Create DOCX", command=self.docx)
-        self.menu_file.add_command(label="Create PDF", command=self.pdf)
+        self.menu_file.add_command(label="Write DOCX", command=self.write_docx)
+        self.menu_file.add_command(label="Write PDF", command=self.write_pdf)
+        self.menu_file.add_command(label="Write EPUB", command=self.write_epub)
         self.menu_file.add_separator()
         self.menu_file.add_command(label="Quit", command=self.quit)
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
         self.menu_edit.add_command(label="Rename section", command=self.rename_section)
+        self.menu_edit.add_command(label="Copy section", command=self.copy_section)
         self.menu_edit.add_command(label="Create section", command=self.create_section)
         self.menu_edit.add_command(label="Delete section", command=self.delete_section)
         self.menu_edit.add_separator()
@@ -91,11 +94,11 @@ class Main:
         self.menu_edit.add_command(label="Move item down",
                                    command=self.move_item_down,
                                    accelerator="Ctrl-Down")
-        self.menu_edit.add_command(label="Move item into subtree",
-                                   command=self.move_item_into_subtree,
+        self.menu_edit.add_command(label="Move item into section",
+                                   command=self.move_item_into_section,
                                    accelerator="Ctrl-Left")
-        self.menu_edit.add_command(label="Move item out of subtree",
-                                   command=self.move_item_out_of_subtree,
+        self.menu_edit.add_command(label="Move item out of section",
+                                   command=self.move_item_out_of_section,
                                    accelerator="Ctrl-Right")
 
         self.menubar.add_command(label="Help", command=self.open_help_text)
@@ -128,8 +131,35 @@ class Main:
         self.treeview.bind("<Control-n>", self.create_text)
         self.treeview.bind("<Control-Up>", self.move_item_up)
         self.treeview.bind("<Control-Down>", self.move_item_down)
-        self.treeview.bind("<Control-Right>", self.move_item_into_subtree)
-        self.treeview.bind("<Control-Left>", self.move_item_out_of_subtree)
+        self.treeview.bind("<Control-Right>", self.move_item_into_section)
+        self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
+
+        self.treeview.bind("<Button-3>", self.popup_right_click_menu)
+
+        self.section_menu = tk.Menu(self.treeview, tearoff=False)
+        self.section_menu.add_command(label="Rename", command=self.rename_section)
+        self.section_menu.add_command(label="Copy", command=self.copy_section)
+        self.section_menu.add_command(label="Delete", command=self.delete_section)
+        self.section_menu.add_separator()
+        self.section_menu.add_command(label="Move up", command=self.move_item_up)
+        self.section_menu.add_command(label="Move down", command=self.move_item_down)
+        self.section_menu.add_command(label="Move into section",
+                                      command=self.move_item_into_section)
+        self.section_menu.add_command(label="Move out of section", 
+                                      command=self.move_item_out_of_section)
+
+        self.text_menu = tk.Menu(self.treeview, tearoff=False)
+        self.text_menu.add_command(label="Open", command=self.open_text)
+        self.text_menu.add_command(label="Rename", command=self.rename_text)
+        self.text_menu.add_command(label="Copy", command=self.copy_text)
+        self.text_menu.add_command(label="Delete", command=self.delete_text)
+        self.text_menu.add_separator()
+        self.text_menu.add_command(label="Move up", command=self.move_item_up)
+        self.text_menu.add_command(label="Move down", command=self.move_item_down)
+        self.text_menu.add_command(label="Move into section",
+                                   command=self.move_item_into_section)
+        self.text_menu.add_command(label="Move out of section",
+                                   command=self.move_item_out_of_section)
 
         self.setup_treeview()
         self.root.update_idletasks()
@@ -151,6 +181,17 @@ class Main:
             self.help_text = None
 
         self.save_configuration()
+
+    def popup_right_click_menu(self, event):
+        path = self.treeview.identify_row(event.y)
+        if not path: 
+            return
+        self.treeview.selection_set(path)
+        abspath = os.path.join(self.absdirpath, path)
+        if os.path.isdir(abspath):
+            self.section_menu.tk_popup(event.x_root, event.y_root)
+        elif os.path.isfile(abspath):
+            self.text_menu.tk_popup(event.x_root, event.y_root)
 
     def open_help_text(self, event=None):
         if self.help_text is None:
@@ -206,7 +247,7 @@ class Main:
                                  iid=itempath,
                                  text=name,
                                  tags=(itempath, ),
-                                 values=("?", utils.get_timestamp(absitempath)))
+                                 values=("?", utils.get_time(absitempath)))
             self.treeview.tag_bind(itempath,
                                    "<Double-Button-1>",
                                    functools.partial(self.open_text, filepath=itempath))
@@ -229,9 +270,6 @@ class Main:
             tags.discard("modified")
         self.treeview.item(filepath, tags=tuple(tags))
 
-    def rename_section(self):
-        ic("'rename_section' not implemented")
-
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
         try:
@@ -246,6 +284,7 @@ class Main:
             if index < 0:
                 index = max_index
             self.treeview.move(iid, parent, index)
+        self.save_configuration()
         return "break"
 
     def move_item_down(self, event=None):
@@ -262,9 +301,10 @@ class Main:
             if index > max_index:
                 index = 0
             self.treeview.move(iid, parent, index)
+        self.save_configuration()
         return "break"
 
-    def move_item_into_subtree(self, event=None):
+    def move_item_into_section(self, event=None):
         "Move the currently selected item down one level in the treeview."
         try:
             oldpath = self.treeview.selection()[0]
@@ -305,7 +345,7 @@ class Main:
                     iid=newpath,
                     text=os.path.splitext(os.path.split(newpath)[1])[0],
                     tags=(newpath, ),
-                    values=("?", utils.get_timestamp(newabspath)))
+                    values=("?", utils.get_time(newabspath)))
                 self.treeview.tag_bind(
                     newpath,
                     "<Double-Button-1>",
@@ -321,7 +361,7 @@ class Main:
         finally:
             return "break"
 
-    def move_item_out_of_subtree(self, event=None):
+    def move_item_out_of_section(self, event=None):
         "Move the currently selected item up one level in the treeview."
         try:
             oldpath = self.treeview.selection()[0]
@@ -355,7 +395,7 @@ class Main:
                                      iid=newpath,
                                      text=os.path.splitext(filename)[0],
                                      tags=(newpath, ),
-                                     values=("?", utils.get_timestamp(newabspath)))
+                                     values=("?", utils.get_time(newabspath)))
                 
                 self.treeview.tag_bind(
                     newpath,
@@ -372,7 +412,15 @@ class Main:
         finally:
             return "break"
 
-    def create_section(self):
+    def rename_section(self, parent=None):
+        ic("'rename_section' not implemented")
+        self.save_configuration()
+
+    def copy_section(self, parent=None):
+        ic("'copy_section' not implemented")
+        self.save_configuration()
+
+    def create_section(self, parent=None):
         try:
             dirpath = self.treeview.selection()[0]
             absdirpath = os.path.join(self.absdirpath, dirpath)
@@ -382,7 +430,7 @@ class Main:
             absdirpath = os.path.split(absdirpath)[0]
             dirpath = absdirpath[len(self.absdirpath)+1:]
         name = tk_simpledialog.askstring(
-            parent=self.root,
+            parent=parent or self.root,
             title="New section",
             prompt=f"Give name of new section within section '{dirpath}':")
         if not name:
@@ -405,6 +453,7 @@ class Main:
 
         os.makedirs(absdirpath)
         self.add_treeview_entry(dirpath, set_selection=True)
+        self.save_configuration()
 
     def delete_section(self):
         selection = self.treeview.selection()
@@ -443,11 +492,12 @@ class Main:
                     ed.close(force=True)
             for filename in filenames:
                 os.rename(os.path.join(sectiondir, filename),
-                          f"{archivedirpath}/{filename} {utils.get_timestamp()}")
+                          f"{archivedirpath}/{filename} {utils.get_time()}")
         # Remove the entry in the main window.
         self.treeview.delete(dirpath)
         # Actually remove the directory and files.
         shutil.rmtree(absdirpath)
+        self.save_configuration()
 
     def open_text(self, event=None, filepath=None):
         if filepath is None:
@@ -478,9 +528,10 @@ class Main:
             return
         oldabspath = os.path.join(self.absdirpath, oldpath)
         newname = tk_simpledialog.askstring(
-            parent=parent,
+            parent=parent or self.root,
             title="New name",
-            prompt="Give the new name for the text:")
+            prompt="Give the new name for the text:",
+            initialvalue=oldname)
         newname = os.path.splitext(newname)[0]
         newpath = os.path.join(section, newname)
         newpath += ".md"
@@ -511,7 +562,7 @@ class Main:
                   os.path.join(self.absdirpath, newpath))
         self.save_configuration()
 
-    def create_text(self, event=None):
+    def create_text(self, event=None, parent=None):
         try:
             dirpath = self.treeview.selection()[0]
             absdirpath = os.path.join(self.absdirpath, dirpath)
@@ -521,7 +572,7 @@ class Main:
             absdirpath = os.path.split(absdirpath)[0]
             dirpath = absdirpath[len(self.absdirpath)+1:]
         name = tk_simpledialog.askstring(
-            parent=self.root,
+            parent=parent or self.root,
             title="New text",
             prompt=f"Give name of new text within section '{dirpath}':")
         if not name:
@@ -612,7 +663,9 @@ class Main:
         Append the current timestamp to the filename.
         """
         # Create archive subdirectory if it does not exist.
-        archivedfilepath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME, f"{filepath} {utils.get_timestamp()}")
+        archivedfilepath = os.path.join(self.absdirpath, 
+                                        constants.ARCHIVE_DIRNAME, 
+                                        f"{filepath} {utils.get_time()}")
         archivepath = os.path.dirname(archivedfilepath)
         if not os.path.exists(archivepath):
             os.makedirs(archivepath)
@@ -639,7 +692,8 @@ class Main:
             self.configuration["help"] = dict()
         # Get the order of the texts as shown in the treeview.
         # This relies on the dictionary keeping the order of the items.
-        self.configuration["texts"] = dict([(f, dict()) for f in self.get_ordered_items()])
+        self.configuration["texts"] = dict([(f, dict()) 
+                                            for f in self.get_ordered_items()])
         for filepath, text in self.texts.items():
             try:
                 editor = text["editor"]
@@ -649,12 +703,23 @@ class Main:
                 self.configuration["texts"][filepath] = editor.get_configuration()
         with open(self.configurationpath, "w") as outfile:
             json.dump(self.configuration, outfile, indent=2)
+        ic("saved configuration")
 
-    def docx(self):
-        ic("'Create DOCX' not implemented")
+    def write_docx(self):
+        title = os.path.basename(self.absdirpath)
+        absfilepath = os.path.join(self.absdirpath, title + ".docx")
+        if os.path.exists(absfilepath):
+            archivedfilepath = os.path.join(self.absdirpath,
+                                            constants.ARCHIVE_DIRNAME,
+                                            f"{title} {utils.get_time()}" + ".docx")
+            os.rename(absfilepath, archivedfilepath)
+        docx_interface.Writer(self.absdirpath, self.texts).write()
 
-    def pdf(self):
+    def write_pdf(self):
         ic("'Create PDF' not implemented")
+
+    def write_epub(self):
+        ic("'Create EPUB' not implemented")
 
     def quit(self, event=None):
         for text in self.texts.values():

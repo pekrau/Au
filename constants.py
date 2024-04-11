@@ -31,3 +31,5 @@ TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # Add Return, Backspace, Delete.
 AFFECTS_CHARACTER_COUNT = frozenset(string.printable + "\r" + "\x08" + "\x7f")
+
+DOCX_PAGEBREAK_LEVEL = 1

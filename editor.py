@@ -120,10 +120,9 @@ class Editor:
         self.links = Links(self)
 
         path = os.path.join(self.main.absdirpath, self.filepath)
-        self.timestamp = utils.get_timestamp(path)
+        self.timestamp = utils.get_time(path)
         with open(path) as infile:
-            markdown_text = infile.read()
-        ast = utils.get_markdown_to_ast(markdown_text)
+            ast = utils.get_ast(infile.read())
         # ic(ast)
         self.parse(ast)
         self.info_update()
@@ -164,14 +163,14 @@ class Editor:
         except tk.TclError:
             pass
 
-    def set_link(self):
+    def set_link(self, parent=None):
         try:
             first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
         url = tk_simpledialog.askstring(
-            parent=self.toplevel,
+            parent=parent or self.toplevel,
             title="Link URL?",
             prompt="Give URL for link:")
         if not url:
@@ -205,19 +204,19 @@ class Editor:
         try:
             method = getattr(self, f"parse_{ast['element']}")
         except AttributeError:
-            ic("Could not handle", ast['element'])
+            ic("Could not handle ast", ast)
         else:
             method(ast)
 
     def parse_document(self, ast):
-        self.previous_blank_line = False
+        self.prev_blank_line = False
         for child in ast["children"]:
             self.parse(child)
 
     def parse_paragraph(self, ast):
-        if self.previous_blank_line:
+        if self.prev_blank_line:
             self.text.insert(tk.END, "\n")
-            self.previous_blank_line = False
+            self.prev_blank_line = False
         for child in ast["children"]:
             self.parse(child)
 
@@ -246,7 +245,7 @@ class Editor:
 
     def parse_blank_line(self, ast):
         self.text.insert(tk.END, "\n")
-        self.previous_blank_line = True
+        self.prev_blank_line = True
 
     def parse_link(self, ast):
         link_start = self.text.index(tk.INSERT)
@@ -259,6 +258,12 @@ class Editor:
         for child in ast["children"]:
             self.parse(child)
         self.text.tag_add("quote", self.quote_start, self.text.index(tk.INSERT))
+
+    def parse_footnote_ref(self, ast):
+        ic("footnote ref", ast)
+
+    def parse_footnote_def(self, ast):
+        ic("footnote def", ast)
 
     @property
     def is_modified(self):
@@ -279,6 +284,7 @@ class Editor:
             self.ignore_modified_event = False
         if not self.is_modified:
             return
+        self.original_menubar_background = self.menubar.cget("background")
         self.menubar.configure(background=constants.MODIFIED_COLOR)
         self.main.flag_treeview_entry(self.filepath, modified=True)
 
@@ -331,7 +337,7 @@ class Editor:
             return
         self.main.move_file_to_archive(self.filepath)
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
-        self.menubar.configure(background="#d9d9d9")
+        self.menubar.configure(background=self.original_menubar_background)
         self.info_update()
         self.main.flag_treeview_entry(self.filepath, modified=False)
         self.ignore_modified_event = True
@@ -346,7 +352,7 @@ class Editor:
                 try:
                     method = getattr(self, f"save_{item[0]}")
                 except AttributeError:
-                    ic("Could not handle", item)
+                    ic("Could not handle item", item)
                 else:
                     method(item)
             self.outfile = None
