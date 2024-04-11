@@ -7,9 +7,9 @@ import shutil
 
 import tkinter as tk
 from tkinter import ttk
-from tkinter import filedialog as tk_filedialog
 from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
+from tkinter import font as tk_font
 
 from icecream import ic
 
@@ -18,7 +18,7 @@ import editor
 import utils
 import help_text
 
-VERSION = (0, 2, 1)
+VERSION = (0, 2, 3)
 
 
 class Main:
@@ -39,6 +39,7 @@ class Main:
         self.links_lookup = dict()
 
         self.root = tk.Tk()
+        constants.FONT_FAMILIES = frozenset(tk_font.families())
         self.root.title(os.path.basename(dirpath))
         self.root.geometry(self.configuration["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
@@ -50,8 +51,9 @@ class Main:
 
         self.menubar = tk.Menu(self.root)
         self.root["menu"] = self.menubar
+        assert constants.FONT_FAMILY_NORMAL in constants.FONT_FAMILIES
         self.menubar.add_command(label="Au",
-                                 font=(constants.FONT_FAMILY, 14, "bold"),
+                                 font=(constants.FONT_FAMILY_NORMAL, 14, "bold"),
                                  background="gold")
 
         self.menu_file = tk.Menu(self.menubar)
@@ -61,6 +63,9 @@ class Main:
                                    accelerator="Ctrl-S")
         self.root.bind("<Control-s>", self.save_configuration)
         self.menu_file.add_command(label="Save texts", command=self.save_texts)
+        self.menu_file.add_separator()
+        self.menu_file.add_command(label="Create DOCX", command=self.docx)
+        self.menu_file.add_command(label="Create PDF", command=self.pdf)
         self.menu_file.add_separator()
         self.menu_file.add_command(label="Quit", command=self.quit)
 
@@ -77,6 +82,7 @@ class Main:
         self.menu_edit.add_command(label="Create text",
                                    command=self.create_text,
                                    accelerator="Ctrl-N")
+        self.menu_edit.add_command(label="Copy text", command=self.copy_text)
         self.menu_edit.add_command(label="Delete text", command=self.delete_text)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Move item up",
@@ -184,36 +190,36 @@ class Main:
             texts[filename] = dict()
 
         # Set up the treeview display.
-        first = None
+        first = True
         for filepath in texts:
-            if first is None:
-                first = filepath
-            self.add_treeview_entry(filepath)
-        if first:
-            self.treeview.selection_set(first)
-            self.treeview.focus(first)
+            self.add_treeview_entry(filepath, set_selection=first)
+            if first:
+                first = False
 
-    def add_treeview_entry(self, filepath):
-        section, filename = os.path.split(filepath)
-        name, ext = os.path.splitext(filename)
-        absfilepath = os.path.join(self.absdirpath, filepath)
+    def add_treeview_entry(self, itempath, set_selection=False):
+        section, itemname = os.path.split(itempath)
+        name, ext = os.path.splitext(itemname)
+        absitempath = os.path.join(self.absdirpath, itempath)
         if ext == ".md":
             self.treeview.insert(section,
                                  tk.END,
-                                 iid=filepath,
+                                 iid=itempath,
                                  text=name,
-                                 tags=(filepath, ),
-                                 values=("?", utils.get_timestamp(absfilepath)))
-            self.treeview.tag_bind(filepath,
+                                 tags=(itempath, ),
+                                 values=("?", utils.get_timestamp(absitempath)))
+            self.treeview.tag_bind(itempath,
                                    "<Double-Button-1>",
-                                   functools.partial(self.open_text, filepath=filepath))
-            self.texts[filepath] = dict()
-        elif os.path.isdir(absfilepath):
+                                   functools.partial(self.open_text, filepath=itempath))
+            self.texts[itempath] = dict()
+        elif os.path.isdir(absitempath):
             self.treeview.insert(section,
                                  tk.END,
-                                 iid=filepath,
+                                 iid=itempath,
                                  text=name,
-                                 tags=("section", filepath))
+                                 tags=("section", itempath))
+        if set_selection:
+            self.treeview.see(itempath)
+            self.treeview.selection_set(itempath)
 
     def flag_treeview_entry(self, filepath, modified=True):
         tags = set(self.treeview.item(filepath, "tags"))
@@ -224,58 +230,7 @@ class Main:
         self.treeview.item(filepath, tags=tuple(tags))
 
     def rename_section(self):
-        pass
-
-    def rename_text(self, parent=None, oldpath=None):
-        "Rename text; to be called via menu entry."
-        if oldpath is None:
-            try:
-                oldpath = self.treeview.selection()[0]
-            except IndexError:
-                return
-        section, oldname = os.path.split(oldpath)
-        oldname, ext = os.path.splitext(oldname)
-        if ext != ".md":
-            tk_messagebox.showerror(title="Error",
-                                    message="Selected item is no a text.")
-            return
-        oldabspath = os.path.join(self.absdirpath, oldpath)
-        newname = self.get_newname(parent=parent)
-        newname = os.path.splitext(newname)[0]
-        newpath = os.path.join(section, newname)
-        newpath += ".md"
-        self.texts[newpath] = self.texts.pop(oldpath)
-        index = self.treeview.index(oldpath)
-        values = self.treeview.item(oldpath, "values")
-        selected = self.treeview.selection()
-        self.treeview.delete(oldpath)
-        self.treeview.insert(
-            section,
-            index,
-            iid=newpath,
-            text=newname,
-            tags=(newpath, ),
-            values=values)
-        self.treeview.tag_bind(
-            newpath,
-            "<Double-Button-1>",
-            functools.partial(self.open_text, filepath=newpath))
-        try:
-            ed = self.texts[newpath]["editor"]
-        except KeyError:
-            pass
-        else:
-            ed.toplevel.title(os.path.join(section, newname))
-            ed.filepath = newpath
-        os.rename(os.path.join(self.absdirpath, oldpath),
-                  os.path.join(self.absdirpath, newpath))
-        self.save_configuration()
-
-    def get_newname(self, parent=None):
-        return tk_simpledialog.askstring(
-            parent=parent or self.root,
-            title="New name",
-            prompt="Give the new name for the item:")
+        ic("'rename_section' not implemented")
 
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
@@ -327,8 +282,8 @@ class Main:
             if os.path.exists(newabspath):
                 tk_messagebox.showerror(
                     parent=self.root,
-                    title="Error",
-                    message="Cannot move item into section; name collision.")
+                    title="Name exists",
+                    message="Cannot move item into section; name already exists.")
                 return
 
             # This works for both text file and section directory.
@@ -384,8 +339,8 @@ class Main:
             if os.path.exists(newabspath):
                 tk_messagebox.showerror(
                     parent=self.root,
-                    title="Error",
-                    message="Cannot move item out of section; name collision.")
+                    title="Name exists",
+                    message="Cannot move item out of section; name already exists.")
                 return
             os.rename(os.path.join(self.absdirpath, oldpath), newabspath)
             # Move text file.
@@ -417,41 +372,39 @@ class Main:
         finally:
             return "break"
 
-    def move_to_subtree(self, oldpath, newpath):
-        pass
-
     def create_section(self):
-        dirpath = tk_filedialog.askdirectory(
+        try:
+            dirpath = self.treeview.selection()[0]
+            absdirpath = os.path.join(self.absdirpath, dirpath)
+        except IndexError:
+            absdirpath = self.absdirpath
+        if os.path.isfile(absdirpath):
+            absdirpath = os.path.split(absdirpath)[0]
+            dirpath = absdirpath[len(self.absdirpath)+1:]
+        name = tk_simpledialog.askstring(
             parent=self.root,
-            title="Create section directory",
-            initialdir=self.absdirpath)
-        if not dirpath:
+            title="New section",
+            prompt=f"Give name of new section within section '{dirpath}':")
+        if not name:
             return
-        if not dirpath.startswith(self.absdirpath):
+        name = os.path.splitext(name)[0]
+        dirpath = os.path.join(dirpath, name)
+        absdirpath = os.path.normpath(os.path.join(self.absdirpath, dirpath))
+        if not absdirpath.startswith(self.absdirpath):
             tk_messagebox.showerror(
                 parent=self.root,
                 title="Wrong directory",
-                message=f"Must be subdirectory of '{self.absdirpath}'.")
+                message=f"Must be within '{self.absdirpath}'")
             return
-        subdirpath = dirpath[len(self.absdirpath)+1:]
-        if os.path.isdir(dirpath):
+        if os.path.exists(absdirpath):
             tk_messagebox.showerror(
                 parent=self.root,
-                title="Already exists",
-                message=f"The section name '{subdirpath}' is already in use.")
+                title="Name exists",
+                message=f"The section '{dirpath}' already exists.")
             return
-        if os.path.splitext(dirpath)[1]:
-            tk_messagebox.showerror(
-                parent=self.root,
-                title="Contains extension",
-                message=f"The section name '{subdirpath}' may not contain an extension.")
-            return
-        os.makedirs(dirpath)
-        self.treeview.insert(os.path.split(subdirpath)[0],
-                             tk.END,
-                             iid=dirpath,
-                             text=os.path.basename(subdirpath),
-                             tags=("section", dirpath,))
+
+        os.makedirs(absdirpath)
+        self.add_treeview_entry(dirpath, set_selection=True)
 
     def delete_section(self):
         selection = self.treeview.selection()
@@ -510,47 +463,124 @@ class Main:
         self.treeview.see(filepath)
         ed.text.focus_set()
 
+    def rename_text(self, parent=None, oldpath=None):
+        "Rename text; to be called via menu entry."
+        if oldpath is None:
+            try:
+                oldpath = self.treeview.selection()[0]
+            except IndexError:
+                return
+        section, oldname = os.path.split(oldpath)
+        oldname, ext = os.path.splitext(oldname)
+        if ext != ".md":
+            tk_messagebox.showerror(title="Error",
+                                    message="Selected item is not a text.")
+            return
+        oldabspath = os.path.join(self.absdirpath, oldpath)
+        newname = tk_simpledialog.askstring(
+            parent=parent,
+            title="New name",
+            prompt="Give the new name for the text:")
+        newname = os.path.splitext(newname)[0]
+        newpath = os.path.join(section, newname)
+        newpath += ".md"
+        self.texts[newpath] = self.texts.pop(oldpath)
+        index = self.treeview.index(oldpath)
+        values = self.treeview.item(oldpath, "values")
+        selected = self.treeview.selection()
+        self.treeview.delete(oldpath)
+        self.treeview.insert(
+            section,
+            index,
+            iid=newpath,
+            text=newname,
+            tags=(newpath, ),
+            values=values)
+        self.treeview.tag_bind(
+            newpath,
+            "<Double-Button-1>",
+            functools.partial(self.open_text, filepath=newpath))
+        try:
+            ed = self.texts[newpath]["editor"]
+        except KeyError:
+            pass
+        else:
+            ed.toplevel.title(os.path.join(section, newname))
+            ed.filepath = newpath
+        os.rename(os.path.join(self.absdirpath, oldpath),
+                  os.path.join(self.absdirpath, newpath))
+        self.save_configuration()
+
     def create_text(self, event=None):
         try:
             dirpath = self.treeview.selection()[0]
             absdirpath = os.path.join(self.absdirpath, dirpath)
-            if not os.path.isdir(absdirpath):
-                raise ValueError
-        except (IndexError, ValueError):
+        except IndexError:
             absdirpath = self.absdirpath
-        filepath = tk_filedialog.asksaveasfilename(
+        if os.path.isfile(absdirpath):
+            absdirpath = os.path.split(absdirpath)[0]
+            dirpath = absdirpath[len(self.absdirpath)+1:]
+        name = tk_simpledialog.askstring(
             parent=self.root,
-            title="Create text file",
-            initialdir=absdirpath,
-            filetypes=[("Markdown files", "*.md")],
-            defaultextension=".md",
-            confirmoverwrite=False)
-        if not filepath:
+            title="New text",
+            prompt=f"Give name of new text within section '{dirpath}':")
+        if not name:
             return
-        if not filepath.startswith(self.absdirpath):
+        name = os.path.splitext(name)[0]
+        filepath = os.path.join(dirpath, name + ".md")
+        absfilepath = os.path.normpath(os.path.join(self.absdirpath, filepath))
+        if not absfilepath.startswith(self.absdirpath):
             tk_messagebox.showerror(
                 parent=self.root,
                 title="Wrong directory",
-                message=f"Must be (subdirectory of) {self.absdirpath}")
+                message=f"Must be within '{self.absdirpath}'")
             return
-        if os.path.splitext(filepath)[1] != ".md":
+        if os.path.exists(absfilepath):
             tk_messagebox.showerror(
                 parent=self.root,
-                title="Wrong extension",
-                message="File extension must be '.md'.")
-            return
-        if os.path.exists(filepath):
-            tk_messagebox.showerror(
-                parent=self.root,
-                title="Exists",
-                message=f"The text file '{filepath}'  already exists.")
+                title="Name exists",
+                message=f"The text '{filepath}' already exists.")
             return
             
-        with open(filepath, "w") as outfile:
+        with open(absfilepath, "w") as outfile:
             pass                # Empty file
-        filepath = filepath[len(self.absdirpath)+1:]
-        self.add_treeview_entry(filepath)
+        self.add_treeview_entry(filepath, set_selection=True)
         self.open_text(filepath=filepath)
+
+    def copy_text(self):
+        try:
+            filepath = self.treeview.selection()[0]
+            absfilepath = os.path.join(self.absdirpath, filepath)
+        except IndexError:
+            return
+        dirpath, filename = os.path.split(filepath)
+        if not os.path.isfile(absfilepath):
+            tk_messagebox.showerror(
+                parent=self.root,
+                title="Not text",
+                message=f"The selected item '{filepath}' is not a text.")
+            return
+        dirpath, filename = os.path.split(filepath)
+        newfilename = f"Copy of {filename}"
+        newfilepath = os.path.join(dirpath, newfilename)
+        newabsfilepath = os.path.join(self.absdirpath, newfilepath)
+        if os.path.exists(newabsfilepath):
+            counter = 1
+            while counter < 100:
+                counter += 1
+                newfilename = f"Copy {counter} of {filename}"
+                newfilepath = os.path.join(dirpath, newfilename)
+                newabsfilepath = os.path.join(self.absdirpath, newfilepath)
+                if not os.path.exists(newabsfilepath):
+                    break
+                else:
+                    tk_messagebox.showerror(
+                        parent=self.root,
+                        title="Name exists",
+                        message=f"Could not generate a unique name.")
+                    return
+        shutil.copy(absfilepath, newabsfilepath)
+        self.add_treeview_entry(newfilepath)
 
     def delete_text(self, filepath=None, force=False):
         if filepath is None:
@@ -619,6 +649,12 @@ class Main:
                 self.configuration["texts"][filepath] = editor.get_configuration()
         with open(self.configurationpath, "w") as outfile:
             json.dump(self.configuration, outfile, indent=2)
+
+    def docx(self):
+        ic("'Create DOCX' not implemented")
+
+    def pdf(self):
+        ic("'Create PDF' not implemented")
 
     def quit(self, event=None):
         for text in self.texts.values():

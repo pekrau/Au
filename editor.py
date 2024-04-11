@@ -7,7 +7,6 @@ import webbrowser
 
 import tkinter as tk
 from tkinter import ttk
-from tkinter import filedialog as tk_filedialog
 from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
 
@@ -42,7 +41,7 @@ class Editor:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Create copy...", command=self.save_as)
+        self.menu_file.add_command(label="Copy", command=self.copy)
         self.menu_file.add_command(label="Save",
                                    command=self.save,
                                    accelerator="Ctrl-S")
@@ -60,9 +59,10 @@ class Editor:
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
         self.menu_edit.add_command(label="Rename", command=self.rename)
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Link", command=self.link)
-        self.menu_edit.add_command(label="Bold", command=self.bold)
-        self.menu_edit.add_command(label="Italic", command=self.italic)
+        self.menu_edit.add_command(label="Link", command=self.set_link)
+        self.menu_edit.add_command(label="Bold", command=self.set_bold)
+        self.menu_edit.add_command(label="Italic", command=self.set_italic)
+        self.menu_edit.add_command(label="Quote", command=self.set_quote)
 
         self.text_frame= ttk.Frame(self.toplevel, padding=4)
         self.text_frame.pack(fill=tk.BOTH, expand=1)
@@ -73,7 +73,7 @@ class Editor:
                             width=constants.DEFAULT_TEXT_WIDTH,
                             height=constants.DEFAULT_TEXT_HEIGHT,
                             padx=10,
-                            font=constants.FONT_NORMAL,
+                            font=constants.FONT_FAMILY_NORMAL,
                             wrap=tk.WORD,
                             spacing1=4,
                             spacing2=8)
@@ -107,6 +107,15 @@ class Editor:
         self.italic_start = None
         self.text.tag_configure("bold", font=constants.FONT_BOLD)
         self.bold_start = None
+        assert constants.FONT_FAMILY_QUOTE in constants.FONT_FAMILIES
+        self.text.tag_configure("quote",
+                                lmargin1=constants.QUOTE_LEFT_INDENT,
+                                lmargin2=constants.QUOTE_LEFT_INDENT,
+                                rmargin=constants.QUOTE_RIGHT_INDENT,
+                                spacing1=0,
+                                spacing2=0,
+                                font=constants.FONT_FAMILY_QUOTE)
+        self.quote_start = None
 
         self.links = Links(self)
 
@@ -115,7 +124,7 @@ class Editor:
         with open(path) as infile:
             markdown_text = infile.read()
         ast = utils.get_markdown_to_ast(markdown_text)
-        ic(ast)
+        # ic(ast)
         self.parse(ast)
         self.info_update()
 
@@ -132,8 +141,6 @@ class Editor:
     def key_press(self, event):
         if event.char in constants.AFFECTS_CHARACTER_COUNT:
             self.info_update(size_only=True)
-        else:
-            ic(event)
 
     def get_configuration(self):
         return dict(geometry=self.toplevel.geometry())
@@ -149,7 +156,15 @@ class Editor:
         self.text.mark_set(tk.INSERT, tk.END)
         self.text.see(tk.END)
 
-    def link(self):
+    def set_bold(self):
+        try:
+            self.text.tag_add("bold", tk.SEL_FIRST, tk.SEL_LAST)
+            self.ignore_modified_event = True
+            self.text.edit_modified(True)
+        except tk.TclError:
+            pass
+
+    def set_link(self):
         try:
             first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
@@ -170,17 +185,17 @@ class Editor:
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
-    def bold(self):
+    def set_italic(self):
         try:
-            self.text.tag_add("bold", tk.SEL_FIRST, tk.SEL_LAST)
+            self.text.tag_add("italic", tk.SEL_FIRST, tk.SEL_LAST)
             self.ignore_modified_event = True
             self.text.edit_modified(True)
         except tk.TclError:
             pass
 
-    def italic(self):
+    def set_quote(self):
         try:
-            self.text.tag_add("italic", tk.SEL_FIRST, tk.SEL_LAST)
+            self.text.tag_add("quote", tk.SEL_FIRST, tk.SEL_LAST)
             self.ignore_modified_event = True
             self.text.edit_modified(True)
         except tk.TclError:
@@ -239,6 +254,12 @@ class Editor:
             self.parse(child)
         self.links.add(ast, link_start, tk.INSERT)
         
+    def parse_quote(self, ast):
+        self.quote_start = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.parse(child)
+        self.text.tag_add("quote", self.quote_start, self.text.index(tk.INSERT))
+
     @property
     def is_modified(self):
         return self.text.edit_modified()
@@ -259,7 +280,7 @@ class Editor:
         if not self.is_modified:
             return
         self.menubar.configure(background=constants.MODIFIED_COLOR)
-        self.main.flag_treeview_entry(self.filepath)
+        self.main.flag_treeview_entry(self.filepath, modified=True)
 
     def delete(self):
         if not tk_messagebox.askokcancel(
@@ -283,102 +304,116 @@ class Editor:
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
 
-    def save_as(self, event=None):
+    def copy(self, event=None, parent=None):
         dirpath = os.path.split(self.filepath)[0]
         initialdir = os.path.join(self.main.absdirpath, dirpath)
-        filepath = tk_filedialog.asksaveasfilename(
-            parent=self.toplevel,
-            title="Save text as...",
-            initialdir=initialdir,
-            filetypes=[("Markdown files", "*.md")],
-            defaultextension=".md")
-        if not filepath:
+        name = tk_simpledialog.askstring(
+            parent=parent or self.toplevel,
+            title="Copy name",
+            prompt="Give the name for the copy:")
+        if not name:
             return
-        if not filepath.startswith(self.main.absdirpath):
+        name = os.path.splitext(name)[0]
+        filepath = os.path.join(dirpath, name + ".md")
+        absfilepath = os.path.normpath(os.path.join(self.main.absdirpath, filepath))
+        if not absfilepath.startswith(self.main.absdirpath):
             tk_messagebox.showerror(
-                parent=self.toplevel,
+                parent=parent or self.toplevel,
                 title="Wrong directory",
-                message=f"Must be (subdirectory of) {self.main.absdirpath}")
+                message=f"Must be within {self.main.absdirpath}")
             return
-        if os.path.splitext(filepath)[1] != ".md":
-            tk_messagebox.showerror(
-                parent=self.toplevel,
-                title="Wrong extension",
-                message="File extension must be '.md'.")
-            return
-        self.write_file(filepath)
-        self.main.add_treeview_entry(filepath[len(self.main.absdirpath)+1:])
+        self.write_file(absfilepath)
+        self.main.add_treeview_entry(filepath)
         self.main.open_text(filepath=filepath)
 
     def save(self, event=None):
         if not self.is_modified:
             return
-        self.current_link_tag = None
         self.main.move_file_to_archive(self.filepath)
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
         self.menubar.configure(background="#d9d9d9")
         self.info_update()
-        self.main.flag_treeview_entry(self.filepath, False)
+        self.main.flag_treeview_entry(self.filepath, modified=False)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
     def write_file(self, filepath):
+        self.current_link_tag = None
+        self.line_indents = []
         with open(filepath, "w") as outfile:
+            self.outfile = outfile
             for item in self.text.dump("1.0", tk.END):
                 try:
                     method = getattr(self, f"save_{item[0]}")
                 except AttributeError:
                     ic("Could not handle", item)
                 else:
-                    method(outfile, item)
+                    method(item)
+            self.outfile = None
 
-    def save_text(self, outfile, item):
-        outfile.write(item[1])
+    def write_characters(self, characters):
+        if characters == "\n":
+            return
+        segments = characters.split("\n")
+        for segment in segments:
+            self.outfile.write("".join(self.line_indents))
+            self.outfile.write(segment)
+            self.outfile.write("\n")
 
-    def save_tagon(self, outfile, item):
+    def save_text(self, item):
+        self.write_characters(item[1])
+
+    def save_tagon(self, item):
         try:
             method = getattr(self, f"save_tagon_{item[1]}")
         except AttributeError:
             pass
         else:
-            method(outfile, item)
+            method(item)
 
-    def save_tagon_italic(self, outfile, item):
-        outfile.write("*")
-
-    def save_tagon_bold(self, outfile, item):
-        outfile.write("**")
-
-    def save_tagon_link(self, outfile, item):
-        for tag in self.text.tag_names(item[2]):
-            if tag.startswith("link-"):
-                self.current_link_tag = tag
-                outfile.write("[")
-                return
-
-    def save_tagoff(self, outfile, item):
+    def save_tagoff(self, item):
         try:
             method = getattr(self, f"save_tagoff_{item[1]}")
         except AttributeError:
             pass
         else:
-            method(outfile, item)
+            method(item)
 
-    def save_tagoff_italic(self, outfile, item):
-        outfile.write("*")
+    def save_tagon_italic(self, item):
+        self.write_characters("*")
 
-    def save_tagoff_bold(self, outfile, item):
-        outfile.write("**")
+    def save_tagoff_italic(self, item):
+        self.write_characters("*")
 
-    def save_tagoff_link(self, outfile, item):
+    def save_tagon_bold(self, item):
+        self.write_characters("**")
+
+    def save_tagoff_bold(self, item):
+        self.write_characters("**")
+
+    def save_tagon_link(self,item):
+        for tag in self.text.tag_names(item[2]):
+            if tag.startswith("link-"):
+                self.current_link_tag = tag
+                self.write_characters("[")
+                return
+
+    def save_tagoff_link(self, item):
         link = self.links.get_link(self.current_link_tag)
         if link["title"]:
-            outfile.write(f"""]({link['url']} "{link['title']}")""")
+            self.write_characters(f"""]({link['url']} "{link['title']}")""")
         else:
-            outfile.write(f"]({link['url']})")
+            self.write_characters(f"]({link['url']})")
         self.current_link_tag = None
 
-    def save_mark(self, outfile, item):
+    def save_tagon_quote(self, item):
+        self.line_indents.append("> ")
+
+    def save_tagoff_quote(self, item):
+        self.line_indents.pop()
+        self.outfile.write("\n")
+
+    def save_mark(self, item):
         pass
 
 
