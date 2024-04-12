@@ -232,7 +232,6 @@ class Main:
 
         # Set up the treeview display.
         first = True
-        ic(texts)
         for path in texts:
             self.add_treeview_entry(path, set_selection=first)
             if first:
@@ -244,7 +243,7 @@ class Main:
         absitempath = os.path.join(self.absdirpath, itempath)
         if ext == ".md":
             try:
-                size = f"~{os.path.getsize(absitempath)}"
+                size = f"~{utils.get_size(absitempath)}"
                 timestamp = utils.get_time(absitempath)
             except OSError:
                 size = "?"
@@ -337,8 +336,12 @@ class Main:
                     message="Cannot move item into section; name already exists.")
                 return
 
+            # This works for both text file and section directory.
+            ic(oldabspath, newabspath)
+            os.rename(oldabspath, newabspath)
+
             # Move text file entry in treeview.
-            if os.path.isfile(oldabspath):
+            if os.path.isfile(newabspath):
                 self.texts[newpath] = self.texts.pop(oldpath)
                 try:
                     ed = self.texts[newpath]["editor"]
@@ -355,7 +358,7 @@ class Main:
                 self.treeview.focus(newpath)
 
             # Move section and its items into the given section.
-            elif os.path.isdir(oldabspath):
+            elif os.path.isdir(newabspath):
                 olddirpath = oldpath
                 newdirpath = newpath
                 ic("into section")
@@ -382,15 +385,11 @@ class Main:
                 self.treeview.focus(newdirpath)
 
             else:
-                ic("No such old item", oldabspath)
-
-            # This works for both text file and section directory.
-            ic(oldabspath, newabspath)
-            os.rename(oldabspath, newabspath)
+                ic("No such old item", newabspath)
 
             self.save_configuration()
-        # finally:
-        return "break"
+        finally:
+            return "break"
 
     def move_item_out_of_section(self, event=None):
         "Move the currently selected item up one level in the hierachy."
@@ -416,8 +415,12 @@ class Main:
                     message="Cannot move item out of section; name already exists.")
                 return
 
+            # This works for both text file and section directory.
+            ic(oldabspath, newabspath)
+            os.rename(oldabspath, newabspath)
+
             # Move text file entry in treeview.
-            if os.path.isfile(oldabspath):
+            if os.path.isfile(newabspath):
                 self.texts[newpath] = self.texts.pop(oldpath)
                 try:
                     self.texts[newpath]["editor"].rename(newpath)
@@ -431,7 +434,7 @@ class Main:
                 self.treeview.focus(newpath)
 
             # Move section and its items out of the current section in treeview.
-            elif os.path.isdir(oldabspath):
+            elif os.path.isdir(newabspath):
                 olddirpath = oldpath
                 newdirpath = newpath
                 ic("out of section")
@@ -458,15 +461,11 @@ class Main:
                 self.treeview.focus(newdirpath)
 
             else:
-                ic("No such old item", oldabspath)
-
-            # This works for both text file and section directory.
-            ic(oldabspath, newabspath)
-            os.rename(oldabspath, newabspath)
+                ic("No such old item", newabspath)
 
             self.save_configuration()
-        # finally:
-        return "break"
+        finally:
+            return "break"
 
     def rename_section(self, parent=None):
         ic("'rename_section' not implemented")
