@@ -1,5 +1,7 @@
 "Text editor window."
 
+from icecream import ic
+
 import collections
 import json
 import os
@@ -9,8 +11,6 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
-
-from icecream import ic
 
 import constants
 import utils
@@ -260,10 +260,12 @@ class Editor:
         self.text.tag_add("quote", self.quote_start, self.text.index(tk.INSERT))
 
     def parse_footnote_ref(self, ast):
-        ic("footnote ref", ast)
+        # ic("footnote ref", ast)
+        ic("footnote ref")
 
     def parse_footnote_def(self, ast):
-        ic("footnote def", ast)
+        # ic("footnote def", ast)
+        ic("footnote def")
 
     @property
     def is_modified(self):

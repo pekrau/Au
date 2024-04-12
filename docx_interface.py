@@ -1,8 +1,9 @@
 "DOCX document I/O."
 
+from icecream import ic
+
 import os.path
 
-from icecream import ic
 import docx
 
 import constants
@@ -50,10 +51,20 @@ class Writer:
         except AttributeError:
             ic("Could not handle ast", ast)
         else:
-            ic("parse", ast["element"])
             method(ast)
 
     def parse_document(self, ast):
         self.prev_blank_line = False
         for child in ast["children"]:
             self.parse(child)
+
+    def parse_paragraph(self, ast):
+        self.paragraph = self.document.add_paragraph()
+        for child in ast["children"]:
+            self.parse(child)
+
+    def parse_raw_text(self, ast):
+        line = ast["children"]
+        if line[-1] == "\n":
+            line[-1] = " "
+        self.paragraph.add_run(line)

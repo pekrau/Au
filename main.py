@@ -1,5 +1,7 @@
 "Authoring editor based on Tkinter."
 
+from icecream import ic
+
 import functools
 import json
 import os
@@ -11,15 +13,13 @@ from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
 from tkinter import font as tk_font
 
-from icecream import ic
-
 import constants
 import editor
 import utils
 import help_text
 import docx_interface
 
-VERSION = (0, 3, 0)
+VERSION = (0, 3, 1)
 
 
 class Main:
@@ -232,32 +232,41 @@ class Main:
 
         # Set up the treeview display.
         first = True
-        for filepath in texts:
-            self.add_treeview_entry(filepath, set_selection=first)
+        ic(texts)
+        for path in texts:
+            self.add_treeview_entry(path, set_selection=first)
             if first:
                 first = False
 
-    def add_treeview_entry(self, itempath, set_selection=False):
-        section, itemname = os.path.split(itempath)
+    def add_treeview_entry(self, itempath, set_selection=False, index=None):
+        dirpath, itemname = os.path.split(itempath)
         name, ext = os.path.splitext(itemname)
         absitempath = os.path.join(self.absdirpath, itempath)
         if ext == ".md":
-            self.treeview.insert(section,
-                                 tk.END,
+            try:
+                size = f"~{os.path.getsize(absitempath)}"
+                timestamp = utils.get_time(absitempath)
+            except OSError:
+                size = "?"
+                timestamp = "?"
+            self.treeview.insert(dirpath,
+                                 index or tk.END,
                                  iid=itempath,
                                  text=name,
                                  tags=(itempath, ),
-                                 values=("?", utils.get_time(absitempath)))
+                                 values=(size, timestamp))
             self.treeview.tag_bind(itempath,
                                    "<Double-Button-1>",
                                    functools.partial(self.open_text, filepath=itempath))
             self.texts[itempath] = dict()
-        elif os.path.isdir(absitempath):
-            self.treeview.insert(section,
-                                 tk.END,
+        elif not ext:
+            self.treeview.insert(dirpath,
+                                 index or tk.END,
                                  iid=itempath,
                                  text=name,
                                  tags=("section", itempath))
+        else:
+            ic(ext)
         if set_selection:
             self.treeview.see(itempath)
             self.treeview.selection_set(itempath)
@@ -305,18 +314,20 @@ class Main:
         return "break"
 
     def move_item_into_section(self, event=None):
-        "Move the currently selected item down one level in the treeview."
+        "Move the currently selected item down one level in hierarchy."
         try:
             oldpath = self.treeview.selection()[0]
         except IndexError:
             pass
         else:
             prevpath = self.treeview.prev(oldpath)
-            if not prevpath:    # This item is first.
+            if not prevpath:    # This item is first; no section to move into.
                 return
             dirpath, ext = os.path.splitext(prevpath)
-            if ext:             # Previous item is a text, not a section.
+            if ext:             # Previous item is a text; no section to move into.
                 return
+
+            oldabspath = os.path.join(self.absdirpath, oldpath)
             newpath = os.path.join(dirpath, os.path.basename(oldpath))
             newabspath = os.path.join(self.absdirpath, newpath)
             if os.path.exists(newabspath):
@@ -326,11 +337,8 @@ class Main:
                     message="Cannot move item into section; name already exists.")
                 return
 
-            # This works for both text file and section directory.
-            os.rename(os.path.join(self.absdirpath, oldpath), newabspath)
-
-            # Move text file.
-            if os.path.isfile(newabspath):
+            # Move text file entry in treeview.
+            if os.path.isfile(oldabspath):
                 self.texts[newpath] = self.texts.pop(oldpath)
                 try:
                     ed = self.texts[newpath]["editor"]
@@ -339,30 +347,53 @@ class Main:
                 else:
                     ed.filepath = newpath
                     ed.toplevel.title(os.path.splitext(newpath)[0])
-                self.treeview.insert(
-                    dirpath,
-                    tk.END,
-                    iid=newpath,
-                    text=os.path.splitext(os.path.split(newpath)[1])[0],
-                    tags=(newpath, ),
-                    values=("?", utils.get_time(newabspath)))
-                self.treeview.tag_bind(
-                    newpath,
-                    "<Double-Button-1>",
-                    functools.partial(self.open_text, filepath=newpath))
-            # XXX Move section and its items.
+                self.treeview.delete(oldpath)
+                self.add_treeview_entry(newpath)
+
+                self.treeview.selection_set(newpath)
+                self.treeview.see(newpath)
+                self.treeview.focus(newpath)
+
+            # Move section and its items into the given section.
+            elif os.path.isdir(oldabspath):
+                olddirpath = oldpath
+                newdirpath = newpath
+                ic("into section")
+                children = self.get_all_items(olddirpath)
+                # This removes all children entries in the treeview.
+                self.treeview.delete(olddirpath)
+                self.add_treeview_entry(newdirpath)
+
+                for oldpath in children:
+                    self.texts[newpath] = self.texts.pop(oldpath)
+                    try:
+                        ed = self.texts[newpath]["editor"]
+                    except KeyError:
+                        pass
+                    else:
+                        ed.filepath = newpath
+                        ed.toplevel.title(os.path.splitext(newpath)[0])
+                    newpath = os.path.join(newdirpath, oldpath[len(olddirpath)+1:])
+                    ic(oldpath, newpath)
+                    self.add_treeview_entry(newpath)
+
+                self.treeview.selection_set(newdirpath)
+                self.treeview.see(newdirpath)
+                self.treeview.focus(newdirpath)
+
             else:
-                ic("move dir and change all its children")
-            self.treeview.delete(oldpath)
-            self.treeview.selection_set(newpath)
-            self.treeview.see(newpath)
-            self.treeview.focus(newpath)
+                ic("No such old item", oldabspath)
+
+            # This works for both text file and section directory.
+            ic(oldabspath, newabspath)
+            os.rename(oldabspath, newabspath)
+
             self.save_configuration()
-        finally:
-            return "break"
+        # finally:
+        return "break"
 
     def move_item_out_of_section(self, event=None):
-        "Move the currently selected item up one level in the treeview."
+        "Move the currently selected item up one level in the hierachy."
         try:
             oldpath = self.treeview.selection()[0]
         except IndexError:
@@ -372,8 +403,10 @@ class Main:
             # Already at top level.
             if not parent:
                 return
+
             parentindex = self.treeview.index(parent)
             superparent = os.path.split(parent)[0]
+            oldabspath = os.path.join(self.absdirpath, oldpath)
             newpath = os.path.join(superparent, filename)
             newabspath = os.path.join(self.absdirpath, newpath)
             if os.path.exists(newabspath):
@@ -382,35 +415,58 @@ class Main:
                     title="Name exists",
                     message="Cannot move item out of section; name already exists.")
                 return
-            os.rename(os.path.join(self.absdirpath, oldpath), newabspath)
-            # Move text file.
-            if os.path.isfile(newabspath):
+
+            # Move text file entry in treeview.
+            if os.path.isfile(oldabspath):
                 self.texts[newpath] = self.texts.pop(oldpath)
                 try:
                     self.texts[newpath]["editor"].rename(newpath)
                 except KeyError:
                     pass
-                self.treeview.insert(superparent,
-                                     parentindex+1,
-                                     iid=newpath,
-                                     text=os.path.splitext(filename)[0],
-                                     tags=(newpath, ),
-                                     values=("?", utils.get_time(newabspath)))
-                
-                self.treeview.tag_bind(
-                    newpath,
-                    "<Double-Button-1>",
-                    functools.partial(self.open_text, filepath=newpath))
-            # XXX Move section and its items.
+                self.treeview.delete(oldpath)
+                self.add_treeview_entry(newpath, index=parentindex+1)
+
+                self.treeview.selection_set(newpath)
+                self.treeview.see(newpath)
+                self.treeview.focus(newpath)
+
+            # Move section and its items out of the current section in treeview.
+            elif os.path.isdir(oldabspath):
+                olddirpath = oldpath
+                newdirpath = newpath
+                ic("out of section")
+                children = self.get_all_items(olddirpath)
+                # This removes all children entries in the treeview.
+                self.treeview.delete(olddirpath)
+                self.add_treeview_entry(newdirpath, index=parentindex+1)
+
+                for oldpath in children:
+                    self.texts[newpath] = self.texts.pop(oldpath)
+                    try:
+                        ed = self.texts[newpath]["editor"]
+                    except KeyError:
+                        pass
+                    else:
+                        ed.filepath = newpath
+                        ed.toplevel.title(os.path.splitext(newpath)[0])
+                    newpath = os.path.join(newdirpath, oldpath[len(olddirpath)+1:])
+                    ic(oldpath, newpath)
+                    self.add_treeview_entry(newpath)
+
+                self.treeview.selection_set(newdirpath)
+                self.treeview.see(newdirpath)
+                self.treeview.focus(newdirpath)
+
             else:
-                ic("move dir and change all its children")
-            self.treeview.delete(oldpath)
-            self.treeview.selection_set(newpath)
-            self.treeview.see(newpath)
-            self.treeview.focus(newpath)
+                ic("No such old item", oldabspath)
+
+            # This works for both text file and section directory.
+            ic(oldabspath, newabspath)
+            os.rename(oldabspath, newabspath)
+
             self.save_configuration()
-        finally:
-            return "break"
+        # finally:
+        return "break"
 
     def rename_section(self, parent=None):
         ic("'rename_section' not implemented")
@@ -537,7 +593,6 @@ class Main:
         newpath += ".md"
         self.texts[newpath] = self.texts.pop(oldpath)
         index = self.treeview.index(oldpath)
-        values = self.treeview.item(oldpath, "values")
         selected = self.treeview.selection()
         self.treeview.delete(oldpath)
         self.treeview.insert(
@@ -545,8 +600,7 @@ class Main:
             index,
             iid=newpath,
             text=newname,
-            tags=(newpath, ),
-            values=values)
+            tags=(newpath, ))
         self.treeview.tag_bind(
             newpath,
             "<Double-Button-1>",
@@ -692,8 +746,7 @@ class Main:
             self.configuration["help"] = dict()
         # Get the order of the texts as shown in the treeview.
         # This relies on the dictionary keeping the order of the items.
-        self.configuration["texts"] = dict([(f, dict()) 
-                                            for f in self.get_ordered_items()])
+        self.configuration["texts"] = dict([(p, dict()) for p in self.get_all_items()])
         for filepath, text in self.texts.items():
             try:
                 editor = text["editor"]
@@ -734,21 +787,17 @@ class Main:
                 pass
         self.root.destroy()
 
-    def get_ordered_items(self):
+    def get_all_items(self, parent=None):
         "Get the full names of all items in the treeview."
-        names = []
-        for name in self.treeview.get_children():
-            names.append(name)
-            names.extend(self.get_children(name))
-        return names
-
-    def get_children(self, parentname):
-        "Get the full names of all items recursively below the given parent."
-        names = []
-        for child in self.treeview.get_children(parentname):
-            names.append(child)
-            names.extend(self.get_children(child))
-        return names
+        result = []
+        if parent:
+            items = self.treeview.get_children(parent)
+        else:
+            items = self.treeview.get_children()
+        for path in items:
+            result.append(path)
+            result.extend(self.get_all_items(path))
+        return result
 
     def mainloop(self):
         self.root.mainloop()
