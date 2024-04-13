@@ -12,6 +12,12 @@ CONFIGURATION_FILENAME = ".configuration.json"
 HELP_FILENAME = ".help.md"
 ARCHIVE_DIRNAME = ".archive"
 
+BOLD = "bold"
+ITALIC = "italic"
+QUOTE = "quote"
+LINK = "link"
+LINK_PREFIX = "link-"
+
 FONT_FAMILY_NORMAL = "Arial"
 FONT_NORMAL_SIZE = 12
 FONT_LARGE_SIZE = 14

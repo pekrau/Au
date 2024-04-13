@@ -57,12 +57,17 @@ class Editor:
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Rename", command=self.rename)
+        self.menu_edit.add_command(label="Rename text", command=self.rename)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Link", command=self.set_link)
         self.menu_edit.add_command(label="Bold", command=self.set_bold)
         self.menu_edit.add_command(label="Italic", command=self.set_italic)
         self.menu_edit.add_command(label="Quote", command=self.set_quote)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Remove link", command=self.unset_link)
+        self.menu_edit.add_command(label="Remove bold", command=self.unset_bold)
+        self.menu_edit.add_command(label="Remove italic", command=self.unset_italic)
+        self.menu_edit.add_command(label="Remove quote", command=self.unset_quote)
 
         self.text_frame= ttk.Frame(self.toplevel, padding=4)
         self.text_frame.pack(fill=tk.BOTH, expand=1)
@@ -84,6 +89,18 @@ class Editor:
         self.text_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.text.configure(yscrollcommand=self.text_scroll_y.set)
 
+        self.menu_right_click = tk.Menu(self.text, tearoff=False)
+        self.menu_right_click.add_command(label="Link", command=self.set_link)
+        self.menu_right_click.add_command(label="Bold", command=self.set_bold)
+        self.menu_right_click.add_command(label="Italic", command=self.set_italic)
+        self.menu_right_click.add_command(label="Quote", command=self.set_quote)
+        self.menu_right_click.add_separator()
+        self.menu_right_click.add_command(label="Remove link", command=self.unset_link)
+        self.menu_right_click.add_command(label="Remove bold", command=self.unset_bold)
+        self.menu_right_click.add_command(label="Remove italic", command=self.unset_italic)
+        self.menu_right_click.add_command(label="Remove quote", command=self.unset_quote)
+        self.text.bind("<Button-3>", self.popup_menu_right_click)
+
         self.info_frame = ttk.Frame(self.toplevel, padding=4)
         self.info_frame.pack(fill=tk.X, expand=1)
         self.info_frame.rowconfigure(0, weight=1)
@@ -103,9 +120,9 @@ class Editor:
         title_label.grid(column=2, row=0, sticky=tk.W, padx=4)
         title_label["textvariable"] = self.title_var
 
-        self.text.tag_configure("italic", font=constants.FONT_ITALIC)
+        self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         self.italic_start = None
-        self.text.tag_configure("bold", font=constants.FONT_BOLD)
+        self.text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         self.bold_start = None
         assert constants.FONT_FAMILY_QUOTE in constants.FONT_FAMILIES
         self.text.tag_configure("quote",
@@ -137,6 +154,9 @@ class Editor:
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
+    def popup_menu_right_click(self, event):
+        self.menu_right_click.tk_popup(event.x_root, event.y_root)
+
     def key_press(self, event):
         if event.char in constants.AFFECTS_CHARACTER_COUNT:
             self.info_update(size_only=True)
@@ -155,22 +175,14 @@ class Editor:
         self.text.mark_set(tk.INSERT, tk.END)
         self.text.see(tk.END)
 
-    def set_bold(self):
-        try:
-            self.text.tag_add("bold", tk.SEL_FIRST, tk.SEL_LAST)
-            self.ignore_modified_event = True
-            self.text.edit_modified(True)
-        except tk.TclError:
-            pass
-
-    def set_link(self, parent=None):
+    def set_link(self):
         try:
             first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
         url = tk_simpledialog.askstring(
-            parent=parent or self.toplevel,
+            parent=self.toplevel,
             title="Link URL?",
             prompt="Give URL for link:")
         if not url:
@@ -178,27 +190,93 @@ class Editor:
         try:
             url, title = url.strip().split(" ", 1)
             title = title.strip()
+            if title.startswith('"'):
+                title = title.strip('"')
+                title = title.strip()
+            elif title.startswith("'"):
+                title = title.strip("'")
+                title = title.strip()
         except ValueError:
             title = None
         self.links.new(url, title, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
+    def unset_link(self):
+        try:
+            current = self.text.index(tk.CURRENT)
+        except tk.TclError:
+            return
+        for tag in self.text.tag_names(current):
+            if not tag.startswith(constants.LINK): continue
+            pos = self.text.tag_prevrange(tag, current)
+            if pos:
+                self.text.tag_remove(tag, *pos)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
+
+    def set_bold(self):
+        try:
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        self.text.tag_add(constants.BOLD, first, last)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
+
+    def unset_bold(self):
+        try:
+            current = self.text.index(tk.CURRENT)
+        except tk.TclError:
+            return
+        pos = self.text.tag_prevrange(constants.BOLD, current)
+        if pos:
+            self.text.tag_remove(constants.BOLD, *pos)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
+
     def set_italic(self):
         try:
-            self.text.tag_add("italic", tk.SEL_FIRST, tk.SEL_LAST)
-            self.ignore_modified_event = True
-            self.text.edit_modified(True)
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
-            pass
+            return
+        self.text.tag_add(constants.ITALIC, first, last)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
+
+    def unset_italic(self):
+        try:
+            current = self.text.index(tk.CURRENT)
+        except tk.TclError:
+            return
+        pos = self.text.tag_prevrange(constants.ITALIC, current)
+        if pos:
+            self.text.tag_remove(constants.ITALIC, *pos)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
 
     def set_quote(self):
         try:
-            self.text.tag_add("quote", tk.SEL_FIRST, tk.SEL_LAST)
-            self.ignore_modified_event = True
-            self.text.edit_modified(True)
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
-            pass
+            return
+        self.text.tag_add("quote", first, last)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
+
+    def unset_quote(self):
+        try:
+            current = self.text.index(tk.CURRENT)
+        except tk.TclError:
+            return
+        pos = self.text.tag_prevrange("quote", current)
+        if pos:
+            self.text.tag_remove(constants.QUOTE, *pos)
+        self.ignore_modified_event = True
+        self.text.edit_modified(True)
 
     def parse(self, ast):
         try:
@@ -224,14 +302,14 @@ class Editor:
         self.italic_start = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.parse(child)
-        self.text.tag_add("italic", self.italic_start, self.text.index(tk.INSERT))
+        self.text.tag_add(constants.ITALIC, self.italic_start, self.text.index(tk.INSERT))
         self.italic_start = None
 
     def parse_strong_emphasis(self, ast):
         self.bold_start = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.parse(child)
-        self.text.tag_add("bold", self.bold_start, self.text.index(tk.INSERT))
+        self.text.tag_add(constants.BOLD, self.bold_start, self.text.index(tk.INSERT))
         self.bold_start = None
 
     def parse_raw_text(self, ast):
@@ -335,6 +413,7 @@ class Editor:
     def save(self, event=None):
         if not self.is_modified:
             return
+        ic("save", self.filepath)
         self.main.move_file_to_archive(self.filepath)
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
         self.menubar.configure(background=self.original_menubar_background)
@@ -364,7 +443,8 @@ class Editor:
         for segment in segments:
             self.outfile.write("".join(self.line_indents))
             self.outfile.write(segment)
-            self.outfile.write("\n")
+            if len(segments) > 1:
+                self.outfile.write("\n")
 
     def save_text(self, item):
         self.write_characters(item[1])
@@ -399,7 +479,7 @@ class Editor:
 
     def save_tagon_link(self,item):
         for tag in self.text.tag_names(item[2]):
-            if tag.startswith("link-"):
+            if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
                 self.write_characters("[")
                 return
@@ -428,21 +508,21 @@ class Links:
 
     def __init__(self, editor):
         self.editor = editor
-        self.editor.text.tag_configure("link",
+        self.editor.text.tag_configure(constants.LINK,
                                        foreground=constants.LINK_COLOR,
                                        underline=True)
-        self.editor.text.tag_bind("link", "<Enter>", self.enter)
-        self.editor.text.tag_bind("link", "<Leave>", self.leave)
-        self.editor.text.tag_bind("link", "<Button-1>", self.link_click)
-        self.editor.text.tag_bind("link", "<Button-3>", self.link_edit)
+        self.editor.text.tag_bind(constants.LINK, "<Enter>", self.enter)
+        self.editor.text.tag_bind(constants.LINK, "<Leave>", self.leave)
+        self.editor.text.tag_bind(constants.LINK, "<Button-1>", self.link_click)
+        self.editor.text.tag_bind(constants.LINK, "<Control-Button-1>", self.link_edit)
 
     def add(self, ast, first, last):
         self.new(ast["dest"], ast["title"], first=first, last=last)
 
     def new(self, url, title, first, last):
-        tag = f"link-{len(self.editor.main.links_lookup)}"
+        tag = f"{constants.LINK_PREFIX}{len(self.editor.main.links_lookup)}"
         self.editor.main.links_lookup[tag] = dict(tag=tag, url=url, title=title)
-        self.editor.text.tag_add("link", first, last)
+        self.editor.text.tag_add(constants.LINK, first, last)
         self.editor.text.tag_add(tag, first, last)
 
     def enter(self, event):
@@ -458,7 +538,7 @@ class Links:
 
     def get_current_link(self):
         for tag in self.editor.text.tag_names(tk.CURRENT):
-            if tag.startswith("link-"):
+            if tag.startswith(constants.LINK_PREFIX):
                 return self.editor.main.links_lookup[tag]
 
     def get_link(self, tag):
@@ -478,7 +558,7 @@ class Links:
                 link["title"] = edit.result["title"]
             else:
                 region = self.editor.text.tag_nextrange(link["tag"], "1.0")
-                self.editor.text.tag_remove("link", *region)
+                self.editor.text.tag_remove(constants.LINK, *region)
                 self.editor.text.tag_remove(link["tag"], *region)
                 # Do not remove entry from main.links: the count must be preserved.
             self.editor.ignore_modified_event = True

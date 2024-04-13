@@ -54,7 +54,7 @@ class Main:
         self.root["menu"] = self.menubar
         assert constants.FONT_FAMILY_NORMAL in constants.FONT_FAMILIES
         self.menubar.add_command(label="Au",
-                                 font=(constants.FONT_FAMILY_NORMAL, 14, "bold"),
+                                 font=constants.FONT_LARGE_BOLD,
                                  background="gold")
 
         self.menu_file = tk.Menu(self.menubar)
@@ -82,10 +82,10 @@ class Main:
                                    command=self.open_text,
                                    accelerator="Ctrl-O")
         self.menu_edit.add_command(label="Rename text", command=self.rename_text)
+        self.menu_edit.add_command(label="Copy text", command=self.copy_text)
         self.menu_edit.add_command(label="Create text",
                                    command=self.create_text,
                                    accelerator="Ctrl-N")
-        self.menu_edit.add_command(label="Copy text", command=self.copy_text)
         self.menu_edit.add_command(label="Delete text", command=self.delete_text)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Move item up",
@@ -134,7 +134,7 @@ class Main:
         self.treeview.bind("<Control-Right>", self.move_item_into_section)
         self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
 
-        self.treeview.bind("<Button-3>", self.popup_right_click_menu)
+        self.treeview.bind("<Button-3>", self.popup_menu_right_click)
 
         self.section_menu = tk.Menu(self.treeview, tearoff=False)
         self.section_menu.add_command(label="Rename", command=self.rename_section)
@@ -182,7 +182,7 @@ class Main:
 
         self.save_configuration()
 
-    def popup_right_click_menu(self, event):
+    def popup_menu_right_click(self, event):
         path = self.treeview.identify_row(event.y)
         if not path: 
             return
@@ -455,10 +455,13 @@ class Main:
                 olddirpath = oldpath
                 newdirpath = newpath
                 children = self.get_all_items(olddirpath)
+
                 # This removes all children entries in the treeview.
                 self.treeview.delete(olddirpath)
+
                 self.add_treeview_entry(newdirpath, index=parentindex+1)
                 self.rename_treeview_children(newdirpath, olddirpath, children)
+
                 self.treeview.selection_set(newdirpath)
                 self.treeview.see(newdirpath)
                 self.treeview.focus(newdirpath)
@@ -509,18 +512,65 @@ class Main:
         oldindex = self.treeview.index(oldpath)
         oldopen = self.treeview.item(oldpath, "open")
         children = self.get_all_items(oldpath)
+
         # This removes all children entries in the treeview.
         self.treeview.delete(oldpath)
+
         self.add_treeview_entry(newpath, index=oldindex, open=oldopen)
         self.rename_treeview_children(newpath, oldpath, children)
         self.treeview.selection_set(newpath)
+
         self.treeview.see(newpath)
         self.treeview.focus(newpath)
         self.save_configuration()
 
     def copy_section(self):
-        print("'copy_section' not implemented")
+        try:
+            oldpath = self.treeview.selection()[0]
+        except IndexError:
+            return
+        oldabspath = os.path.join(self.absdirpath, oldpath)
+        if not os.path.isdir(oldabspath):
+            return
+        dirpath, oldname = os.path.split(oldpath)
+        newname = tk_simpledialog.askstring(
+            parent=self.root,
+            title="Name",
+            prompt="Give the name for the section copy:",
+            initialvalue=f"Copy of {oldname}")
+        if not newname:
+            return
+        if os.path.splitext(newname)[1]:
+            tk_messagebox.showerror(title="Error",
+                                    message="New name may not contain an extension.")
+            return
+        if os.path.split(newname)[0]:
+            tk_messagebox.showerror(title="Error",
+                                    message="New name may not contain a directory.")
+            return
+        newpath = os.path.join(dirpath, newname)
+        newabspath = os.path.join(self.absdirpath, newpath)
+        if os.path.exists(newabspath):
+            tk_messagebox.showerror(title="Exists",
+                                    message="The name is already in use.")
+            return
+
+        # Make copy on disk.
+        shutil.copytree(oldabspath, newabspath)
+
+        oldindex = self.treeview.index(oldpath)
+        self.add_treeview_entry(newpath, index=oldindex+1)
+        for dirpath, dirnames, filenames in os.walk(newabspath):
+            ic(dirpath, dirnames, filenames)
+            for dirname in dirnames:
+                self.add_treeview_entry(os.path.join(newpath, dirname))
+            for filename in filenames:
+                self.add_treeview_entry(os.path.join(newpath, filename))
+
+        self.treeview.see(newpath)
+        self.treeview.focus(newpath)
         self.save_configuration()
+
 
     def create_section(self, parent=None):
         try:
@@ -658,16 +708,6 @@ class Main:
         oldselection = self.treeview.selection() == oldpath
         self.treeview.delete(oldpath)
         self.add_treeview_entry(newpath, set_selection=oldselection, index=oldindex)
-        # self.treeview.insert(
-        #     section,
-        #     oldindex,
-        #     iid=newpath,
-        #     text=newname,
-        #     tags=(newpath, ))
-        # self.treeview.tag_bind(
-        #     newpath,
-        #     "<Double-Button-1>",
-        #     functools.partial(self.open_text, filepath=newpath))
         try:
             ed = self.texts[newpath]["editor"]
         except KeyError:
@@ -837,10 +877,10 @@ class Main:
         docx_interface.Writer(self.absdirpath, self.texts).write()
 
     def write_pdf(self):
-        print("'Create PDF' not implemented")
+        raise NotImplementedError
 
     def write_epub(self):
-        print("'Create EPUB' not implemented")
+        raise NotImplementedError
 
     def quit(self, event=None):
         for text in self.texts.values():
@@ -855,7 +895,6 @@ class Main:
                 pass
         self.root.destroy()
 
-    # XXX wrong order?
     def get_all_items(self, parent=None):
         "Get the full names of all items in the treeview."
         result = []
