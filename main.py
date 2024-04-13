@@ -205,41 +205,47 @@ class Main:
 
     def setup_treeview(self):
         "Insert the data for the treeview from the configuration."
-        texts = self.configuration["texts"].copy()
-
         # Get directories and files that actually exist.
         pos = len(self.absdirpath) + 1
         archivedirpath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
-        existing_items = set()
-        for dirpath, dirnames, filenames in os.walk(self.absdirpath):
-            if dirpath.startswith(archivedirpath):
+        existing = set()
+        for absdirpath, dirnames, filenames in os.walk(self.absdirpath):
+            if absdirpath.startswith(archivedirpath):
                 continue
-            filename = dirpath[pos:]
-            if filename:
-                existing_items.add(filename)
+            dirpath = absdirpath[pos:]
+            if dirpath:
+                existing.add(dirpath)
             for filename in filenames:
                 if filename.endswith(constants.CONFIGURATION_FILENAME): continue
                 if filename.endswith(constants.HELP_FILENAME): continue
-                existing_items.add(os.path.join(dirpath, filename)[pos:])
+                if not filename.endswith(".md"): continue
+                existing.add(os.path.join(dirpath, filename))
+        ic(existing)
 
-        # Remove files that do not exist.
-        for filename in set(texts.keys()).difference(existing_items):
-            texts.pop(filename)
+        # Use data from configuration for existing files and directories.
+        # Items in configuration but missing in existing will be ignored.
+        texts = dict()
+        for path, data in self.configuration["texts"].items():
+            if path in existing:
+                texts[path] = data
+                existing.remove(path)
 
-        # Add files and dirs that exist, but are not in the configuration.
-        for filename in existing_items.difference(texts.keys()):
-            texts[filename] = dict()
+        # Add files and directories not present in configuration.
+        for path in existing:
+            texts[path] = dict()
+        self.configuration["texts"] = texts
 
         # Set up the treeview display.
         first = True
-        for path in texts:
-            self.add_treeview_entry(path, set_selection=first)
+        for path, data in texts.items():
+            self.add_treeview_entry(path, set_selection=first, open=data.get("open", False))
             if first:
                 first = False
 
-    def add_treeview_entry(self, itempath, set_selection=False, index=None):
+    def add_treeview_entry(self, itempath, set_selection=False, index=None, open=False):
         dirpath, itemname = os.path.split(itempath)
         name, ext = os.path.splitext(itemname)
+        ic(name, ext)
         absitempath = os.path.join(self.absdirpath, itempath)
         if ext == ".md":
             try:
@@ -248,6 +254,7 @@ class Main:
             except OSError:
                 size = "?"
                 timestamp = "?"
+            ic("text", itempath)
             self.treeview.insert(dirpath,
                                  index or tk.END,
                                  iid=itempath,
@@ -259,13 +266,15 @@ class Main:
                                    functools.partial(self.open_text, filepath=itempath))
             self.texts[itempath] = dict()
         elif not ext:
+            ic("section", itempath)
             self.treeview.insert(dirpath,
                                  index or tk.END,
                                  iid=itempath,
                                  text=name,
+                                 open=open,
                                  tags=("section", itempath))
         else:
-            ic(ext)
+            ic("unhandled file", ext)
         if set_selection:
             self.treeview.see(itempath)
             self.treeview.selection_set(itempath)
@@ -337,7 +346,6 @@ class Main:
                 return
 
             # This works for both text file and section directory.
-            ic(oldabspath, newabspath)
             os.rename(oldabspath, newabspath)
 
             # Move text file entry in treeview.
@@ -416,7 +424,6 @@ class Main:
                 return
 
             # This works for both text file and section directory.
-            ic(oldabspath, newabspath)
             os.rename(oldabspath, newabspath)
 
             # Move text file entry in treeview.
@@ -437,7 +444,7 @@ class Main:
             elif os.path.isdir(newabspath):
                 olddirpath = oldpath
                 newdirpath = newpath
-                ic("out of section")
+                ic("out of section", olddirpath)
                 children = self.get_all_items(olddirpath)
                 # This removes all children entries in the treeview.
                 self.treeview.delete(olddirpath)
@@ -461,18 +468,18 @@ class Main:
                 self.treeview.focus(newdirpath)
 
             else:
-                ic("No such old item", newabspath)
+                ic("no such old item", newabspath)
 
             self.save_configuration()
         finally:
             return "break"
 
     def rename_section(self, parent=None):
-        ic("'rename_section' not implemented")
+        print("'rename_section' not implemented")
         self.save_configuration()
 
     def copy_section(self, parent=None):
-        ic("'copy_section' not implemented")
+        print("'copy_section' not implemented")
         self.save_configuration()
 
     def create_section(self, parent=None):
@@ -745,17 +752,20 @@ class Main:
             self.configuration["help"] = dict()
         # Get the order of the texts as shown in the treeview.
         # This relies on the dictionary keeping the order of the items.
-        self.configuration["texts"] = dict([(p, dict()) for p in self.get_all_items()])
-        for filepath, text in self.texts.items():
+        self.configuration["texts"] = dict()
+        for filepath in self.get_all_items():
+            self.configuration["texts"][filepath] = conf = dict()
             try:
-                editor = text["editor"]
+                editor = self.texts[filepath]["editor"]
             except KeyError:
                 pass
             else:
-                self.configuration["texts"][filepath] = editor.get_configuration()
-        with open(self.configurationpath, "w") as outfile:
+                conf.update(editor.get_configuration())
+            if not filepath.endswith(".md"):
+                conf["open"] = bool(self.treeview.item(filepath, "open"))
+        with open(self.configurationpath, "w") as outfile:            
             json.dump(self.configuration, outfile, indent=2)
-        ic("saved configuration")
+        print("saved configuration")
 
     def write_docx(self):
         title = os.path.basename(self.absdirpath)
@@ -768,10 +778,10 @@ class Main:
         docx_interface.Writer(self.absdirpath, self.texts).write()
 
     def write_pdf(self):
-        ic("'Create PDF' not implemented")
+        print("'Create PDF' not implemented")
 
     def write_epub(self):
-        ic("'Create EPUB' not implemented")
+        print("'Create EPUB' not implemented")
 
     def quit(self, event=None):
         for text in self.texts.values():
@@ -786,6 +796,7 @@ class Main:
                 pass
         self.root.destroy()
 
+    # XXX wrong order?
     def get_all_items(self, parent=None):
         "Get the full names of all items in the treeview."
         result = []
