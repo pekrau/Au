@@ -31,22 +31,8 @@ def get_time(value=None):
         raise ValueError("invalid argument")
 
 def get_size(absfilepath):
-    "Get the size of the text file by counting the characters in the AST."
-    with open(absfilepath) as infile:
-        ast = get_ast(infile.read())
-    return count_characters(ast)
-
-def count_characters(ast):
-    "Count the printable characters in the AST. Approximate value only."
-    if ast["element"] == "raw_text":
-        return len(ast["children"].strip())
-    elif ast["element"] == "line_break":
-        return 0
-    result = 0
-    if "children" in ast:
-        for child in ast["children"]:
-            result += count_characters(child)
-    return result
+    "Get the size of the text file."
+    return os.path.getsize(absfilepath)
 
 def split_all(filepath):
     "Return list of all components of the given filepath."

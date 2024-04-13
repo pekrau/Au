@@ -260,12 +260,10 @@ class Editor:
         self.text.tag_add("quote", self.quote_start, self.text.index(tk.INSERT))
 
     def parse_footnote_ref(self, ast):
-        # ic("footnote ref", ast)
-        ic("footnote ref")
+        ic("footnote ref", ast)
 
     def parse_footnote_def(self, ast):
-        # ic("footnote def", ast)
-        ic("footnote def")
+        ic("footnote def", ast)
 
     @property
     def is_modified(self):
