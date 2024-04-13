@@ -14,9 +14,10 @@ from tkinter import simpledialog as tk_simpledialog
 
 import constants
 import utils
+from ast_text import Ast2TextMixin
 
 
-class Editor:
+class Editor(Ast2TextMixin):
     "Text editor window."
 
     def __init__(self, main, filepath):
@@ -135,6 +136,7 @@ class Editor:
         self.quote_start = None
 
         self.links = Links(self)
+        self.footnotes = Footnotes(self)
 
         path = os.path.join(self.main.absdirpath, self.filepath)
         self.timestamp = utils.get_time(path)
@@ -278,70 +280,76 @@ class Editor:
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
-    def parse(self, ast):
-        try:
-            method = getattr(self, f"parse_{ast['element']}")
-        except AttributeError:
-            ic("Could not handle ast", ast)
-        else:
-            method(ast)
+    # def parse(self, ast):
+    #     try:
+    #         method = getattr(self, f"parse_{ast['element']}")
+    #     except AttributeError:
+    #         ic("Could not handle ast", ast)
+    #     else:
+    #         method(ast)
 
-    def parse_document(self, ast):
-        self.prev_blank_line = False
-        for child in ast["children"]:
-            self.parse(child)
+    # def parse_document(self, ast):
+    #     self.prev_blank_line = False
+    #     for child in ast["children"]:
+    #         self.parse(child)
 
-    def parse_paragraph(self, ast):
-        if self.prev_blank_line:
-            self.text.insert(tk.END, "\n")
-            self.prev_blank_line = False
-        for child in ast["children"]:
-            self.parse(child)
+    # def parse_paragraph(self, ast):
+    #     if self.prev_blank_line:
+    #         self.text.insert(tk.END, "\n")
+    #         self.prev_blank_line = False
+    #     for child in ast["children"]:
+    #         self.parse(child)
 
-    def parse_emphasis(self, ast):
-        self.italic_start = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.parse(child)
-        self.text.tag_add(constants.ITALIC, self.italic_start, self.text.index(tk.INSERT))
-        self.italic_start = None
+    # def parse_emphasis(self, ast):
+    #     self.italic_start = self.text.index(tk.INSERT)
+    #     for child in ast["children"]:
+    #         self.parse(child)
+    #     self.text.tag_add(constants.ITALIC, self.italic_start, self.text.index(tk.INSERT))
+    #     self.italic_start = None
 
-    def parse_strong_emphasis(self, ast):
-        self.bold_start = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.parse(child)
-        self.text.tag_add(constants.BOLD, self.bold_start, self.text.index(tk.INSERT))
-        self.bold_start = None
+    # def parse_strong_emphasis(self, ast):
+    #     self.bold_start = self.text.index(tk.INSERT)
+    #     for child in ast["children"]:
+    #         self.parse(child)
+    #     self.text.tag_add(constants.BOLD, self.bold_start, self.text.index(tk.INSERT))
+    #     self.bold_start = None
 
-    def parse_raw_text(self, ast):
-        line = ast["children"]
-        if line[-1] == "\n":
-            line[-1] = " "
-        self.text.insert(tk.END, line)
+    # def parse_raw_text(self, ast):
+    #     children = ast["children"]
+    #     if type(children) == str:
+    #         if children[-1] == "\n":
+    #             children[-1] = " "
+    #         self.text.insert(tk.END, children)
+    #     elif type(children) == list:
+    #         for child in ast["children"]:
+    #             self.parse(child)
 
-    def parse_line_break(self, ast):
-        self.text.insert(tk.END, " ")
+    # def parse_line_break(self, ast):
+    #     self.text.insert(tk.END, " ")
 
-    def parse_blank_line(self, ast):
-        self.text.insert(tk.END, "\n")
-        self.prev_blank_line = True
+    # def parse_blank_line(self, ast):
+    #     self.text.insert(tk.END, "\n")
+    #     self.prev_blank_line = True
 
-    def parse_link(self, ast):
-        link_start = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.parse(child)
-        self.links.add(ast, link_start, tk.INSERT)
+    # def parse_link(self, ast):
+    #     link_start = self.text.index(tk.INSERT)
+    #     for child in ast["children"]:
+    #         self.parse(child)
+    #     self.links.add(ast, link_start, tk.INSERT)
         
-    def parse_quote(self, ast):
-        self.quote_start = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.parse(child)
-        self.text.tag_add("quote", self.quote_start, self.text.index(tk.INSERT))
+    # def parse_quote(self, ast):
+    #     self.quote_start = self.text.index(tk.INSERT)
+    #     for child in ast["children"]:
+    #         self.parse(child)
+    #     self.text.tag_add("quote", self.quote_start, self.text.index(tk.INSERT))
 
-    def parse_footnote_ref(self, ast):
-        ic("footnote ref", ast)
+    # def parse_footnote_ref(self, ast):
+    #     first = self.text.index(tk.INSERT)
+    #     self.text.insert(tk.END, "[note]")
+    #     self.footnotes.add(ast, first, self.text.index(tk.INSERT))
 
-    def parse_footnote_def(self, ast):
-        ic("footnote def", ast)
+    # def parse_footnote_def(self, ast):
+    #     self.footnotes.set(ast)
 
     @property
     def is_modified(self):
@@ -485,7 +493,7 @@ class Editor:
                 return
 
     def save_tagoff_link(self, item):
-        link = self.links.get_link(self.current_link_tag)
+        link = self.links.get(self.current_link_tag)
         if link["title"]:
             self.write_characters(f"""]({link['url']} "{link['title']}")""")
         else:
@@ -508,26 +516,27 @@ class Links:
 
     def __init__(self, editor):
         self.editor = editor
+        self.lookup = dict()
         self.editor.text.tag_configure(constants.LINK,
                                        foreground=constants.LINK_COLOR,
                                        underline=True)
         self.editor.text.tag_bind(constants.LINK, "<Enter>", self.enter)
         self.editor.text.tag_bind(constants.LINK, "<Leave>", self.leave)
-        self.editor.text.tag_bind(constants.LINK, "<Button-1>", self.link_click)
-        self.editor.text.tag_bind(constants.LINK, "<Control-Button-1>", self.link_edit)
+        self.editor.text.tag_bind(constants.LINK, "<Button-1>", self.browse)
+        self.editor.text.tag_bind(constants.LINK, "<Control-Button-1>", self.edit)
 
     def add(self, ast, first, last):
-        self.new(ast["dest"], ast["title"], first=first, last=last)
+        self.new(ast["dest"], ast["title"], first, last)
 
     def new(self, url, title, first, last):
-        tag = f"{constants.LINK_PREFIX}{len(self.editor.main.links_lookup)}"
-        self.editor.main.links_lookup[tag] = dict(tag=tag, url=url, title=title)
+        tag = f"{constants.LINK_PREFIX}{len(self.lookup)}"
+        self.lookup[tag] = dict(tag=tag, url=url, title=title)
         self.editor.text.tag_add(constants.LINK, first, last)
         self.editor.text.tag_add(tag, first, last)
 
     def enter(self, event):
         self.editor.text.configure(cursor="hand2")
-        data = self.get_current_link()
+        data = self.get()
         self.editor.url_var.set(data["url"])
         self.editor.title_var.set(data["title"] or "-")
 
@@ -536,22 +545,24 @@ class Links:
         self.editor.url_var.set("")
         self.editor.title_var.set("")
 
-    def get_current_link(self):
-        for tag in self.editor.text.tag_names(tk.CURRENT):
-            if tag.startswith(constants.LINK_PREFIX):
-                return self.editor.main.links_lookup[tag]
+    def get(self, tag=None):
+        "Get the link for the given tag, or for the current cursor position."
+        if tag is None:
+            for tag in self.editor.text.tag_names(tk.CURRENT):
+                if tag.startswith(constants.LINK_PREFIX):
+                    break
+            else:
+                return None
+        return self.lookup[tag]
 
-    def get_link(self, tag):
-        return self.editor.main.links_lookup[tag]
+    def browse(self, event):
+        webbrowser.open_new_tab(self.get()["url"])
 
-    def link_click(self, event):
-        webbrowser.open_new_tab(self.get_current_link()["url"])
-
-    def link_edit(self, event):
-        link = self.get_current_link()
+    def edit(self, event):
+        link = self.get()
         if not link:
             return
-        edit = LinkEdit(self.editor.toplevel, link["url"], link["title"])
+        edit = Link(self.editor.toplevel, link["url"], link["title"])
         if edit.result:
             if edit.result["url"]:
                 link["url"] = edit.result["url"]
@@ -565,7 +576,7 @@ class Links:
             self.editor.text.edit_modified(True)
 
 
-class LinkEdit(tk_simpledialog.Dialog):
+class Link(tk_simpledialog.Dialog):
     "Dialog window for editing URL and title for a link."
 
     def __init__(self, parent, url, title):
@@ -592,3 +603,109 @@ class LinkEdit(tk_simpledialog.Dialog):
         self.result = dict(url=self.url_entry.get(),
                            title=self.title_entry.get())
         return True
+
+
+class Footnotes:
+    "Manage footnotes in a text editor window."
+    
+    def __init__(self, editor):
+        self.editor = editor
+        self.lookup = dict()
+        self.editor.text.tag_configure(constants.FOOTNOTE,
+                                       foreground=constants.FOOTNOTE_COLOR,
+                                       underline=True)
+        self.editor.text.tag_bind(constants.FOOTNOTE, "<Enter>", self.enter)
+        self.editor.text.tag_bind(constants.FOOTNOTE, "<Leave>", self.leave)
+        self.editor.text.tag_bind(constants.FOOTNOTE, "<Button-1>", self.edit)
+
+    def add(self, ast, first, last):
+        ic(ast, first, last)
+        self.new(ast["label"], first, last)
+
+    def new(self, label, first, last):
+        tag = f"{constants.FOOTNOTE_PREFIX}{label}"
+        self.lookup[tag] = dict(tag=tag, label=label)
+        self.editor.text.tag_add(constants.FOOTNOTE, first, last)
+        self.editor.text.tag_add(tag, first, last)
+
+    def enter(self, event):
+        self.editor.text.configure(cursor="hand2")
+
+    def leave(self, event):
+        self.editor.text.configure(cursor="")
+
+    def set(self, ast):
+        tag = f"{constants.FOOTNOTE_PREFIX}{ast['label']}"
+        self.lookup[tag]["data"] = ast["children"]
+
+    def get(self, tag=None):
+        if tag is None:
+            for tag in self.editor.text.tag_names(tk.CURRENT):
+                if tag.startswith(constants.FOOTNOTE_PREFIX):
+                    break
+            else:
+                return None
+        return self.lookup[tag]
+
+    def edit(self, event):
+        footnote = self.get()
+        ic(footnote)
+        if not footnote:
+            return
+        edit = Footnote(self.editor.toplevel, footnote["data"])
+        ic(edit.result, edit.do_delete)
+
+
+class Footnote(tk_simpledialog.Dialog):
+    "Dialog window for viewing and editing the footnote."
+
+    def __init__(self, parent, data):
+        ic(data)
+        self.initial = data
+        self.result = None
+        self.do_delete = False
+        super().__init__(parent, title="Footnote")
+
+    def buttonbox(self):
+        box = ttk.Frame(self)
+
+        w = ttk.Button(box, text="Save", width=10, command=self.ok)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Cancel", width=10, command=self.cancel, default=tk.ACTIVE)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Delete", width=10, command=self.delete)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+
+        self.bind("<Return>", self.cancel)
+        self.bind("<Escape>", self.cancel)
+
+        box.pack()
+
+    def body(self, body):
+        self.text = tk.Text(body)
+        self.text.pack()
+        self.text.insert(tk.END, json.dumps(self.initial, indent=2))
+        return self.text
+
+    def cancel(self, event=None):
+        # XXX if modified, ask really?
+        if not tk_messagebox.askokcancel(
+                parent=self,
+                title="Cancel?",
+                message="Really cancel?"):
+            return
+        super().cancel(event=event)
+
+    def validate(self, event=None):
+        self.result = dict(data="stuff")
+        return True
+
+    def delete(self, event=None):
+        if not tk_messagebox.askokcancel(
+                parent=self,
+                title="Delete note?",
+                message="Really delete note?"):
+            return
+        ic(self.result)
+        self.do_delete = True
+        super().cancel(event=event)

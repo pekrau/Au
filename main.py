@@ -19,7 +19,7 @@ import utils
 import help_text
 import docx_interface
 
-VERSION = (0, 3, 2)
+VERSION = (0, 3, 3)
 
 
 class Main:
@@ -37,7 +37,6 @@ class Main:
         except (OSError, json.JSONDecodeError, ValueError):
             self.configuration = dict(main=dict(), help=dict(), texts=dict())
         self.texts = dict()
-        self.links_lookup = dict()
 
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk_font.families())

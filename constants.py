@@ -17,6 +17,8 @@ ITALIC = "italic"
 QUOTE = "quote"
 LINK = "link"
 LINK_PREFIX = "link-"
+FOOTNOTE = "footnote"
+FOOTNOTE_PREFIX = "footnote-1"
 
 FONT_FAMILY_NORMAL = "Arial"
 FONT_NORMAL_SIZE = 12
@@ -29,6 +31,8 @@ FONT_LARGE_BOLD = (FONT_FAMILY_NORMAL, FONT_LARGE_SIZE, "bold")
 SECTION_COLOR = "gainsboro"
 LINK_COLOR = "blue"
 MODIFIED_COLOR = "lightpink"
+FOOTNOTE_COLOR="red"
+
 QUOTE_LEFT_INDENT = 30
 QUOTE_RIGHT_INDENT = 70
 FONT_FAMILY_QUOTE = "Verdana"
