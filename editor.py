@@ -164,11 +164,17 @@ class Editor:
             return
         pos = self.text.index(tk.INSERT)
         tags = self.text.tag_names(pos)
+        # Do not allow modifying keys from encroaching on a footnote reference.
         quench = False
         if constants.FOOTNOTE_REF in tags:
-            ic(pos, self.text.tag_nextrange(constants.FOOTNOTE_REF, pos, tk.END))
+            ref_at_right = self.text.tag_nextrange(constants.FOOTNOTE_REF, pos, tk.END)
+            if event.keysym == "Return" and not ref_at_right:
+                self.footnote_toggle(tags=self.text.tag_names(tk.INSERT))
             quench = True
-            # XXX grrrrr!
+            if ref_at_right:
+                # Delete is special; do not allow it to remove characters at
+                # right when just at the beginning of the footnote reference.
+                quench = event.keysym == "Delete"
         if quench:
             return "break"
         self.info_update(size_only=True)
@@ -188,10 +194,6 @@ class Editor:
     @property
     def is_modified(self):
         return self.text.edit_modified()
-
-    @property
-    def character_count(self):
-        return len(self.text.get("1.0", tk.END))
 
     def parse(self, ast):
         try:
@@ -270,7 +272,6 @@ class Editor:
         self.footnotes[label]["first"] = self.text.index(tk.INSERT)
 
     def parse_footnote_def(self, ast):
-        ic("parse_footnote_def", ast)
         label = ast["label"]
         footnote = self.footnotes[label]
         tag = constants.FOOTNOTE_DEF_PREFIX + label
@@ -287,6 +288,10 @@ class Editor:
         self.main.treeview.set(self.filepath, "characters", str(self.character_count))
         if not size_only:
             self.main.treeview.set(self.filepath, "timestamp", self.timestamp)
+
+    @property
+    def character_count(self):
+        return len(self.text.get("1.0", tk.END))
 
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
@@ -399,20 +404,24 @@ class Editor:
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
-    def footnote_enter(self, event):
+    def footnote_enter(self, event=None):
         self.text.configure(cursor="dot")
 
-    def footnote_leave(self, event):
+    def footnote_leave(self, event=None):
         self.text.configure(cursor="")
 
-    def footnote_toggle(self, event):
-        for tag in self.text.tag_names(tk.CURRENT):
+    def footnote_toggle(self, event=None, tags=None):
+        if tags is None:
+            tags = self.text.tag_names(tk.CURRENT)
+        for tag in tags:
             if tag.startswith(constants.FOOTNOTE_PREFIX):
                 label = tag[len(constants.FOOTNOTE_PREFIX):]
                 break
         else:
             return
         tag = constants.FOOTNOTE_DEF_PREFIX + label
+        # ic(self.text.tag_ranges(tag))
+        # ic(self.text.dump(*self.text.tag_ranges(tag)))
         self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide")))
 
     def rename(self):
