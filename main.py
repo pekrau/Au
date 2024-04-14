@@ -665,7 +665,6 @@ class Main:
         ed.text.focus_set()
 
     def rename_text(self, parent=None, oldpath=None):
-        "Rename text; to be called via menu entry."
         if oldpath is None:
             try:
                 oldpath = self.treeview.selection()[0]
@@ -702,18 +701,19 @@ class Main:
                                     title="Exists",
                                     message="The name is already in use.")
             return
-        self.texts[newpath] = self.texts.pop(oldpath)
-        oldindex = self.treeview.index(oldpath)
-        oldselection = self.treeview.selection() == oldpath
-        self.treeview.delete(oldpath)
-        self.add_treeview_entry(newpath, set_selection=oldselection, index=oldindex)
+        ic(oldpath, newpath)
         try:
-            ed = self.texts[newpath]["editor"]
+            ed = self.texts[oldpath]["editor"]
         except KeyError:
             pass
         else:
             ed.toplevel.title(os.path.join(section, newname))
             ed.filepath = newpath
+        self.texts[newpath] = self.texts.pop(oldpath)
+        oldindex = self.treeview.index(oldpath)
+        oldselection = self.treeview.selection() == oldpath
+        self.treeview.delete(oldpath)
+        self.add_treeview_entry(newpath, set_selection=oldselection, index=oldindex)
         self.treeview.selection_set(newpath)
         self.treeview.see(newpath)
         self.treeview.focus(newpath)

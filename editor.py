@@ -5,7 +5,6 @@ from icecream import ic
 import collections
 import json
 import os
-import webbrowser
 
 import tkinter as tk
 from tkinter import ttk
@@ -13,11 +12,11 @@ from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
 
 import constants
+import links
 import utils
-from ast_text import Ast2TextMixin
 
 
-class Editor(Ast2TextMixin):
+class Editor:
     "Text editor window."
 
     def __init__(self, main, filepath):
@@ -42,6 +41,7 @@ class Editor(Ast2TextMixin):
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
+        self.menu_file.add_command(label="Rename", command=self.rename)
         self.menu_file.add_command(label="Copy", command=self.copy)
         self.menu_file.add_command(label="Save",
                                    command=self.save,
@@ -58,8 +58,6 @@ class Editor(Ast2TextMixin):
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Rename text", command=self.rename)
-        self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Link", command=self.set_link)
         self.menu_edit.add_command(label="Bold", command=self.set_bold)
         self.menu_edit.add_command(label="Italic", command=self.set_italic)
@@ -70,7 +68,7 @@ class Editor(Ast2TextMixin):
         self.menu_edit.add_command(label="Remove italic", command=self.unset_italic)
         self.menu_edit.add_command(label="Remove quote", command=self.unset_quote)
 
-        self.text_frame= ttk.Frame(self.toplevel, padding=4)
+        self.text_frame = ttk.Frame(self.toplevel, padding=4)
         self.text_frame.pack(fill=tk.BOTH, expand=1)
         self.text_frame.rowconfigure(0, weight=1)
         self.text_frame.columnconfigure(0, weight=1)
@@ -89,6 +87,23 @@ class Editor(Ast2TextMixin):
                                            command=self.text.yview)
         self.text_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.text.configure(yscrollcommand=self.text_scroll_y.set)
+        self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
+        self.text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
+        self.text.tag_configure("quote",
+                                lmargin1=constants.QUOTE_LEFT_INDENT,
+                                lmargin2=constants.QUOTE_LEFT_INDENT,
+                                rmargin=constants.QUOTE_RIGHT_INDENT,
+                                spacing1=0,
+                                spacing2=0,
+                                font=constants.FONT_FAMILY_QUOTE)
+        self.text.tag_configure(constants.FOOTNOTE_REF,
+                                foreground=constants.FOOTNOTE_REF_COLOR,
+                                font=constants.FONT_BOLD)
+        self.text.tag_configure(constants.FOOTNOTE_DEF,
+                                background=constants.FOOTNOTE_DEF_COLOR)
+        self.text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
+        self.text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
+        self.text.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_toggle)
 
         self.menu_right_click = tk.Menu(self.text, tearoff=False)
         self.menu_right_click.add_command(label="Link", command=self.set_link)
@@ -121,28 +136,13 @@ class Editor(Ast2TextMixin):
         title_label.grid(column=2, row=0, sticky=tk.W, padx=4)
         title_label["textvariable"] = self.title_var
 
-        self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
-        self.italic_start = None
-        self.text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
-        self.bold_start = None
-        assert constants.FONT_FAMILY_QUOTE in constants.FONT_FAMILIES
-        self.text.tag_configure("quote",
-                                lmargin1=constants.QUOTE_LEFT_INDENT,
-                                lmargin2=constants.QUOTE_LEFT_INDENT,
-                                rmargin=constants.QUOTE_RIGHT_INDENT,
-                                spacing1=0,
-                                spacing2=0,
-                                font=constants.FONT_FAMILY_QUOTE)
-        self.quote_start = None
-
-        self.links = Links(self)
-        self.footnotes = Footnotes(self)
-
         path = os.path.join(self.main.absdirpath, self.filepath)
         self.timestamp = utils.get_time(path)
         with open(path) as infile:
             ast = utils.get_ast(infile.read())
         # ic(ast)
+        self.links = links.Links(self)
+        self.footnotes = dict()
         self.parse(ast)
         self.info_update()
 
@@ -160,14 +160,133 @@ class Editor(Ast2TextMixin):
         self.menu_right_click.tk_popup(event.x_root, event.y_root)
 
     def key_press(self, event):
-        if event.char in constants.AFFECTS_CHARACTER_COUNT:
-            self.info_update(size_only=True)
+        if event.char not in constants.AFFECTS_CHARACTER_COUNT:
+            return
+        pos = self.text.index(tk.INSERT)
+        tags = self.text.tag_names(pos)
+        quench = False
+        if constants.FOOTNOTE_REF in tags:
+            ic(pos, self.text.tag_nextrange(constants.FOOTNOTE_REF, pos, tk.END))
+            quench = True
+            # XXX grrrrr!
+        if quench:
+            return "break"
+        self.info_update(size_only=True)
+
+    def handle_modified(self, event=None):
+        if self.ignore_modified_event:
+            self.ignore_modified_event = False
+        if not self.is_modified:
+            return
+        self.original_menubar_background = self.menubar.cget("background")
+        self.menubar.configure(background=constants.MODIFIED_COLOR)
+        self.main.flag_treeview_entry(self.filepath, modified=True)
 
     def get_configuration(self):
         return dict(geometry=self.toplevel.geometry())
 
-    def rename(self):
-        self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
+    @property
+    def is_modified(self):
+        return self.text.edit_modified()
+
+    @property
+    def character_count(self):
+        return len(self.text.get("1.0", tk.END))
+
+    def parse(self, ast):
+        try:
+            method = getattr(self, f"parse_{ast['element']}")
+        except AttributeError:
+            ic("Could not handle ast", ast)
+        else:
+            method(ast)
+
+    def parse_document(self, ast):
+        self.prev_blank_line = False
+        for child in ast["children"]:
+            self.parse(child)
+
+    def parse_paragraph(self, ast):
+        if self.prev_blank_line:
+            self.text.insert(tk.INSERT, "\n")
+            self.prev_blank_line = False
+        for child in ast["children"]:
+            self.parse(child)
+
+    def parse_emphasis(self, ast):
+        start = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.parse(child)
+        self.text.tag_add(constants.ITALIC, start, self.text.index(tk.INSERT))
+
+    def parse_strong_emphasis(self, ast):
+        start = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.parse(child)
+        self.text.tag_add(constants.BOLD, start, self.text.index(tk.INSERT))
+
+    def parse_raw_text(self, ast):
+        children = ast["children"]
+        if type(children) == str:
+            if children[-1] == "\n":
+                children[-1] = " "
+            self.text.insert(tk.INSERT, children)
+        elif type(children) == list:
+            for child in ast["children"]:
+                self.parse(child)
+
+    def parse_line_break(self, ast):
+        self.text.insert(tk.INSERT, " ")
+
+    def parse_blank_line(self, ast):
+        self.text.insert(tk.INSERT, "\n")
+        self.prev_blank_line = True
+
+    def parse_link(self, ast):
+        start = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.parse(child)
+        try:
+            links = self.links
+        except AttributeError:
+            pass
+        else:
+            links.add(ast, start, tk.INSERT)
+
+    def parse_quote(self, ast):
+        start = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.parse(child)
+        self.text.tag_add("quote", start, self.text.index(tk.INSERT))
+
+    def parse_footnote_ref(self, ast):
+        label = ast["label"]
+        tag = constants.FOOTNOTE_PREFIX + label
+        self.footnotes[label] = dict(label=label, tag=tag)
+        start = self.text.index(tk.INSERT)
+        self.text.insert(tk.INSERT, f"[{label}]")
+        self.text.tag_add(constants.FOOTNOTE_REF, start, self.text.index(tk.INSERT))
+        self.text.tag_add(tag, start, self.text.index(tk.INSERT))
+        self.footnotes[label]["first"] = self.text.index(tk.INSERT)
+
+    def parse_footnote_def(self, ast):
+        ic("parse_footnote_def", ast)
+        label = ast["label"]
+        footnote = self.footnotes[label]
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        self.text.tag_configure(tag, elide=True)
+        self.text.mark_set(tk.INSERT, footnote["first"])
+        for child in ast["children"]:
+            self.parse(child)
+        self.text.tag_add(constants.FOOTNOTE_DEF, footnote["first"], tk.INSERT)
+        self.text.tag_add(tag, footnote["first"], tk.INSERT)
+        footnote["last"] = self.text.index(tk.INSERT)
+
+    def info_update(self, size_only=False):
+        self.size_var.set(f"{self.character_count} characters")
+        self.main.treeview.set(self.filepath, "characters", str(self.character_count))
+        if not size_only:
+            self.main.treeview.set(self.filepath, "timestamp", self.timestamp)
 
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
@@ -280,129 +399,33 @@ class Editor(Ast2TextMixin):
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
-    # def parse(self, ast):
-    #     try:
-    #         method = getattr(self, f"parse_{ast['element']}")
-    #     except AttributeError:
-    #         ic("Could not handle ast", ast)
-    #     else:
-    #         method(ast)
+    def footnote_enter(self, event):
+        self.text.configure(cursor="dot")
 
-    # def parse_document(self, ast):
-    #     self.prev_blank_line = False
-    #     for child in ast["children"]:
-    #         self.parse(child)
+    def footnote_leave(self, event):
+        self.text.configure(cursor="")
 
-    # def parse_paragraph(self, ast):
-    #     if self.prev_blank_line:
-    #         self.text.insert(tk.END, "\n")
-    #         self.prev_blank_line = False
-    #     for child in ast["children"]:
-    #         self.parse(child)
-
-    # def parse_emphasis(self, ast):
-    #     self.italic_start = self.text.index(tk.INSERT)
-    #     for child in ast["children"]:
-    #         self.parse(child)
-    #     self.text.tag_add(constants.ITALIC, self.italic_start, self.text.index(tk.INSERT))
-    #     self.italic_start = None
-
-    # def parse_strong_emphasis(self, ast):
-    #     self.bold_start = self.text.index(tk.INSERT)
-    #     for child in ast["children"]:
-    #         self.parse(child)
-    #     self.text.tag_add(constants.BOLD, self.bold_start, self.text.index(tk.INSERT))
-    #     self.bold_start = None
-
-    # def parse_raw_text(self, ast):
-    #     children = ast["children"]
-    #     if type(children) == str:
-    #         if children[-1] == "\n":
-    #             children[-1] = " "
-    #         self.text.insert(tk.END, children)
-    #     elif type(children) == list:
-    #         for child in ast["children"]:
-    #             self.parse(child)
-
-    # def parse_line_break(self, ast):
-    #     self.text.insert(tk.END, " ")
-
-    # def parse_blank_line(self, ast):
-    #     self.text.insert(tk.END, "\n")
-    #     self.prev_blank_line = True
-
-    # def parse_link(self, ast):
-    #     link_start = self.text.index(tk.INSERT)
-    #     for child in ast["children"]:
-    #         self.parse(child)
-    #     self.links.add(ast, link_start, tk.INSERT)
-        
-    # def parse_quote(self, ast):
-    #     self.quote_start = self.text.index(tk.INSERT)
-    #     for child in ast["children"]:
-    #         self.parse(child)
-    #     self.text.tag_add("quote", self.quote_start, self.text.index(tk.INSERT))
-
-    # def parse_footnote_ref(self, ast):
-    #     first = self.text.index(tk.INSERT)
-    #     self.text.insert(tk.END, "[note]")
-    #     self.footnotes.add(ast, first, self.text.index(tk.INSERT))
-
-    # def parse_footnote_def(self, ast):
-    #     self.footnotes.set(ast)
-
-    @property
-    def is_modified(self):
-        return self.text.edit_modified()
-
-    @property
-    def character_count(self):
-        return len(self.text.get("1.0", tk.END))
-
-    def info_update(self, size_only=False):
-        self.size_var.set(f"{self.character_count} characters")
-        self.main.treeview.set(self.filepath, "characters", str(self.character_count))
-        if not size_only:
-            self.main.treeview.set(self.filepath, "timestamp", self.timestamp)
-
-    def handle_modified(self, event=None):
-        if self.ignore_modified_event:
-            self.ignore_modified_event = False
-        if not self.is_modified:
+    def footnote_toggle(self, event):
+        for tag in self.text.tag_names(tk.CURRENT):
+            if tag.startswith(constants.FOOTNOTE_PREFIX):
+                label = tag[len(constants.FOOTNOTE_PREFIX):]
+                break
+        else:
             return
-        self.original_menubar_background = self.menubar.cget("background")
-        self.menubar.configure(background=constants.MODIFIED_COLOR)
-        self.main.flag_treeview_entry(self.filepath, modified=True)
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide")))
 
-    def delete(self):
-        if not tk_messagebox.askokcancel(
-                parent=self.toplevel,
-                title="Delete text?",
-                message=f"Really delete text '{self.filepath}'?"):
-            return
-        self.close(force=True)
-        self.main.delete_text(self.filepath, force=True)
-
-    def delete_text(self, filepath):
-        self.main.treeview.delete(self.filepath)
-
-    def close(self, event=None, force=False):
-        if self.is_modified and not force:
-            if not tk_messagebox.askokcancel(
-                    parent=self.toplevel,
-                    title="Close?",
-                    message="Modifications will not be saved. Really close?"):
-                return
-        self.main.texts[self.filepath].pop("editor")
-        self.toplevel.destroy()
+    def rename(self):
+        self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
 
     def copy(self, event=None, parent=None):
-        dirpath = os.path.split(self.filepath)[0]
+        dirpath, filename = os.path.split(self.filepath)
         initialdir = os.path.join(self.main.absdirpath, dirpath)
         name = tk_simpledialog.askstring(
             parent=parent or self.toplevel,
             title="Copy name",
-            prompt="Give the name for the copy:")
+            prompt="Give the name for the copy:",
+            initialvalue=f"Copy of {os.path.splitext(filename)[0]}")
         if not name:
             return
         name = os.path.splitext(name)[0]
@@ -421,7 +444,6 @@ class Editor(Ast2TextMixin):
     def save(self, event=None):
         if not self.is_modified:
             return
-        ic("save", self.filepath)
         self.main.move_file_to_archive(self.filepath)
         self.write_file(os.path.join(self.main.absdirpath, self.filepath))
         self.menubar.configure(background=self.original_menubar_background)
@@ -485,7 +507,7 @@ class Editor(Ast2TextMixin):
     def save_tagoff_bold(self, item):
         self.write_characters("**")
 
-    def save_tagon_link(self,item):
+    def save_tagon_link(self, item):
         for tag in self.text.tag_names(item[2]):
             if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
@@ -510,202 +532,24 @@ class Editor(Ast2TextMixin):
     def save_mark(self, item):
         pass
 
-
-class Links:
-    "Manage links in a text editor window."
-
-    def __init__(self, editor):
-        self.editor = editor
-        self.lookup = dict()
-        self.editor.text.tag_configure(constants.LINK,
-                                       foreground=constants.LINK_COLOR,
-                                       underline=True)
-        self.editor.text.tag_bind(constants.LINK, "<Enter>", self.enter)
-        self.editor.text.tag_bind(constants.LINK, "<Leave>", self.leave)
-        self.editor.text.tag_bind(constants.LINK, "<Button-1>", self.browse)
-        self.editor.text.tag_bind(constants.LINK, "<Control-Button-1>", self.edit)
-
-    def add(self, ast, first, last):
-        self.new(ast["dest"], ast["title"], first, last)
-
-    def new(self, url, title, first, last):
-        tag = f"{constants.LINK_PREFIX}{len(self.lookup)}"
-        self.lookup[tag] = dict(tag=tag, url=url, title=title)
-        self.editor.text.tag_add(constants.LINK, first, last)
-        self.editor.text.tag_add(tag, first, last)
-
-    def enter(self, event):
-        self.editor.text.configure(cursor="hand2")
-        data = self.get()
-        self.editor.url_var.set(data["url"])
-        self.editor.title_var.set(data["title"] or "-")
-
-    def leave(self, event):
-        self.editor.text.configure(cursor="")
-        self.editor.url_var.set("")
-        self.editor.title_var.set("")
-
-    def get(self, tag=None):
-        "Get the link for the given tag, or for the current cursor position."
-        if tag is None:
-            for tag in self.editor.text.tag_names(tk.CURRENT):
-                if tag.startswith(constants.LINK_PREFIX):
-                    break
-            else:
-                return None
-        return self.lookup[tag]
-
-    def browse(self, event):
-        webbrowser.open_new_tab(self.get()["url"])
-
-    def edit(self, event):
-        link = self.get()
-        if not link:
-            return
-        edit = Link(self.editor.toplevel, link["url"], link["title"])
-        if edit.result:
-            if edit.result["url"]:
-                link["url"] = edit.result["url"]
-                link["title"] = edit.result["title"]
-            else:
-                region = self.editor.text.tag_nextrange(link["tag"], "1.0")
-                self.editor.text.tag_remove(constants.LINK, *region)
-                self.editor.text.tag_remove(link["tag"], *region)
-                # Do not remove entry from main.links: the count must be preserved.
-            self.editor.ignore_modified_event = True
-            self.editor.text.edit_modified(True)
-
-
-class Link(tk_simpledialog.Dialog):
-    "Dialog window for editing URL and title for a link."
-
-    def __init__(self, parent, url, title):
-        self.initial = dict(url=url, title=title)
-        self.result = None
-        super().__init__(parent, title="Edit link")
-
-    def body(self, body):
-        label = ttk.Label(body, text="URL")
-        label.grid(row=0, column=0)
-        self.url_entry = tk.Entry(body)
-        if self.initial["url"]:
-            self.url_entry.insert(0, self.initial["url"])
-        self.url_entry.grid(row=0, column=1)
-        label = ttk.Label(body, text="Title")
-        label.grid(row=1, column=0)
-        self.title_entry = tk.Entry(body)
-        if self.initial["title"]:
-            self.title_entry.insert(0, self.initial["title"])
-        self.title_entry.grid(row=1, column=1)
-        return self.url_entry
-
-    def validate(self):
-        self.result = dict(url=self.url_entry.get(),
-                           title=self.title_entry.get())
-        return True
-
-
-class Footnotes:
-    "Manage footnotes in a text editor window."
-    
-    def __init__(self, editor):
-        self.editor = editor
-        self.lookup = dict()
-        self.editor.text.tag_configure(constants.FOOTNOTE,
-                                       foreground=constants.FOOTNOTE_COLOR,
-                                       underline=True)
-        self.editor.text.tag_bind(constants.FOOTNOTE, "<Enter>", self.enter)
-        self.editor.text.tag_bind(constants.FOOTNOTE, "<Leave>", self.leave)
-        self.editor.text.tag_bind(constants.FOOTNOTE, "<Button-1>", self.edit)
-
-    def add(self, ast, first, last):
-        ic(ast, first, last)
-        self.new(ast["label"], first, last)
-
-    def new(self, label, first, last):
-        tag = f"{constants.FOOTNOTE_PREFIX}{label}"
-        self.lookup[tag] = dict(tag=tag, label=label)
-        self.editor.text.tag_add(constants.FOOTNOTE, first, last)
-        self.editor.text.tag_add(tag, first, last)
-
-    def enter(self, event):
-        self.editor.text.configure(cursor="hand2")
-
-    def leave(self, event):
-        self.editor.text.configure(cursor="")
-
-    def set(self, ast):
-        tag = f"{constants.FOOTNOTE_PREFIX}{ast['label']}"
-        self.lookup[tag]["data"] = ast["children"]
-
-    def get(self, tag=None):
-        if tag is None:
-            for tag in self.editor.text.tag_names(tk.CURRENT):
-                if tag.startswith(constants.FOOTNOTE_PREFIX):
-                    break
-            else:
-                return None
-        return self.lookup[tag]
-
-    def edit(self, event):
-        footnote = self.get()
-        ic(footnote)
-        if not footnote:
-            return
-        edit = Footnote(self.editor.toplevel, footnote["data"])
-        ic(edit.result, edit.do_delete)
-
-
-class Footnote(tk_simpledialog.Dialog):
-    "Dialog window for viewing and editing the footnote."
-
-    def __init__(self, parent, data):
-        ic(data)
-        self.initial = data
-        self.result = None
-        self.do_delete = False
-        super().__init__(parent, title="Footnote")
-
-    def buttonbox(self):
-        box = ttk.Frame(self)
-
-        w = ttk.Button(box, text="Save", width=10, command=self.ok)
-        w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Cancel", width=10, command=self.cancel, default=tk.ACTIVE)
-        w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Delete", width=10, command=self.delete)
-        w.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.bind("<Return>", self.cancel)
-        self.bind("<Escape>", self.cancel)
-
-        box.pack()
-
-    def body(self, body):
-        self.text = tk.Text(body)
-        self.text.pack()
-        self.text.insert(tk.END, json.dumps(self.initial, indent=2))
-        return self.text
-
-    def cancel(self, event=None):
-        # XXX if modified, ask really?
+    def delete(self):
         if not tk_messagebox.askokcancel(
-                parent=self,
-                title="Cancel?",
-                message="Really cancel?"):
+                parent=self.toplevel,
+                title="Delete text?",
+                message=f"Really delete text '{self.filepath}'?"):
             return
-        super().cancel(event=event)
+        self.close(force=True)
+        self.main.delete_text(self.filepath, force=True)
 
-    def validate(self, event=None):
-        self.result = dict(data="stuff")
-        return True
+    def delete_text(self, filepath):
+        self.main.treeview.delete(self.filepath)
 
-    def delete(self, event=None):
-        if not tk_messagebox.askokcancel(
-                parent=self,
-                title="Delete note?",
-                message="Really delete note?"):
-            return
-        ic(self.result)
-        self.do_delete = True
-        super().cancel(event=event)
+    def close(self, event=None, force=False):
+        if self.is_modified and not force:
+            if not tk_messagebox.askokcancel(
+                    parent=self.toplevel,
+                    title="Close?",
+                    message="Modifications will not be saved. Really close?"):
+                return
+        self.main.texts[self.filepath].pop("editor")
+        self.toplevel.destroy()

@@ -17,8 +17,10 @@ ITALIC = "italic"
 QUOTE = "quote"
 LINK = "link"
 LINK_PREFIX = "link-"
-FOOTNOTE = "footnote"
-FOOTNOTE_PREFIX = "footnote-1"
+FOOTNOTE_REF = "footnote:ref"
+FOOTNOTE_DEF = "footnote:def"
+FOOTNOTE_DEF_PREFIX = "footnote:def-"
+FOOTNOTE_PREFIX = "footnote-"
 
 FONT_FAMILY_NORMAL = "Arial"
 FONT_NORMAL_SIZE = 12
@@ -31,7 +33,8 @@ FONT_LARGE_BOLD = (FONT_FAMILY_NORMAL, FONT_LARGE_SIZE, "bold")
 SECTION_COLOR = "gainsboro"
 LINK_COLOR = "blue"
 MODIFIED_COLOR = "lightpink"
-FOOTNOTE_COLOR="red"
+FOOTNOTE_REF_COLOR = "red"
+FOOTNOTE_DEF_COLOR = "gainsboro"
 
 QUOTE_LEFT_INDENT = 30
 QUOTE_RIGHT_INDENT = 70
