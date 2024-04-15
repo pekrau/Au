@@ -29,7 +29,7 @@ class Links:
         self.new(ast["dest"], ast["title"], first, last)
 
     def new(self, url, title, first, last):
-        tag = f"{constants.LINK_PREFIX}{len(self.lookup)}"
+        tag = f"{constants.LINK_PREFIX}{len(self.lookup) + 1}"
         self.lookup[tag] = dict(tag=tag, url=url, title=title)
         self.editor.text.tag_add(constants.LINK, first, last)
         self.editor.text.tag_add(tag, first, last)
