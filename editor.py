@@ -50,6 +50,8 @@ class Editor:
                                    accelerator="Ctrl-S")
         self.toplevel.bind("<Control-s>", self.save)
         self.menu_file.add_separator()
+        self.menu_file.add_command(label="Dump", command=self.dump)
+        self.menu_file.add_separator()
         self.menu_file.add_command(label="Delete", command=self.delete)
         self.menu_file.add_separator()
         self.menu_file.add_command(label="Close", command=self.close,
@@ -113,7 +115,6 @@ class Editor:
                                 relief=tk.SUNKEN)
         self.text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
         self.text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
-        self.text.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_toggle)
 
         self.menu_right_click = tk.Menu(self.text, tearoff=False)
         self.text.bind("<Button-3>", self.popup_menu_right_click)
@@ -174,9 +175,6 @@ class Editor:
         self.menu_right_click.tk_popup(event.x_root, event.y_root)
 
     def key_press(self, event):
-        if event.keysym == "Escape":
-            for entry in self.text.dump("1.0", tk.END):
-                print(entry)
         if event.char not in constants.AFFECTS_CHARACTER_COUNT:
             return
         pos = self.text.index(tk.INSERT)
@@ -290,12 +288,14 @@ class Editor:
         self.footnotes[label] = footnote
         self.footnotes_tmp[parsed_label] = footnote
         start = self.text.index(tk.INSERT)
-        self.text.insert(tk.INSERT, "[footnote]")
+        self.text.insert(tk.INSERT, constants.FOOTNOTE)
         self.text.tag_add(constants.FOOTNOTE_REF, start, self.text.index(tk.INSERT))
         self.text.tag_add(tag, start, self.text.index(tk.INSERT))
+        self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
         footnote["first"] = self.text.index(tk.INSERT)
 
     def parse_footnote_def(self, ast):
+        ic(ast)
         label = ast["label"]
         try:
             footnote = self.footnotes_tmp[label]
@@ -329,6 +329,72 @@ class Editor:
     def move_cursor_end(self, event=None):
         self.text.mark_set(tk.INSERT, tk.END)
         self.text.see(tk.END)
+
+    def rename(self):
+        self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
+
+    def copy(self, event=None, parent=None):
+        dirpath, filename = os.path.split(self.filepath)
+        initialdir = os.path.join(self.main.absdirpath, dirpath)
+        name = tk_simpledialog.askstring(
+            parent=parent or self.toplevel,
+            title="Copy name",
+            prompt="Give the name for the copy:",
+            initialvalue=f"Copy of {os.path.splitext(filename)[0]}")
+        if not name:
+            return
+        name = os.path.splitext(name)[0]
+        filepath = os.path.join(dirpath, name + ".md")
+        absfilepath = os.path.normpath(os.path.join(self.main.absdirpath, filepath))
+        if not absfilepath.startswith(self.main.absdirpath):
+            tk_messagebox.showerror(
+                parent=parent or self.toplevel,
+                title="Wrong directory",
+                message=f"Must be within {self.main.absdirpath}")
+            return
+        with open(absfilepath, "w") as outfile:
+            self.outfiles_stack = [outfile]
+            self.write_outfile()
+            self.outfiles_stack = []
+        self.main.add_treeview_entry(filepath)
+        self.main.open_text(filepath=filepath)
+
+    def save(self, event=None):
+        if not self.is_modified:
+            return
+        self.main.move_file_to_archive(self.filepath)
+        with open(os.path.join(self.main.absdirpath, self.filepath), "w") as outfile:
+            self.outfiles_stack = [outfile]
+            self.write_outfile()
+            self.outfiles_stack = []
+        self.menubar.configure(background=self.original_menubar_background)
+        self.info_update()
+        self.main.flag_treeview_entry(self.filepath, modified=False)
+        self.ignore_modified_event = True
+        self.text.edit_modified(False)
+
+    def delete(self):
+        if not tk_messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Delete text?",
+                message=f"Really delete text '{self.filepath}'?"):
+            return
+        self.close(force=True)
+        self.main.delete_text(self.filepath, force=True)
+
+    def delete_text(self, filepath):
+        self.main.treeview.delete(self.filepath)
+
+    def close(self, event=None, force=False):
+        if self.is_modified and not force:
+            if not tk_messagebox.askokcancel(
+                    parent=self.toplevel,
+                    title="Close?",
+                    message="Modifications will not be saved. Really close?"):
+                return
+        self.main.flag_treeview_entry(self.filepath, modified=False)
+        self.main.texts[self.filepath].pop("editor")
+        self.toplevel.destroy()
 
     def add_link(self):
         try:
@@ -439,14 +505,30 @@ class Editor:
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
-        # XXX Get new footnote tag, add to lookup.
+        ic(first, last)
+        label = str(len(self.footnotes) + 1)
+        ref_tag = constants.FOOTNOTE_REF_PREFIX + label
+        def_tag = constants.FOOTNOTE_DEF_PREFIX + label
+        footnote = dict(label=label, tag=ref_tag, first=first, last=last)
         self.text.tag_add(constants.FOOTNOTE_DEF, first, last)
-        self.text.insert(first, "[footnote]", (constants.FOOTNOTE_REF, ))
+        self.text.tag_add(def_tag, first, last)
+        self.text.tag_configure(def_tag, elide=True)
+        self.footnotes[label] = footnote
+        self.text.insert(first, constants.FOOTNOTE)
+        last = first + f" +{len(constants.FOOTNOTE)}c"
+        self.text.tag_add(constants.FOOTNOTE_REF, first, last)
+        self.text.tag_add(ref_tag, first, last)
+        self.text.tag_bind(ref_tag, "<Button-1>", self.footnote_toggle)
 
     def remove_footnote(self):
         # XXX Include the footnote text into the text proper,
         # XXX and set selection to the footnote text.
-        pass
+        try:
+            current = self.text.index(tk.INSERT)
+        except tk.TclError:
+            return
+        pos = self.text.tag_nextrange(constants.FOOTNOTE_DEF, current)
+        ic(pos)
 
     def footnote_enter(self, event=None):
         self.text.configure(cursor="dot")
@@ -457,6 +539,7 @@ class Editor:
     def footnote_toggle(self, event=None, tags=None):
         if tags is None:
             tags = self.text.tag_names(tk.CURRENT)
+        ic(tags)
         for tag in tags:
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
                 label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
@@ -466,48 +549,9 @@ class Editor:
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide")))
 
-    def rename(self):
-        self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
-
-    def copy(self, event=None, parent=None):
-        dirpath, filename = os.path.split(self.filepath)
-        initialdir = os.path.join(self.main.absdirpath, dirpath)
-        name = tk_simpledialog.askstring(
-            parent=parent or self.toplevel,
-            title="Copy name",
-            prompt="Give the name for the copy:",
-            initialvalue=f"Copy of {os.path.splitext(filename)[0]}")
-        if not name:
-            return
-        name = os.path.splitext(name)[0]
-        filepath = os.path.join(dirpath, name + ".md")
-        absfilepath = os.path.normpath(os.path.join(self.main.absdirpath, filepath))
-        if not absfilepath.startswith(self.main.absdirpath):
-            tk_messagebox.showerror(
-                parent=parent or self.toplevel,
-                title="Wrong directory",
-                message=f"Must be within {self.main.absdirpath}")
-            return
-        with open(absfilepath, "w") as outfile:
-            self.outfiles_stack = [outfile]
-            self.write_outfile()
-            self.outfiles_stack = []
-        self.main.add_treeview_entry(filepath)
-        self.main.open_text(filepath=filepath)
-
-    def save(self, event=None):
-        if not self.is_modified:
-            return
-        self.main.move_file_to_archive(self.filepath)
-        with open(os.path.join(self.main.absdirpath, self.filepath), "w") as outfile:
-            self.outfiles_stack = [outfile]
-            self.write_outfile()
-            self.outfiles_stack = []
-        self.menubar.configure(background=self.original_menubar_background)
-        self.info_update()
-        self.main.flag_treeview_entry(self.filepath, modified=False)
-        self.ignore_modified_event = True
-        self.text.edit_modified(False)
+    def dump(self):
+        for entry in self.text.dump("1.0", tk.END):
+            print(entry)
 
     @property
     def outfile(self):
@@ -528,6 +572,7 @@ class Editor:
             else:
                 method(item)
         self.write_line_indents = ["  "]
+        ic(self.footnotes_tmp.items())
         for old_label, footnote in sorted(self.footnotes_tmp.items()):
             self.outfile.write(f"\n[^{footnote['newlabel']}]: ")
             self.write_line_indented = True
@@ -643,26 +688,3 @@ class Editor:
 
     def save_mark(self, item):
         pass
-
-    def delete(self):
-        if not tk_messagebox.askokcancel(
-                parent=self.toplevel,
-                title="Delete text?",
-                message=f"Really delete text '{self.filepath}'?"):
-            return
-        self.close(force=True)
-        self.main.delete_text(self.filepath, force=True)
-
-    def delete_text(self, filepath):
-        self.main.treeview.delete(self.filepath)
-
-    def close(self, event=None, force=False):
-        if self.is_modified and not force:
-            if not tk_messagebox.askokcancel(
-                    parent=self.toplevel,
-                    title="Close?",
-                    message="Modifications will not be saved. Really close?"):
-                return
-        self.main.flag_treeview_entry(self.filepath, modified=False)
-        self.main.texts[self.filepath].pop("editor")
-        self.toplevel.destroy()
