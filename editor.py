@@ -64,11 +64,14 @@ class Editor:
         self.menu_edit.add_command(label="Bold", command=self.add_bold)
         self.menu_edit.add_command(label="Italic", command=self.add_italic)
         self.menu_edit.add_command(label="Quote", command=self.add_quote)
+        self.menu_edit.add_command(label="Footnote", command=self.add_footnote)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Remove link", command=self.remove_link)
         self.menu_edit.add_command(label="Remove bold", command=self.remove_bold)
         self.menu_edit.add_command(label="Remove italic", command=self.remove_italic)
         self.menu_edit.add_command(label="Remove quote", command=self.remove_quote)
+        self.menu_edit.add_command(label="Remove footnote",
+                                   command=self.remove_footnote)
 
         self.text_frame = ttk.Frame(self.toplevel, padding=4)
         self.text_frame.pack(fill=tk.BOTH, expand=1)
@@ -113,16 +116,19 @@ class Editor:
         self.text.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_toggle)
 
         self.menu_right_click = tk.Menu(self.text, tearoff=False)
+        self.text.bind("<Button-3>", self.popup_menu_right_click)
         self.menu_right_click.add_command(label="Link", command=self.add_link)
         self.menu_right_click.add_command(label="Bold", command=self.add_bold)
         self.menu_right_click.add_command(label="Italic", command=self.add_italic)
         self.menu_right_click.add_command(label="Quote", command=self.add_quote)
+        self.menu_right_click.add_command(label="Footnote", command=self.add_footnote)
         self.menu_right_click.add_separator()
         self.menu_right_click.add_command(label="Remove link", command=self.remove_link)
         self.menu_right_click.add_command(label="Remove bold", command=self.remove_bold)
-        self.menu_right_click.add_command(label="Remove italic", command=self.remove_italic)
-        self.menu_right_click.add_command(label="Remove quote", command=self.remove_quote)
-        self.text.bind("<Button-3>", self.popup_menu_right_click)
+        self.menu_right_click.add_command(label="Remove italic",
+                                          command=self.remove_italic)
+        self.menu_right_click.add_command(label="Remove footnote",
+                                          command=self.remove_footnote)
 
         self.info_frame = ttk.Frame(self.toplevel, padding=4)
         self.info_frame.pack(fill=tk.X, expand=1)
@@ -412,7 +418,7 @@ class Editor:
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
-        self.text.tag_add("quote", first, last)
+        self.text.tag_add(constants.QUOTE, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
@@ -421,11 +427,26 @@ class Editor:
             current = self.text.index(tk.INSERT)
         except tk.TclError:
             return
-        pos = self.text.tag_prevrange("quote", current)
+        pos = self.text.tag_prevrange(constants.QUOTE, current)
         if pos:
             self.text.tag_remove(constants.QUOTE, *pos)
             self.ignore_modified_event = True
             self.text.edit_modified(True)
+
+    def add_footnote(self):
+        try:
+            first = str(self.text.index(tk.SEL_FIRST))
+            last = self.text.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        # XXX Get new footnote tag, add to lookup.
+        self.text.tag_add(constants.FOOTNOTE_DEF, first, last)
+        self.text.insert(first, "[footnote]", (constants.FOOTNOTE_REF, ))
+
+    def remove_footnote(self):
+        # XXX Include the footnote text into the text proper,
+        # XXX and set selection to the footnote text.
+        pass
 
     def footnote_enter(self, event=None):
         self.text.configure(cursor="dot")
@@ -642,5 +663,6 @@ class Editor:
                     title="Close?",
                     message="Modifications will not be saved. Really close?"):
                 return
+        self.main.flag_treeview_entry(self.filepath, modified=False)
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()

@@ -19,7 +19,7 @@ import utils
 import help_text
 import docx_interface
 
-VERSION = (0, 4, 1)
+VERSION = (0, 4, 2)
 
 
 class Main:
