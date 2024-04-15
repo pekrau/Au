@@ -307,7 +307,8 @@ class Editor:
 
     def info_update(self, size_only=False):
         self.size_var.set(f"{self.character_count} characters")
-        self.main.treeview.set(self.filepath, "characters", str(self.character_count))
+        self.main.treeview.set(self.filepath, "characters",
+                               f"{self.character_count} ch")
         if not size_only:
             self.main.treeview.set(self.filepath, "timestamp", self.timestamp)
 

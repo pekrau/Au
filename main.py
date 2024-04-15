@@ -249,7 +249,7 @@ class Main:
         absitempath = os.path.join(self.absdirpath, itempath)
         if ext == ".md":
             try:
-                size = f"~{utils.get_size(absitempath)}"
+                size = str(utils.get_size(absitempath))
                 timestamp = utils.get_time(absitempath)
             except OSError:
                 size = "?"

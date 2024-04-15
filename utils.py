@@ -31,8 +31,16 @@ def get_time(value=None):
         raise ValueError("invalid argument")
 
 def get_size(absfilepath):
-    "Get the size of the text file."
-    return os.path.getsize(absfilepath)
+    "Get the size of the text file. Approximate only; Markdown not taken into account."
+    size = os.path.getsize(absfilepath)
+    if abs(size) < 1024:
+        return f"{size} B"
+    size /= 1024.0
+    for unit in ("K", "M", "G", "T", "P", "E", "Z"):
+        if abs(size) < 1024.0:
+            return f"{size:3.1f} {unit}B"
+        size /= 1024.0
+    return f"{size:.1f} YB"    
 
 def split_all(filepath):
     "Return list of all components of the given filepath."
