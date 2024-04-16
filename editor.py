@@ -27,6 +27,9 @@ class Editor:
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
+        self.toplevel.bind("<Control-s>", self.save)
+        self.toplevel.bind("<Home>", self.move_cursor_home)
+        self.toplevel.bind("<End>", self.move_cursor_end)
 
         config = self.main.configuration["texts"].setdefault(self.filepath, dict())
         try:
@@ -48,17 +51,8 @@ class Editor:
         self.menu_file.add_command(label="Save",
                                    command=self.save,
                                    accelerator="Ctrl-S")
-        self.toplevel.bind("<Control-s>", self.save)
-        self.menu_file.add_separator()
-        self.menu_file.add_command(label="Dump", command=self.dump)
-        self.menu_file.add_separator()
         self.menu_file.add_command(label="Delete", command=self.delete)
-        self.menu_file.add_separator()
-        self.menu_file.add_command(label="Close", command=self.close,
-                                   accelerator="Ctrl-W")
-        self.toplevel.bind("<Control-w>", self.close)
-        self.toplevel.bind("<Home>", self.move_cursor_home)
-        self.toplevel.bind("<End>", self.move_cursor_end)
+        self.menu_file.add_command(label="Close", command=self.close)
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
@@ -154,7 +148,6 @@ class Editor:
         self.timestamp = utils.get_time(path)
         with open(path) as infile:
             ast = utils.get_ast(infile.read())
-        # ic(ast)
         self.links = links.Links(self)
         self.footnotes = dict()
         self.footnotes_tmp = dict()
@@ -175,6 +168,13 @@ class Editor:
         self.menu_right_click.tk_popup(event.x_root, event.y_root)
 
     def key_press(self, event):
+        if event.keysym == "F1": # Debug
+            print(self.text.index(tk.CURRENT))
+            return
+        if event.keysym == "F2": # Debug
+            for entry in self.text.dump("1.0", tk.END):
+                print(entry)
+            return
         if event.char not in constants.AFFECTS_CHARACTER_COUNT:
             return
         pos = self.text.index(tk.INSERT)
@@ -234,13 +234,13 @@ class Editor:
         start = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.parse(child)
-        self.text.tag_add(constants.ITALIC, start, self.text.index(tk.INSERT))
+        self.text.tag_add(constants.ITALIC, start, tk.INSERT)
 
     def parse_strong_emphasis(self, ast):
         start = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.parse(child)
-        self.text.tag_add(constants.BOLD, start, self.text.index(tk.INSERT))
+        self.text.tag_add(constants.BOLD, start, tk.INSERT)
 
     def parse_raw_text(self, ast):
         children = ast["children"]
@@ -277,39 +277,37 @@ class Editor:
         start = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.parse(child)
-        self.text.tag_add("quote", start, self.text.index(tk.INSERT))
+        self.text.tag_add("quote", start, tk.INSERT)
 
     def parse_footnote_ref(self, ast):
         parsed_label = ast["label"]
         # Re-label using the number of actually occurring footnotes.
         label = str(len(self.footnotes) + 1)
         tag = constants.FOOTNOTE_REF_PREFIX + label
-        footnote = dict(label=label, tag=tag)
+        footnote = dict(parsed_label=parsed_label, label=label, tag=tag)
         self.footnotes[label] = footnote
         self.footnotes_tmp[parsed_label] = footnote
         start = self.text.index(tk.INSERT)
         self.text.insert(tk.INSERT, constants.FOOTNOTE)
-        self.text.tag_add(constants.FOOTNOTE_REF, start, self.text.index(tk.INSERT))
-        self.text.tag_add(tag, start, self.text.index(tk.INSERT))
+        self.text.tag_add(constants.FOOTNOTE_REF, start, tk.INSERT)
+        self.text.tag_add(tag, start, tk.INSERT)
         self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
-        footnote["first"] = self.text.index(tk.INSERT)
 
     def parse_footnote_def(self, ast):
-        ic(ast)
-        label = ast["label"]
+        parsed_label = ast["label"]
         try:
-            footnote = self.footnotes_tmp[label]
+            footnote = self.footnotes_tmp[parsed_label]
         except KeyError:
             return
-        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        pos = self.text.tag_nextrange(footnote["tag"], "1.0", tk.END)[1]
+        tag = constants.FOOTNOTE_DEF_PREFIX + footnote["label"]
         self.text.tag_configure(tag, elide=True)
-        self.text.mark_set(tk.INSERT, footnote["first"])
+        self.text.mark_set(tk.INSERT, pos)
         for child in ast["children"]:
             self.parse(child)
-        # The order of added tags is essential for 'write_outfile'.
-        self.text.tag_add(constants.FOOTNOTE_DEF, footnote["first"], tk.INSERT)
-        self.text.tag_add(tag, footnote["first"], tk.INSERT)
-        footnote["last"] = self.text.index(tk.INSERT)
+        # The order of adding tags is essential for 'write_outfile'.
+        self.text.tag_add(constants.FOOTNOTE_DEF, pos, tk.INSERT)
+        self.text.tag_add(tag, pos, tk.INSERT)
 
     def info_update(self, size_only=False):
         self.size_var.set(f"{self.character_count} characters")
@@ -505,7 +503,6 @@ class Editor:
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
-        ic(first, last)
         label = str(len(self.footnotes) + 1)
         ref_tag = constants.FOOTNOTE_REF_PREFIX + label
         def_tag = constants.FOOTNOTE_DEF_PREFIX + label
@@ -528,7 +525,6 @@ class Editor:
         except tk.TclError:
             return
         pos = self.text.tag_nextrange(constants.FOOTNOTE_DEF, current)
-        ic(pos)
 
     def footnote_enter(self, event=None):
         self.text.configure(cursor="dot")
@@ -539,7 +535,6 @@ class Editor:
     def footnote_toggle(self, event=None, tags=None):
         if tags is None:
             tags = self.text.tag_names(tk.CURRENT)
-        ic(tags)
         for tag in tags:
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
                 label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
@@ -548,10 +543,6 @@ class Editor:
             return
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide")))
-
-    def dump(self):
-        for entry in self.text.dump("1.0", tk.END):
-            print(entry)
 
     @property
     def outfile(self):
@@ -572,9 +563,10 @@ class Editor:
             else:
                 method(item)
         self.write_line_indents = ["  "]
-        ic(self.footnotes_tmp.items())
-        for old_label, footnote in sorted(self.footnotes_tmp.items()):
-            self.outfile.write(f"\n[^{footnote['newlabel']}]: ")
+        footnotes = list(self.footnotes_tmp.values())
+        footnotes.sort(key=lambda f: int(f["label"]))
+        for footnote in footnotes:
+            self.outfile.write(f"\n[^{footnote['label']}]: ")
             self.write_line_indented = True
             self.write_characters(footnote["outfile"].getvalue().lstrip("\n") or
                                   "*To be defined.*")
@@ -667,10 +659,12 @@ class Editor:
         try:
             footnote = self.footnotes_tmp[self.current_footnote]
         except KeyError:
-            newlabel = str(len(self.footnotes_tmp) + 1)
-            footnote = dict(current_label=self.current_footnote, newlabel=newlabel)
+            # Renumber labels according to which actually exist.
+            label = str(len(self.footnotes_tmp) + 1)
+            footnote = dict(label=label)
+            # 'current_footnote' is the old label.
             self.footnotes_tmp[self.current_footnote] = footnote
-        self.write_characters(f"[^{newlabel}]")
+        self.write_characters(f"[^{label}]")
         self.do_not_save_text = True
 
     def save_tagoff_footnote_ref(self, item):
@@ -684,7 +678,7 @@ class Editor:
 
     def save_tagoff_footnote_def(self, item):
         self.current_footnote = None
-        self.outfiles_stack.pop()
+        outfile = self.outfiles_stack.pop()
 
     def save_mark(self, item):
         pass

@@ -18,7 +18,7 @@ QUOTE = "quote"
 LINK = "link"
 LINK_PREFIX = "link-"
 
-FOOTNOTE = "footnote"
+FOOTNOTE = "[footnote]"
 FOOTNOTE_REF = "footnote_ref"
 FOOTNOTE_DEF = "footnote_def"
 FOOTNOTE_REF_PREFIX = "footnote_ref-"
