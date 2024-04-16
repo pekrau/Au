@@ -28,7 +28,7 @@ Written in Python 3 using Tkinter.
 | ------ | ----------------------------------------- |
 | Ctrl-H | Bring up help text window.                |
 | Ctrl-S | Save text.                                |
-| Ctrl-W | Close window.                             |
+| Ctrl-Q | Close window.                             |
 | Ctrl-N | Move cursor to next line.                 |
 | Ctrl-P | Move cursor to previous line.             |
 | Ctrl-A | Move cursor to beginning of line.         |
@@ -37,4 +37,5 @@ Written in Python 3 using Tkinter.
 | End    | Move cursor to the end of the text.       |
 | PgUp   | Move cursor one page up                   |
 | PgDn   | Move cursor one page down.                |
+| R-click | Bring up popup menu for available actions. |
 

@@ -118,8 +118,6 @@ class Link(tk_simpledialog.Dialog):
         w.pack(side=tk.LEFT, padx=5, pady=5)
         w = ttk.Button(box, text="Visit", width=10, command=self.visit)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Remove", width=10, command=self.remove)
-        w.pack(side=tk.LEFT, padx=5, pady=5)
         w = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         self.bind("<Return>", self.ok)
@@ -128,7 +126,3 @@ class Link(tk_simpledialog.Dialog):
 
     def visit(self):
         webbrowser.open_new_tab(self.url_entry.get())
-
-    def remove(self):
-        self.links.remove(self.data["tag"])
-        self.cancel()

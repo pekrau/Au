@@ -177,7 +177,6 @@ class Editor:
     def popup_menu(self, event):
         menu = tk.Menu(self.text, tearoff=False)
         tags = self.text.tag_names(tk.CURRENT)
-        ic(tags)
         any_item = False
         if constants.LINK in tags:
             menu.add_command(label="Remove link", command=self.remove_link)
@@ -195,7 +194,7 @@ class Editor:
             menu.add_command(label="Remove footnote", command=self.remove_footnote)
             any_item = True
         try:
-            self.text.selection_get()
+            self.text.index(tk.SEL_FIRST)
         except tk.TclError:
             pass
         else:
@@ -206,6 +205,7 @@ class Editor:
             menu.add_command(label="Italic", command=self.add_italic)
             menu.add_command(label="Quote", command=self.add_quote)
             menu.add_command(label="Footnote", command=self.add_footnote)
+            any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
 
@@ -495,6 +495,11 @@ class Editor:
             return
         for tag in self.text.tag_names(current):
             if tag.startswith(constants.LINK_PREFIX):
+                if not tk_messagebox.askokcancel(
+                        parent=self.toplevel,
+                        title="Remove link?",
+                        message=f"Really remove link?"):
+                    return
                 self.links.remove(tag)
                 break
 
