@@ -170,7 +170,7 @@ class Editor:
 
     def key_press(self, event):
         if event.keysym == "F1": # Debug
-            print(self.text.index(tk.CURRENT))
+            print(self.text.index(tk.INSERT), self.text.tag_names(tk.INSERT))
             return
         if event.keysym == "F2": # Debug
             for entry in self.text.dump("1.0", tk.END):
@@ -289,10 +289,7 @@ class Editor:
         footnote = dict(parsed_label=parsed_label, label=label, tag=tag)
         self.footnotes[label] = footnote
         self.footnotes_tmp[parsed_label] = footnote
-        start = self.text.index(tk.INSERT)
-        self.text.insert(tk.INSERT, constants.FOOTNOTE)
-        self.text.tag_add(constants.FOOTNOTE_REF, start, tk.INSERT)
-        self.text.tag_add(tag, start, tk.INSERT)
+        self.text.insert(tk.INSERT, constants.FOOTNOTE, (constants.FOOTNOTE_REF, tag))
         self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
 
     def parse_footnote_def(self, ast):
@@ -486,6 +483,10 @@ class Editor:
         except tk.TclError:
             return
         self.text.tag_add(constants.QUOTE, first, last)
+        if "\n\n" not in self.text.get(last, last + "+2c"):
+            self.text.insert(last, "\n\n")
+        if "\n\n" not in self.text.get(first + "-2c", first):
+            self.text.insert(first, "\n\n")
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
@@ -515,15 +516,11 @@ class Editor:
         self.text.tag_add(def_tag, first, last)
         self.text.tag_configure(def_tag, elide=True)
         self.footnotes[label] = footnote
-        self.text.insert(first, constants.FOOTNOTE)
-        last = first + f" +{len(constants.FOOTNOTE)}c"
-        self.text.tag_add(constants.FOOTNOTE_REF, first, last)
-        self.text.tag_add(ref_tag, first, last)
+        self.text.insert(first, constants.FOOTNOTE,
+                         (constants.FOOTNOTE_REF, ref_tag))
         self.text.tag_bind(ref_tag, "<Button-1>", self.footnote_toggle)
 
     def remove_footnote(self):
-        # XXX Include the footnote text into the text proper,
-        # XXX and set selection to the footnote text.
         try:
             current = self.text.index(tk.INSERT)
         except tk.TclError:
