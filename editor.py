@@ -28,6 +28,7 @@ class Editor:
         self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
         self.toplevel.bind("<Control-s>", self.save)
+
         self.toplevel.bind("<Home>", self.move_cursor_home)
         self.toplevel.bind("<End>", self.move_cursor_end)
 
@@ -100,12 +101,10 @@ class Editor:
                                 foreground=constants.FOOTNOTE_REF_COLOR,
                                 font=constants.FONT_BOLD)
         self.text.tag_configure(constants.FOOTNOTE_DEF,
+                                background=constants.FOOTNOTE_DEF_COLOR,
                                 lmargin1=constants.FOOTNOTE_DEF_MARGIN,
                                 lmargin2=constants.FOOTNOTE_DEF_MARGIN,
-                                rmargin=constants.FOOTNOTE_DEF_MARGIN,
-                                background=constants.FOOTNOTE_DEF_COLOR,
-                                borderwidth=3,
-                                relief=tk.SUNKEN)
+                                rmargin=constants.FOOTNOTE_DEF_MARGIN)
         self.text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
         self.text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
@@ -306,6 +305,7 @@ class Editor:
         tag = constants.FOOTNOTE_DEF_PREFIX + footnote["label"]
         self.text.tag_configure(tag, elide=True)
         self.text.mark_set(tk.INSERT, pos)
+        self.prev_blank_line = False
         for child in ast["children"]:
             self.parse(child)
         # The order of adding tags is essential for 'write_outfile'.
@@ -529,18 +529,29 @@ class Editor:
         except tk.TclError:
             return
         tags = self.text.tag_names(tk.INSERT)
-        if constants.FOOTNOTE_REF not in tags:
-            return
         for tag in tags:
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
-                label = int(tag[len(constants.FOOTNOTE_REF_PREFIX):])
-                ic(tags, label)
+                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
+                break
+            elif tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
                 break
         else:
             return
-        # pos = self.text.tag_nextrange(constants.FOOTNOTE_DEF, current)
-        # if not pos:
-        #     return
+        # Remove '[footnote]' text.
+        tag = constants.FOOTNOTE_REF_PREFIX + label
+        first, last = self.text.tag_nextrange(tag, "1.0")
+        self.text.tag_remove(constants.FOOTNOTE_REF, first, last)
+        self.text.delete(first, last)
+        self.text.tag_delete(tag)
+        # Remove footnote definition tag; text displayed and selected.
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        first, last = self.text.tag_nextrange(tag, "1.0")
+        self.text.tag_remove(constants.FOOTNOTE_DEF, first, last)
+        self.text.tag_delete(tag)
+        self.text.tag_add(tk.SEL, first, last)
+        self.text.mark_set(tk.INSERT, last)
+        self.text.see(last)
 
     def footnote_enter(self, event=None):
         self.text.configure(cursor="dot")
@@ -584,8 +595,7 @@ class Editor:
         for footnote in footnotes:
             self.outfile.write(f"\n[^{footnote['label']}]: ")
             self.write_line_indented = True
-            self.write_characters(footnote["outfile"].getvalue().lstrip("\n") or
-                                  "*To be defined.*")
+            self.write_characters(footnote["outfile"].getvalue() or "*To be defined.*")
 
     def write_line_indent(self):
         if self.write_line_indented:
