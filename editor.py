@@ -28,6 +28,10 @@ class Editor:
         self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
         self.toplevel.bind("<Control-s>", self.save)
+        self.toplevel.bind("<Control-q>", self.close)
+        self.toplevel.bind("<Control-c>", self.copy_text)
+        self.toplevel.bind("<Control-x>", self.cut_text)
+        self.toplevel.bind("<Control-v>", self.paste_text)
 
         self.toplevel.bind("<Home>", self.move_cursor_home)
         self.toplevel.bind("<End>", self.move_cursor_end)
@@ -52,27 +56,36 @@ class Editor:
                                    command=self.save,
                                    accelerator="Ctrl-S")
         self.menu_file.add_command(label="Delete", command=self.delete)
-        self.menu_file.add_command(label="Close", command=self.close)
+        self.menu_file.add_command(label="Close", command=self.close,
+                                   accelerator="Ctrl-Q")
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Link", command=self.add_link)
-        self.menu_edit.add_command(label="Bold", command=self.add_bold)
-        self.menu_edit.add_command(label="Italic", command=self.add_italic)
-        self.menu_edit.add_command(label="Quote", command=self.add_quote)
-        self.menu_edit.add_command(label="Footnote", command=self.add_footnote)
+        self.menu_edit.add_command(label="Copy", command=self.copy_text,
+                                   accelerator="Ctrl-C")
+        self.menu_edit.add_command(label="Cut", command=self.cut_text,
+                                   accelerator="Ctrl-X")
+        self.menu_edit.add_command(label="Paste", command=self.paste_text,
+                                   accelerator="Ctrl-V")
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Remove link", command=self.remove_link)
-        self.menu_edit.add_command(label="Remove bold", command=self.remove_bold)
-        self.menu_edit.add_command(label="Remove italic", command=self.remove_italic)
-        self.menu_edit.add_command(label="Remove quote", command=self.remove_quote)
-        self.menu_edit.add_command(label="Remove footnote",
-                                   command=self.remove_footnote)
+        self.menu_edit.add_command(label="Add link", command=self.add_link)
+        self.menu_edit.add_command(label="Remove link", command=self.add_link)
+
+        self.menu_format = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_format, label="Format")
+        self.menu_format.add_command(label="Bold", command=self.add_bold)
+        self.menu_format.add_command(label="Italic", command=self.add_italic)
+        self.menu_format.add_command(label="Quote", command=self.add_quote)
+        self.menu_format.add_command(label="Footnote", command=self.add_footnote)
+        self.menu_format.add_separator()
+        self.menu_format.add_command(label="Remove bold", command=self.remove_bold)
+        self.menu_format.add_command(label="Remove italic", command=self.remove_italic)
+        self.menu_format.add_command(label="Remove quote", command=self.remove_quote)
+        self.menu_format.add_command(label="Remove footnote",
+                                     command=self.remove_footnote)
 
         self.text_frame = ttk.Frame(self.toplevel, padding=4)
         self.text_frame.pack(fill=tk.BOTH, expand=1)
-        self.text_frame.rowconfigure(0, weight=1)
-        self.text_frame.columnconfigure(0, weight=1)
 
         self.text = tk.Text(self.text_frame,
                             width=constants.DEFAULT_TEXT_WIDTH,
@@ -82,12 +95,20 @@ class Editor:
                             wrap=tk.WORD,
                             spacing1=4,
                             spacing2=8)
-        self.text.grid(column=0, row=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.text.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.text_frame.rowconfigure(0, weight=1)
+        self.text_frame.columnconfigure(0, weight=1)
+
+        self.text.bind("<Key>", self.key_press)
+        self.text.bind("<<Modified>>", self.handle_modified)
+        self.text.bind("<Button-3>", self.popup_menu)
+
         self.text_scroll_y = ttk.Scrollbar(self.text_frame,
                                            orient=tk.VERTICAL,
                                            command=self.text.yview)
         self.text_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.text.configure(yscrollcommand=self.text_scroll_y.set)
+
         self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         self.text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         self.text.tag_configure("quote",
@@ -108,65 +129,85 @@ class Editor:
         self.text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
         self.text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
-        self.menu_right_click = tk.Menu(self.text, tearoff=False)
-        self.text.bind("<Button-3>", self.popup_menu_right_click)
-        self.menu_right_click.add_command(label="Link", command=self.add_link)
-        self.menu_right_click.add_command(label="Bold", command=self.add_bold)
-        self.menu_right_click.add_command(label="Italic", command=self.add_italic)
-        self.menu_right_click.add_command(label="Quote", command=self.add_quote)
-        self.menu_right_click.add_command(label="Footnote", command=self.add_footnote)
-        self.menu_right_click.add_separator()
-        self.menu_right_click.add_command(label="Remove link", command=self.remove_link)
-        self.menu_right_click.add_command(label="Remove bold", command=self.remove_bold)
-        self.menu_right_click.add_command(label="Remove italic",
-                                          command=self.remove_italic)
-        self.menu_right_click.add_command(label="Remove footnote",
-                                          command=self.remove_footnote)
+        self.info_frame = ttk.Frame(self.text_frame, padding=2)
+        self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        self.text_frame.rowconfigure(1, minsize=22)
 
-        self.info_frame = ttk.Frame(self.toplevel, padding=4)
-        self.info_frame.pack(fill=tk.X, expand=1)
-        self.info_frame.rowconfigure(0, weight=1)
-        self.info_frame.columnconfigure(0, weight=1)
-        self.info_frame.columnconfigure(1, weight=2)
-        self.info_frame.columnconfigure(2, weight=2)
         self.size_var = tk.StringVar()
         size_label = ttk.Label(self.info_frame)
-        size_label.grid(column=0, row=0, sticky=tk.W, padx=4)
+        size_label.grid(row=0, column=0, padx=4, sticky=tk.W)
+        self.info_frame.columnconfigure(0, weight=1)
+
         size_label["textvariable"] = self.size_var
         self.url_var = tk.StringVar()
-        url_label = ttk.Label(self.info_frame, anchor=tk.W)
-        url_label.grid(column=1, row=0, sticky=tk.W, padx=4)
+        url_label = ttk.Label(self.info_frame)
+        url_label.grid(row=0, column=1, padx=4, sticky=tk.W)
         url_label["textvariable"] = self.url_var
-        self.title_var = tk.StringVar()
-        title_label = ttk.Label(self.info_frame, anchor=tk.W)
-        title_label.grid(column=2, row=0, sticky=tk.W, padx=4)
-        title_label["textvariable"] = self.title_var
+        self.info_frame.columnconfigure(1, weight=1)
 
-        path = os.path.join(self.main.absdirpath, self.filepath)
-        self.timestamp = utils.get_time(path)
-        with open(path) as infile:
-            ast = utils.get_ast(infile.read())
+        self.title_var = tk.StringVar()
+        title_label = ttk.Label(self.info_frame)
+        title_label.grid(row=0, column=2, padx=4, sticky=tk.W)
+        title_label["textvariable"] = self.title_var
+        self.info_frame.columnconfigure(2, weight=1)
+
         self.links = links.Links(self)
         self.footnotes = dict()
-        self.footnotes_tmp = dict()
+        self.selected_dump = None
+
+        with open(os.path.join(self.main.absdirpath, self.filepath)) as infile:
+            ast = utils.get_ast(infile.read())
+        self.parsed_footnotes = dict()
         self.parse(ast)
+
         cursor = config.get("cursor") or "1.0"
         self.text.mark_set(tk.INSERT, cursor)
         self.text.see(cursor)
         self.info_update()
 
+        self.ignore_modified_event = True
+        self.text.edit_modified(False)
         self.text.update()
         width = self.text.winfo_width() / 2
         url_label.configure(wraplength=width)
         title_label.configure(wraplength=width)
-
-        self.text.bind("<Key>", self.key_press)
-        self.text.bind("<<Modified>>", self.handle_modified)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
-    def popup_menu_right_click(self, event):
-        self.menu_right_click.tk_popup(event.x_root, event.y_root)
+    def popup_menu(self, event):
+        menu = tk.Menu(self.text, tearoff=False)
+        tags = self.text.tag_names(tk.CURRENT)
+        ic(tags)
+        any_item = False
+        if constants.LINK in tags:
+            menu.add_command(label="Remove link", command=self.remove_link)
+            any_item = True
+        if constants.BOLD in tags:
+            menu.add_command(label="Remove bold", command=self.remove_bold)
+            any_item = True
+        if constants.ITALIC in tags:
+            menu.add_command(label="Remove italic", command=self.remove_italic)
+            any_item = True
+        if constants.QUOTE in tags:
+            menu.add_command(label="Remove quote", command=self.remove_quote)
+            any_item = True
+        if constants.FOOTNOTE_REF in tags or constants.FOOTNOTE_DEF in tags:
+            menu.add_command(label="Remove footnote", command=self.remove_footnote)
+            any_item = True
+        try:
+            self.text.selection_get()
+        except tk.TclError:
+            pass
+        else:
+            if any_item:
+                menu.add_separator()
+            menu.add_command(label="Link", command=self.add_link)
+            menu.add_command(label="Bold", command=self.add_bold)
+            menu.add_command(label="Italic", command=self.add_italic)
+            menu.add_command(label="Quote", command=self.add_quote)
+            menu.add_command(label="Footnote", command=self.add_footnote)
+        if any_item:
+            menu.tk_popup(event.x_root, event.y_root)
 
     def key_press(self, event):
         if event.keysym == "F1": # Debug
@@ -288,14 +329,14 @@ class Editor:
         tag = constants.FOOTNOTE_REF_PREFIX + label
         footnote = dict(parsed_label=parsed_label, label=label, tag=tag)
         self.footnotes[label] = footnote
-        self.footnotes_tmp[parsed_label] = footnote
+        self.parsed_footnotes[parsed_label] = footnote
         self.text.insert(tk.INSERT, constants.FOOTNOTE, (constants.FOOTNOTE_REF, tag))
         self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
 
     def parse_footnote_def(self, ast):
         parsed_label = ast["label"]
         try:
-            footnote = self.footnotes_tmp[parsed_label]
+            footnote = self.parsed_footnotes[parsed_label]
         except KeyError:
             return
         pos = self.text.tag_nextrange(footnote["tag"], "1.0", tk.END)[1]
@@ -319,6 +360,10 @@ class Editor:
     @property
     def character_count(self):
         return len(self.text.get("1.0", tk.END))
+
+    @property
+    def timestamp(self):
+        return utils.get_time(os.path.join(self.main.absdirpath, self.filepath))
 
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
@@ -394,6 +439,28 @@ class Editor:
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
 
+    def copy_text(self, event=None):
+        try:
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        self.selected_dump = self.text.dump(first, last)
+        ic(self.selected_dump)
+        # raise NotImplementedError
+
+    def cut_text(self, event=None):
+        try:
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        self.selected_dump = self.text.dump(first, last)
+        raise NotImplementedError
+
+    def paste_text(self, event=None):
+        raise NotImplementedError
+
     def add_link(self):
         try:
             first = self.text.index(tk.SEL_FIRST)
@@ -427,12 +494,9 @@ class Editor:
         except tk.TclError:
             return
         for tag in self.text.tag_names(current):
-            if not tag.startswith(constants.LINK): continue
-            pos = self.text.tag_prevrange(tag, current)
-            if pos:
-                self.text.tag_remove(tag, *pos)
-        self.ignore_modified_event = True
-        self.text.edit_modified(True)
+            if tag.startswith(constants.LINK_PREFIX):
+                self.links.remove(tag)
+                break
 
     def add_bold(self):
         try:
@@ -449,11 +513,12 @@ class Editor:
             current = self.text.index(tk.INSERT)
         except tk.TclError:
             return
-        pos = self.text.tag_prevrange(constants.BOLD, current)
-        if pos:
-            self.text.tag_remove(constants.BOLD, *pos)
-            self.ignore_modified_event = True
-            self.text.edit_modified(True)
+        if constants.BOLD in self.text.tag_names(current):
+            pos = self.text.tag_prevrange(constants.BOLD, current)
+            if pos:
+                self.text.tag_remove(constants.BOLD, *pos)
+                self.ignore_modified_event = True
+                self.text.edit_modified(True)
 
     def add_italic(self):
         try:
@@ -470,11 +535,12 @@ class Editor:
             current = self.text.index(tk.INSERT)
         except tk.TclError:
             return
-        pos = self.text.tag_prevrange(constants.ITALIC, current)
-        if pos:
-            self.text.tag_remove(constants.ITALIC, *pos)
-            self.ignore_modified_event = True
-            self.text.edit_modified(True)
+        if constants.ITALIC in self.text.tag_names(current):
+            pos = self.text.tag_prevrange(constants.ITALIC, current)
+            if pos:
+                self.text.tag_remove(constants.ITALIC, *pos)
+                self.ignore_modified_event = True
+                self.text.edit_modified(True)
 
     def add_quote(self):
         try:
@@ -495,15 +561,16 @@ class Editor:
             current = self.text.index(tk.INSERT)
         except tk.TclError:
             return
-        pos = self.text.tag_prevrange(constants.QUOTE, current)
-        if pos:
-            self.text.tag_remove(constants.QUOTE, *pos)
-            self.ignore_modified_event = True
-            self.text.edit_modified(True)
+        if constants.QUOTE in self.text.tag_names(current):
+            pos = self.text.tag_prevrange(constants.QUOTE, current)
+            if pos:
+                self.text.tag_remove(constants.QUOTE, *pos)
+                self.ignore_modified_event = True
+                self.text.edit_modified(True)
 
     def add_footnote(self):
         try:
-            first = str(self.text.index(tk.SEL_FIRST))
+            first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
@@ -576,7 +643,7 @@ class Editor:
         self.current_link_tag = None
         self.write_line_indents = []
         self.write_line_indented = False
-        self.footnotes_tmp = dict()
+        self.saved_footnotes = dict()
         self.current_footnote = None
         self.do_not_save_text = False
         for item in self.text.dump("1.0", tk.END):
@@ -587,7 +654,7 @@ class Editor:
             else:
                 method(item)
         self.write_line_indents = ["  "]
-        footnotes = list(self.footnotes_tmp.values())
+        footnotes = list(self.saved_footnotes.values())
         footnotes.sort(key=lambda f: int(f["label"]))
         for footnote in footnotes:
             self.outfile.write(f"\n[^{footnote['label']}]: ")
@@ -680,13 +747,13 @@ class Editor:
 
     def save_tagon_footnote_ref(self, item):
         try:
-            footnote = self.footnotes_tmp[self.current_footnote]
+            footnote = self.saved_footnotes[self.current_footnote]
         except KeyError:
             # Renumber labels according to which actually exist.
-            label = str(len(self.footnotes_tmp) + 1)
+            label = str(len(self.saved_footnotes) + 1)
             footnote = dict(label=label)
             # 'current_footnote' is the old label.
-            self.footnotes_tmp[self.current_footnote] = footnote
+            self.saved_footnotes[self.current_footnote] = footnote
         self.write_characters(f"[^{label}]")
         self.do_not_save_text = True
 
@@ -695,7 +762,7 @@ class Editor:
         self.do_not_save_text = False
 
     def save_tagon_footnote_def(self, item):
-        footnote = self.footnotes_tmp[self.current_footnote]
+        footnote = self.saved_footnotes[self.current_footnote]
         footnote["outfile"] = io.StringIO()
         self.outfiles_stack.append(footnote["outfile"])
 

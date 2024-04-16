@@ -23,7 +23,6 @@ class Links:
         self.editor.text.tag_bind(constants.LINK, "<Enter>", self.enter)
         self.editor.text.tag_bind(constants.LINK, "<Leave>", self.leave)
         self.editor.text.tag_bind(constants.LINK, "<Button-1>", self.edit)
-        self.editor.text.tag_bind(constants.LINK, "<Control-Button-1>", self.browse)
 
     def add(self, ast, first, last):
         self.new(ast["dest"], ast["title"], first, last)
@@ -46,7 +45,7 @@ class Links:
         self.editor.title_var.set("")
 
     def get(self, tag=None):
-        "Get the link for the given tag, or for the current cursor position."
+        "Get the link data for the given tag, or for the current cursor position."
         if tag is None:
             for tag in self.editor.text.tag_names(tk.CURRENT):
                 if tag.startswith(constants.LINK_PREFIX):
@@ -59,7 +58,7 @@ class Links:
         link = self.get()
         if not link:
             return
-        edit = Link(self.editor.toplevel, link["url"], link["title"])
+        edit = Link(self, self.editor.toplevel, link)
         if edit.result:
             if edit.result["url"]:
                 link["url"] = edit.result["url"]
@@ -72,30 +71,39 @@ class Links:
             self.editor.ignore_modified_event = True
             self.editor.text.edit_modified(True)
 
-    def browse(self, event):
-        webbrowser.open_new_tab(self.get()["url"])
+    def remove(self, tag=None):
+        data = self.get(tag=tag)
+        if not data:
+            return
+        first, last = self.editor.text.tag_nextrange(data["tag"], "1.0")
+        self.lookup.pop(data["tag"])
+        self.editor.text.tag_delete(data["tag"])
+        self.editor.text.tag_remove(constants.LINK, first, last)
+        self.editor.ignore_modified_event = True
+        self.editor.text.edit_modified(True)
 
 
 class Link(tk_simpledialog.Dialog):
     "Dialog window for editing URL and title for a link."
 
-    def __init__(self, parent, url, title):
-        self.initial = dict(url=url, title=title)
+    def __init__(self, links, toplevel, data):
+        self.links = links
+        self.data = data
         self.result = None
-        super().__init__(parent, title="Edit link")
+        super().__init__(toplevel, title="Edit link")
 
     def body(self, body):
         label = ttk.Label(body, text="URL")
         label.grid(row=0, column=0)
         self.url_entry = tk.Entry(body)
-        if self.initial["url"]:
-            self.url_entry.insert(0, self.initial["url"])
+        if self.data["url"]:
+            self.url_entry.insert(0, self.data["url"])
         self.url_entry.grid(row=0, column=1)
         label = ttk.Label(body, text="Title")
         label.grid(row=1, column=0)
         self.title_entry = tk.Entry(body)
-        if self.initial["title"]:
-            self.title_entry.insert(0, self.initial["title"])
+        if self.data["title"]:
+            self.title_entry.insert(0, self.data["title"])
         self.title_entry.grid(row=1, column=1)
         return self.url_entry
 
@@ -103,3 +111,24 @@ class Link(tk_simpledialog.Dialog):
         self.result = dict(url=self.url_entry.get(),
                            title=self.title_entry.get())
         return True
+
+    def buttonbox(self):
+        box = tk.Frame(self)
+        w = ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Visit", width=10, command=self.visit)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Remove", width=10, command=self.remove)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bind("<Return>", self.ok)
+        self.bind("<Escape>", self.cancel)
+        box.pack()
+
+    def visit(self):
+        webbrowser.open_new_tab(self.url_entry.get())
+
+    def remove(self):
+        self.links.remove(self.data["tag"])
+        self.cancel()
