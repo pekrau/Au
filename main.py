@@ -660,7 +660,8 @@ class Main:
             ed = self.texts[filepath]["editor"]
             ed.toplevel.lift()
         except KeyError:
-            ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath)
+            config = self.configuration["texts"].setdefault(filepath, dict())
+            ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath, config)
         self.treeview.see(filepath)
         ed.text.focus_set()
 
@@ -841,7 +842,7 @@ class Main:
     def save_configuration(self, event=None):
         """Save the current configuration. 
         The contents of the dictionary must first be updated.
-        Get geometry and item order from the respective widgets.
+        Get current state from the respective widgets.
         """
         self.configuration["main"]["geometry"] = self.root.geometry()
         if self.help_text:

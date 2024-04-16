@@ -21,7 +21,7 @@ import utils
 class Editor:
     "Text editor window."
 
-    def __init__(self, main, filepath):
+    def __init__(self, main, filepath, config):
         self.main = main
         self.filepath = filepath
         self.toplevel = tk.Toplevel(self.main.root)
@@ -31,7 +31,6 @@ class Editor:
         self.toplevel.bind("<Home>", self.move_cursor_home)
         self.toplevel.bind("<End>", self.move_cursor_end)
 
-        config = self.main.configuration["texts"].setdefault(self.filepath, dict())
         try:
             self.toplevel.geometry(config["geometry"])
         except KeyError:
@@ -152,6 +151,9 @@ class Editor:
         self.footnotes = dict()
         self.footnotes_tmp = dict()
         self.parse(ast)
+        cursor = config.get("cursor") or "1.0"
+        self.text.mark_set(tk.INSERT, cursor)
+        self.text.see(cursor)
         self.info_update()
 
         self.text.update()
@@ -204,7 +206,8 @@ class Editor:
         self.main.flag_treeview_entry(self.filepath, modified=True)
 
     def get_configuration(self):
-        return dict(geometry=self.toplevel.geometry())
+        return dict(geometry=self.toplevel.geometry(),
+                    cursor=self.text.index(tk.INSERT))
 
     @property
     def is_modified(self):
@@ -507,6 +510,7 @@ class Editor:
         ref_tag = constants.FOOTNOTE_REF_PREFIX + label
         def_tag = constants.FOOTNOTE_DEF_PREFIX + label
         footnote = dict(label=label, tag=ref_tag, first=first, last=last)
+        # The order of adding tags is essential for 'write_outfile'.
         self.text.tag_add(constants.FOOTNOTE_DEF, first, last)
         self.text.tag_add(def_tag, first, last)
         self.text.tag_configure(def_tag, elide=True)
@@ -524,7 +528,19 @@ class Editor:
             current = self.text.index(tk.INSERT)
         except tk.TclError:
             return
-        pos = self.text.tag_nextrange(constants.FOOTNOTE_DEF, current)
+        tags = self.text.tag_names(tk.INSERT)
+        if constants.FOOTNOTE_REF not in tags:
+            return
+        for tag in tags:
+            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                label = int(tag[len(constants.FOOTNOTE_REF_PREFIX):])
+                ic(tags, label)
+                break
+        else:
+            return
+        # pos = self.text.tag_nextrange(constants.FOOTNOTE_DEF, current)
+        # if not pos:
+        #     return
 
     def footnote_enter(self, event=None):
         self.text.configure(cursor="dot")
