@@ -358,15 +358,20 @@ class Editor:
         self.text.tag_add("quote", start, tk.INSERT)
 
     def parse_footnote_ref(self, ast):
-        parsed_label = ast["label"]
-        # Re-label using the number of actually occurring footnotes.
+        self.new_footnote_ref(parsed_label=ast["label"])
+
+    def new_footnote_ref(self, parsed_label=None):
+        "Create a new footnote in the lookup with unique label and tag."
         label = str(len(self.footnotes) + 1)
         tag = constants.FOOTNOTE_REF_PREFIX + label
         footnote = dict(parsed_label=parsed_label, label=label, tag=tag)
         self.footnotes[label] = footnote
-        self.parsed_footnotes[parsed_label] = footnote
+        if parsed_label:
+            self.parsed_footnotes[parsed_label] = footnote
+        # Insert the standard text '[footnote]' as the visible reference.
         self.text.insert(tk.INSERT, constants.FOOTNOTE, (constants.FOOTNOTE_REF, tag))
         self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+        return footnote
 
     def parse_footnote_def(self, ast):
         parsed_label = ast["label"]
@@ -374,16 +379,16 @@ class Editor:
             footnote = self.parsed_footnotes[parsed_label]
         except KeyError:
             return
-        pos = self.text.tag_nextrange(footnote["tag"], "1.0", tk.END)[1]
+        first = self.text.tag_nextrange(footnote["tag"], "1.0", tk.END)[1]
         tag = constants.FOOTNOTE_DEF_PREFIX + footnote["label"]
         self.text.tag_configure(tag, elide=True)
-        self.text.mark_set(tk.INSERT, pos)
+        self.text.mark_set(tk.INSERT, first)
         self.prev_blank_line = False
         for child in ast["children"]:
             self.parse(child)
         # The order of adding tags is essential for 'write_outfile'.
-        self.text.tag_add(constants.FOOTNOTE_DEF, pos, tk.INSERT)
-        self.text.tag_add(tag, pos, tk.INSERT)
+        self.text.tag_add(constants.FOOTNOTE_DEF, first, tk.INSERT)
+        self.text.tag_add(tag, first, tk.INSERT)
 
     def info_update(self, size_only=False):
         self.size_var.set(f"{self.character_count} characters")
@@ -486,7 +491,11 @@ class Editor:
     def dump(self, first, last):
         "Clean up the raw dump to make in consistent."
         first_tags = list(self.text.tag_names(first))
-        for tag in ("sel", constants.FOOTNOTE_REF, constants.FOOTNOTE_DEF):
+        skip_tags = set([tk.SEL,
+                         constants.LINK,
+                         constants.FOOTNOTE_REF,
+                         constants.FOOTNOTE_DEF])
+        for tag in skip_tags:
             try:
                 first_tags.remove(tag)
             except ValueError:
@@ -494,23 +503,29 @@ class Editor:
         for tag in list(first_tags):
             if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
                 first_tags.remove(tag)
-        last_tags = list(self.text.tag_names(last))
+        last_tags = set(self.text.tag_names(last)).difference(skip_tags)
         current_tags = []
         footnote_ref_labels = set()
         result = []
         for entry in self.text.dump(first, last):
             name, content, pos = entry
-            if name == "tagoff":
+            if name == "tagon":
+                if content in skip_tags:
+                    continue
+                current_tags.append(content)
+            elif name == "tagoff":
+                if content in skip_tags:
+                    continue
                 try:
                     current_tags.remove(content)
                 except ValueError:
                     result.insert(0, ("tagon", content, "?"))
-            elif name == "tagon":
-                current_tags.append(content)
             elif name == "mark":
                 continue
             result.append(entry)
-        current_tags.extend(set(last_tags).difference(current_tags))
+        ic(current_tags, last_tags)
+        current_tags.extend(last_tags.difference(current_tags))
+        ic(current_tags)
         for tag in current_tags:
             result.append(("tagoff", tag, "?"))
         return result
@@ -527,28 +542,54 @@ class Editor:
     def paste(self):
         tags_first = dict()
         first = self.text.index(tk.INSERT)
+        current_link = None
+        current_footnote = None
+        do_output_text = True
+        self.parsed_footnotes = dict() # For use only while pasting.
         for name, content, pos in self.main.paste_buffer:
             if name == "text":
-                self.text.insert(tk.INSERT, content)
+                if do_output_text:
+                    self.text.insert(tk.INSERT, content)
+
             elif name == "tagon":
-                if content.startswith(constants.FOOTNOTE_REF_PREFIX):
-                    # XXX Create new footnote
-                    pass
+                if content.startswith(constants.LINK_PREFIX):
+                    current_link = self.get_link(tag=content)
+                    current_link["first"] = self.text.index(tk.INSERT)
+
+                elif content.startswith(constants.FOOTNOTE_REF_PREFIX):
+                    current_footnote = self.new_footnote_ref(
+                        parsed_label=content[len(constants.FOOTNOTE_REF_PREFIX):])
+                    do_output_text = False
+
                 elif content.startswith(constants.FOOTNOTE_DEF_PREFIX):
-                    # XXX Define new footnote
-                    pass
-                elif content.startswith(constants.LINK_PREFIX):
-                    self.paste_link = self.get_link(tag=content)
-                    self.paste_first = self.text.index(tk.INSERT)
-                tags_first[content] = self.text.index(tk.INSERT)
+                    current_footnote["first"] = self.text.index(tk.INSERT)
+                    tag = constants.FOOTNOTE_DEF_PREFIX + current_footnote["label"]
+                    current_footnote["tag"] = tag
+
             elif name == "tagoff":
                 if content.startswith(constants.LINK_PREFIX):
-                    self.new_link(self.paste_link["url"],
-                                  self.paste_link["title"],
-                                  self.paste_first,
+                    self.new_link(current_link["url"],
+                                  current_link["title"],
+                                  current_link["first"],
                                   tk.INSERT)
-                elif content in (constants.LINK, constants.FOOTNOTE):
+
+                elif content == constants.LINK:
                     pass
+
+                elif content == constants.FOOTNOTE:
+                    pass
+
+                elif content.startswith(constants.FOOTNOTE_REF_PREFIX):
+                    do_output_text = True
+
+                elif content.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                    first = current_footnote["first"]
+                    ic(first, self.text.index(tk.INSERT))
+                    self.text.tag_add(constants.FOOTNOTE_DEF, first, tk.INSERT)
+                    self.text.tag_add(current_footnote["tag"], first, tk.INSERT)
+                    self.text.tag_configure(current_footnote["tag"], elide=False)
+                    current_footnote = None
+
                 else:
                     self.text.tag_add(content, tags_first[content], tk.INSERT)
         self.text.tag_remove(tk.SEL, first, tk.INSERT)
@@ -688,8 +729,9 @@ class Editor:
         self.text.tag_add(def_tag, first, last)
         self.text.tag_configure(def_tag, elide=True)
         self.footnotes[label] = footnote
-        self.text.insert(first, constants.FOOTNOTE,
-                         (constants.FOOTNOTE_REF, ref_tag))
+        self.text.insert(first, constants.FOOTNOTE)
+        self.text.tag_add(constants.FOOTNOTE_REF, first, tk.INSERT)
+        self.text.tag_add(ref_tag, first, tk.INSERT)
         self.text.tag_bind(ref_tag, "<Button-1>", self.footnote_toggle)
 
     def remove_footnote(self):
@@ -738,7 +780,7 @@ class Editor:
         else:
             return
         tag = constants.FOOTNOTE_DEF_PREFIX + label
-        self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide")))
+        self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide") or 0))
 
     @property
     def outfile(self):
@@ -761,10 +803,18 @@ class Editor:
         self.write_line_indents = ["  "]
         footnotes = list(self.referred_footnotes.values())
         footnotes.sort(key=lambda f: int(f["label"]))
+        previous_newline = False
         for footnote in footnotes:
+            if not previous_newline:
+                self.outfile.write("\n")
             self.outfile.write(f"\n[^{footnote['label']}]: ")
             self.write_line_indented = True
-            self.write_characters(footnote["outfile"].getvalue() or "*To be defined.*")
+            value = footnote["outfile"].getvalue() or "*To be defined.*"
+            previous_newline = value[-1] == "\n"
+            self.write_characters(value)
+        self.write_line_indents = []
+        if not previous_newline:
+            self.outfile.write("\n")
 
     def write_line_indent(self):
         if self.write_line_indented:
