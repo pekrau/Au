@@ -348,9 +348,7 @@ class Editor:
         start = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.parse(child)
-        tag = self.main.add_link(ast["dest"], ast["title"])
-        self.text.tag_add(constants.LINK, start, tk.INSERT)
-        self.text.tag_add(tag, start, tk.INSERT)
+        self.new_link(ast["dest"], ast["title"], start, tk.INSERT)
 
     def parse_quote(self, ast):
         if self.prev_blank_line:
@@ -527,6 +525,7 @@ class Editor:
 
     def paste(self):
         tags_first = dict()
+        first = self.text.index(tk.INSERT)
         for name, content, pos in self.main.paste_buffer:
             if name == "text":
                 self.text.insert(tk.INSERT, content)
@@ -539,19 +538,20 @@ class Editor:
                     # XXX Define new footnote
                     pass
                 elif content.startswith(constants.LINK_PREFIX):
-                    self.paste_link = self.main.links.get(tag=content)
+                    self.paste_link = self.get_link(tag=content)
                     self.paste_first = self.text.index(tk.INSERT)
                 tags_first[content] = self.text.index(tk.INSERT)
             elif name == "tagoff":
                 if content.startswith(constants.LINK_PREFIX):
-                    self.main.links.new(self.paste_link["url"],
-                                        self.paste_link["title"],
-                                        self.paste_first,
-                                        tk.INSERT)
+                    self.new_link(self.paste_link["url"],
+                                  self.paste_link["title"],
+                                  self.paste_first,
+                                  tk.INSERT)
                 elif content in (constants.LINK, constants.FOOTNOTE):
                     pass
                 else:
                     self.text.tag_add(content, tags_first[content], tk.INSERT)
+        self.text.tag_remove(tk.SEL, first, tk.INSERT)
 
     def add_link(self):
         try:
@@ -576,9 +576,15 @@ class Editor:
                 title = title.strip()
         except ValueError:
             title = None
-        self.main.links.new(url, title, first, last)
+        self.new_link(url, title, first, last)
+        self.text.tag_remove(tk.SEL, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
+
+    def new_link(self, url, title, first, last):
+        tag = self.main.new_link(url, title)
+        self.text.tag_add(constants.LINK, first, last)
+        self.text.tag_add(tag, first, last)
 
     def remove_link(self):
         link = self.get_link()
@@ -589,11 +595,11 @@ class Editor:
                 title="Remove link?",
                 message=f"Really remove link?"):
             return
-        self.main.remove_link(tag)
         first, last = self.text.tag_nextrange(link["tag"], "1.0")
         self.text.tag_delete(link["tag"])
         self.text.tag_remove(constants.LINK, first, last)
         self.ignore_modified_event = True
+        self.text.edit_modified(True)
         # Links are not removed from the main lookup;
         # the link count must remain strictly increasing.
 
@@ -874,7 +880,7 @@ class Editor:
 
 
 class EditLink(tk_simpledialog.Dialog):
-    "Dialog window for editing URL and title for a link."
+    "Dialog window for editing the URL and title for a link."
 
     def __init__(self, toplevel, link):
         self.link = link

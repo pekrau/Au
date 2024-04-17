@@ -834,7 +834,7 @@ class Main:
         # Move current file to archive.
         os.rename(os.path.join(self.absdirpath, filepath), archivedfilepath)
 
-    def add_link(self, url, title):
+    def new_link(self, url, title):
         # Links are not removed from the main lookup.
         # The link count must remain strictly increasing during a session.
         tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
