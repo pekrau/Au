@@ -19,7 +19,7 @@ import utils
 import help_text
 import docx_interface
 
-VERSION = (0, 5, 0)
+VERSION = (0, 5, 1)
 
 
 class Main:
@@ -37,7 +37,7 @@ class Main:
         except (OSError, json.JSONDecodeError, ValueError):
             self.configuration = dict(main=dict(), help=dict(), texts=dict())
         self.texts = dict()
-        self.copied_text = self.configuration.get("copied_text")
+        self.paste_buffer = self.configuration.get("paste_buffer")
 
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk_font.families())
@@ -834,7 +834,7 @@ class Main:
         "Save contents of all open text editor windows, and the configuration."
         for text in self.texts.values():
             try:
-                text["editor"].save()
+                text["editor"].save_text()
             except KeyError:
                 pass
 
@@ -844,7 +844,7 @@ class Main:
         Get current state from the respective widgets.
         """
         self.configuration["main"]["geometry"] = self.root.geometry()
-        self.configuration["copied_text"] = self.copied_text
+        self.configuration["paste_buffer"] = self.paste_buffer
         if self.help_text:
             self.configuration["help"] = self.help_text.get_configuration()
         else:

@@ -26,10 +26,9 @@ class Editor:
         self.filepath = filepath
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(os.path.splitext(self.filepath)[0])
+        self.toplevel.bind("<Control-s>", self.save_text)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
-        self.toplevel.bind("<Control-s>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
-
         self.toplevel.bind("<Home>", self.move_cursor_home)
         self.toplevel.bind("<End>", self.move_cursor_end)
 
@@ -47,20 +46,20 @@ class Editor:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Rename", command=self.rename)
-        self.menu_file.add_command(label="Copy", command=self.copy)
+        self.menu_file.add_command(label="Rename", command=self.rename_text)
+        self.menu_file.add_command(label="Copy", command=self.copy_text)
         self.menu_file.add_command(label="Save",
-                                   command=self.save,
+                                   command=self.save_text,
                                    accelerator="Ctrl-S")
-        self.menu_file.add_command(label="Delete", command=self.delete)
+        self.menu_file.add_command(label="Delete", command=self.delete_text)
         self.menu_file.add_command(label="Close", command=self.close,
                                    accelerator="Ctrl-Q")
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Copy", command=self.copy_text)
-        self.menu_edit.add_command(label="Cut", command=self.cut_text)
-        self.menu_edit.add_command(label="Paste", command=self.paste_text)
+        self.menu_edit.add_command(label="Copy", command=self.copy)
+        self.menu_edit.add_command(label="Cut", command=self.cut)
+        self.menu_edit.add_command(label="Paste", command=self.paste)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Add link", command=self.add_link)
         self.menu_edit.add_command(label="Remove link", command=self.add_link)
@@ -189,8 +188,8 @@ class Editor:
         try:
             self.text.index(tk.SEL_FIRST)
         except tk.TclError:
-            if self.main.copied_text:
-                menu.add_command(label="Paste", command=self.paste_text)
+            if self.main.paste_buffer:
+                menu.add_command(label="Paste", command=self.paste)
                 any_item = True
         else:
             if any_item:
@@ -201,8 +200,8 @@ class Editor:
             menu.add_command(label="Quote", command=self.add_quote)
             menu.add_command(label="Footnote", command=self.add_footnote)
             menu.add_separator()
-            menu.add_command(label="Copy", command=self.copy_text)
-            menu.add_command(label="Cut", command=self.cut_text)
+            menu.add_command(label="Copy", command=self.copy)
+            menu.add_command(label="Cut", command=self.cut)
             any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
@@ -371,16 +370,16 @@ class Editor:
         self.text.mark_set(tk.INSERT, tk.END)
         self.text.see(tk.END)
 
-    def rename(self):
+    def rename_text(self):
         self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
 
-    def copy(self, event=None, parent=None):
+    def copy_text(self, event=None, parent=None):
         dirpath, filename = os.path.split(self.filepath)
         initialdir = os.path.join(self.main.absdirpath, dirpath)
         name = tk_simpledialog.askstring(
             parent=parent or self.toplevel,
-            title="Copy name",
-            prompt="Give the name for the copy:",
+            title="Text copy name",
+            prompt="Give the name for the text copy:",
             initialvalue=f"Copy of {os.path.splitext(filename)[0]}")
         if not name:
             return
@@ -400,7 +399,7 @@ class Editor:
         self.main.add_treeview_entry(filepath)
         self.main.open_text(filepath=filepath)
 
-    def save(self, event=None):
+    def save_text(self, event=None):
         if not self.is_modified:
             return
         self.main.move_file_to_archive(self.filepath)
@@ -414,7 +413,7 @@ class Editor:
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
-    def delete(self):
+    def delete_text(self):
         if not tk_messagebox.askokcancel(
                 parent=self.toplevel,
                 title="Delete text?",
@@ -423,8 +422,8 @@ class Editor:
         self.close(force=True)
         self.main.delete_text(self.filepath, force=True)
 
-    def delete_text(self, filepath):
-        self.main.treeview.delete(self.filepath)
+    # def delete_text(self, filepath):
+    #     self.main.treeview.delete(self.filepath)
 
     def close(self, event=None, force=False):
         if self.is_modified and not force:
@@ -437,15 +436,15 @@ class Editor:
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
 
-    def copy_text(self):
+    def copy(self):
         try:
             first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
-        self.copy_text_dump(first, last)
+        self.set_paste_buffer(first, last)
 
-    def copy_text_dump(self, first, last):
+    def set_paste_buffer(self, first, last):
         "Clean up the raw dump to make in consistent."
         first_tags = list(self.text.tag_names(first))
         for tag in ("sel", constants.FOOTNOTE_REF, constants.FOOTNOTE_DEF):
@@ -459,7 +458,7 @@ class Editor:
         last_tags = list(self.text.tag_names(last))
         current_tags = []
         footnote_ref_labels = set()
-        self.main.copied_text = []
+        self.main.paste_buffer = []
         for entry in self.text.dump(first, last):
             name, content, pos = entry
             if name == "tagoff":
@@ -467,29 +466,29 @@ class Editor:
                     ic(content)
                     current_tags.remove(content)
                 except ValueError:
-                    self.main.copied_text.insert(0, ("tagon", content, "?"))
+                    self.main.paste_buffer.insert(0, ("tagon", content, "?"))
             elif name == "tagon":
                 current_tags.append(content)
             elif name == "mark":
                 continue
-            self.main.copied_text.append(entry)
+            self.main.paste_buffer.append(entry)
         current_tags.extend(set(last_tags).difference(current_tags))
         for tag in current_tags:
-            self.main.copied_text.append(("tagoff", tag, "?"))
+            self.main.paste_buffer.append(("tagoff", tag, "?"))
         self.text.tag_remove(tk.SEL, first, last)
 
-    def cut_text(self):
+    def cut(self):
         try:
             first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
-        self.copy_text_dump(first, last)
+        self.set_paste_buffer(first, last)
         self.text.delete(first, last)
 
-    def paste_text(self):
+    def paste(self):
         tags_first = dict()
-        for name, content, pos in self.main.copied_text:
+        for name, content, pos in self.main.paste_buffer:
             if name == "text":
                 self.text.insert(tk.INSERT, content)
             elif name == "tagon":
@@ -696,10 +695,10 @@ class Editor:
         self.write_line_indented = False
         self.saved_footnotes = dict()
         self.current_footnote = None
-        self.do_not_save_text = False
+        self.do_not_write_text = False
         for item in self.text.dump("1.0", tk.END):
             try:
-                method = getattr(self, f"save_{item[0]}")
+                method = getattr(self, f"write_{item[0]}")
             except AttributeError:
                 ic("Could not handle item", item)
             else:
@@ -737,15 +736,15 @@ class Editor:
                 self.outfile.write("\n")
                 self.write_line_indented = False
 
-    def save_text(self, item):
-        if self.do_not_save_text:
+    def write_text(self, item):
+        if self.do_not_write_text:
             return
         self.write_characters(item[1])
 
-    def save_tagon(self, item):
+    def write_tagon(self, item):
         tag = item[1]
         try:
-            method = getattr(self, f"save_tagon_{tag}")
+            method = getattr(self, f"write_tagon_{tag}")
         except AttributeError:
             # This relies on the order of tags added in 'parse_footnote_def'.
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
@@ -755,34 +754,34 @@ class Editor:
         else:
             method(item)
 
-    def save_tagoff(self, item):
+    def write_tagoff(self, item):
         try:
-            method = getattr(self, f"save_tagoff_{item[1]}")
+            method = getattr(self, f"write_tagoff_{item[1]}")
         except AttributeError:
             pass
         else:
             method(item)
 
-    def save_tagon_italic(self, item):
+    def write_tagon_italic(self, item):
         self.write_characters("*")
 
-    def save_tagoff_italic(self, item):
+    def write_tagoff_italic(self, item):
         self.write_characters("*")
 
-    def save_tagon_bold(self, item):
+    def write_tagon_bold(self, item):
         self.write_characters("**")
 
-    def save_tagoff_bold(self, item):
+    def write_tagoff_bold(self, item):
         self.write_characters("**")
 
-    def save_tagon_link(self, item):
+    def write_tagon_link(self, item):
         for tag in self.text.tag_names(item[2]):
             if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
                 self.write_characters("[")
                 return
 
-    def save_tagoff_link(self, item):
+    def write_tagoff_link(self, item):
         link = self.links.get(self.current_link_tag)
         if link["title"]:
             self.write_characters(f"""]({link['url']} "{link['title']}")""")
@@ -790,13 +789,13 @@ class Editor:
             self.write_characters(f"]({link['url']})")
         self.current_link_tag = None
 
-    def save_tagon_quote(self, item):
+    def write_tagon_quote(self, item):
         self.write_line_indents.append("> ")
 
-    def save_tagoff_quote(self, item):
+    def write_tagoff_quote(self, item):
         self.write_line_indents.pop()
 
-    def save_tagon_footnote_ref(self, item):
+    def write_tagon_footnote_ref(self, item):
         try:
             footnote = self.saved_footnotes[self.current_footnote]
         except KeyError:
@@ -806,20 +805,20 @@ class Editor:
             # 'current_footnote' is the old label.
             self.saved_footnotes[self.current_footnote] = footnote
         self.write_characters(f"[^{label}]")
-        self.do_not_save_text = True
+        self.do_not_write_text = True
 
-    def save_tagoff_footnote_ref(self, item):
+    def write_tagoff_footnote_ref(self, item):
         self.current_footnote = None
-        self.do_not_save_text = False
+        self.do_not_write_text = False
 
-    def save_tagon_footnote_def(self, item):
+    def write_tagon_footnote_def(self, item):
         footnote = self.saved_footnotes[self.current_footnote]
         footnote["outfile"] = io.StringIO()
         self.outfiles_stack.append(footnote["outfile"])
 
-    def save_tagoff_footnote_def(self, item):
+    def write_tagoff_footnote_def(self, item):
         self.current_footnote = None
         outfile = self.outfiles_stack.pop()
 
-    def save_mark(self, item):
+    def write_mark(self, item):
         pass

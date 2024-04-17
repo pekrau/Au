@@ -94,14 +94,14 @@ class Link(tk_simpledialog.Dialog):
 
     def body(self, body):
         label = ttk.Label(body, text="URL")
-        label.grid(row=0, column=0)
-        self.url_entry = tk.Entry(body)
+        label.grid(row=0, column=0, padx=4, sticky=tk.E)
+        self.url_entry = tk.Entry(body, width=50)
         if self.data["url"]:
             self.url_entry.insert(0, self.data["url"])
         self.url_entry.grid(row=0, column=1)
         label = ttk.Label(body, text="Title")
-        label.grid(row=1, column=0)
-        self.title_entry = tk.Entry(body)
+        label.grid(row=1, column=0, padx=4, sticky=tk.E)
+        self.title_entry = tk.Entry(body, width=50)
         if self.data["title"]:
             self.title_entry.insert(0, self.data["title"])
         self.title_entry.grid(row=1, column=1)
