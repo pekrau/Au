@@ -14,10 +14,10 @@ from tkinter import simpledialog as tk_simpledialog
 from tkinter import font as tk_font
 
 import constants
-import editor
-import utils
-import help_text
 import docx_interface
+import editor
+import help_text
+import utils
 
 VERSION = (0, 5, 1)
 
@@ -36,19 +36,23 @@ class Main:
                 self.configuration["help"] = dict()
         except (OSError, json.JSONDecodeError, ValueError):
             self.configuration = dict(main=dict(), help=dict(), texts=dict())
+
+        # All texts, with references to any open editor windows.
         self.texts = dict()
+        self.links = dict()     # The links lookup is global to all editors.
         self.paste_buffer = self.configuration.get("paste_buffer")
 
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk_font.families())
         self.root.title(os.path.basename(dirpath))
-        self.root.geometry(self.configuration["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
+        self.root.geometry(self.configuration["main"].get(
+            "geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
         self.root.minsize(400, 400)
-        self.root.bind_all("<Control-h>", self.open_help_text)
         self.au64 = tk.PhotoImage(data=constants.AU64)
         self.root.iconphoto(False, self.au64, self.au64)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
+        self.root.bind_all("<Control-h>", self.open_help_text)
 
         self.menubar = tk.Menu(self.root)
         self.root["menu"] = self.menubar
@@ -829,6 +833,13 @@ class Main:
             os.makedirs(archivepath)
         # Move current file to archive.
         os.rename(os.path.join(self.absdirpath, filepath), archivedfilepath)
+
+    def add_link(self, url, title):
+        # Links are not removed from the main lookup.
+        # The link count must remain strictly increasing during a session.
+        tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
+        self.links[tag] = dict(tag=tag, url=url, title=title)
+        return tag
 
     def save_texts(self, event=None):
         "Save contents of all open text editor windows, and the configuration."

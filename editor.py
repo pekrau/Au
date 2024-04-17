@@ -6,7 +6,7 @@ import collections
 import io
 import json
 import os
-import sys
+import webbrowser
 
 import tkinter as tk
 from tkinter import ttk
@@ -14,7 +14,6 @@ from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
 
 import constants
-import links
 import utils
 
 
@@ -24,6 +23,10 @@ class Editor:
     def __init__(self, main, filepath, config):
         self.main = main
         self.filepath = filepath
+
+        # The footnotes lookup is local to each editor window.
+        self.footnotes = dict()
+
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.bind("<Control-s>", self.save_text)
@@ -62,7 +65,7 @@ class Editor:
         self.menu_edit.add_command(label="Paste", command=self.paste)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Add link", command=self.add_link)
-        self.menu_edit.add_command(label="Remove link", command=self.add_link)
+        self.menu_edit.add_command(label="Remove link", command=self.remove_link)
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_format, label="Format")
@@ -95,6 +98,12 @@ class Editor:
         self.text.bind("<Key>", self.key_press)
         self.text.bind("<<Modified>>", self.handle_modified)
         self.text.bind("<Button-3>", self.popup_menu)
+        self.text.tag_configure(constants.LINK,
+                                foreground=constants.LINK_COLOR,
+                                underline=True)
+        self.text.tag_bind(constants.LINK, "<Enter>", self.enter_link)
+        self.text.tag_bind(constants.LINK, "<Leave>", self.leave_link)
+        self.text.tag_bind(constants.LINK, "<Button-1>", self.edit_link)
 
         self.text_scroll_y = ttk.Scrollbar(self.text_frame,
                                            orient=tk.VERTICAL,
@@ -144,12 +153,9 @@ class Editor:
         title_label["textvariable"] = self.title_var
         self.info_frame.columnconfigure(2, weight=1)
 
-        self.links = links.Links(self)
-        self.footnotes = dict()
-
         with open(os.path.join(self.main.absdirpath, self.filepath)) as infile:
             ast = utils.get_ast(infile.read())
-        self.parsed_footnotes = dict()
+        self.parsed_footnotes = dict() # For use only while parsing.
         self.parse(ast)
 
         cursor = config.get("cursor") or "1.0"
@@ -165,6 +171,81 @@ class Editor:
         title_label.configure(wraplength=width)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
+
+    def key_press(self, event):
+        if event.keysym == "F1": # Debug
+            print(self.text.index(tk.INSERT), self.text.tag_names(tk.INSERT))
+            return
+        if event.keysym == "F2": # Debug
+            for entry in self.text.dump("1.0", tk.END):
+                print(entry)
+            return
+        if event.char not in constants.AFFECTS_CHARACTER_COUNT:
+            return
+        pos = self.text.index(tk.INSERT)
+        tags = self.text.tag_names(pos)
+        # Do not allow modifying keys from encroaching on a footnote reference.
+        quench = False
+        if constants.FOOTNOTE_REF in tags:
+            ref_at_right = self.text.tag_nextrange(constants.FOOTNOTE_REF, pos, tk.END)
+            if event.keysym == "Return" and not ref_at_right:
+                self.footnote_toggle(tags=self.text.tag_names(tk.INSERT))
+            quench = True
+            if ref_at_right:
+                # Delete is special; do not allow it to remove characters at
+                # right when just at the beginning of the footnote reference.
+                quench = event.keysym == "Delete"
+        if quench:
+            return "break"
+        self.info_update(size_only=True)
+
+    def handle_modified(self, event=None):
+        if self.ignore_modified_event:
+            self.ignore_modified_event = False
+        if not self.is_modified:
+            return
+        self.original_menubar_background = self.menubar.cget("background")
+        self.menubar.configure(background=constants.MODIFIED_COLOR)
+        self.main.flag_treeview_entry(self.filepath, modified=True)
+
+    def get_link(self, tag=None):
+        if tag is None:
+            for tag in self.text.tag_names(tk.CURRENT):
+                if tag.startswith(constants.LINK_PREFIX):
+                    break
+            else:
+                return None
+        return self.main.links.get(tag)
+
+    def enter_link(self, event):
+        link = self.get_link()
+        if not link:
+            return
+        self.url_var.set(link["url"])
+        self.title_var.set(link["title"] or "-")
+        self.text.configure(cursor="hand1")
+
+    def leave_link(self, event):
+        self.text.configure(cursor="")
+        self.url_var.set("")
+        self.title_var.set("")
+
+    def edit_link(self, event):
+        link = self.get_link()
+        if not link:
+            return
+        edit = EditLink(self.toplevel, link)
+        if edit.result:
+            if edit.result["url"]:
+                link["url"] = edit.result["url"]
+                link["title"] = edit.result["title"]
+            else:
+                region = self.text.tag_nextrange(link["tag"], "1.0")
+                self.text.tag_remove(constants.LINK, *region)
+                self.text.tag_delete(link["tag"])
+                # Do not remove entry from main.links: the count must be preserved.
+            self.ignore_modified_event = True
+            self.text.edit_modified(True)
 
     def popup_menu(self, event):
         menu = tk.Menu(self.text, tearoff=False)
@@ -205,42 +286,6 @@ class Editor:
             any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
-
-    def key_press(self, event):
-        if event.keysym == "F1": # Debug
-            print(self.text.index(tk.INSERT), self.text.tag_names(tk.INSERT))
-            return
-        if event.keysym == "F2": # Debug
-            for entry in self.text.dump("1.0", tk.END):
-                print(entry)
-            return
-        if event.char not in constants.AFFECTS_CHARACTER_COUNT:
-            return
-        pos = self.text.index(tk.INSERT)
-        tags = self.text.tag_names(pos)
-        # Do not allow modifying keys from encroaching on a footnote reference.
-        quench = False
-        if constants.FOOTNOTE_REF in tags:
-            ref_at_right = self.text.tag_nextrange(constants.FOOTNOTE_REF, pos, tk.END)
-            if event.keysym == "Return" and not ref_at_right:
-                self.footnote_toggle(tags=self.text.tag_names(tk.INSERT))
-            quench = True
-            if ref_at_right:
-                # Delete is special; do not allow it to remove characters at
-                # right when just at the beginning of the footnote reference.
-                quench = event.keysym == "Delete"
-        if quench:
-            return "break"
-        self.info_update(size_only=True)
-
-    def handle_modified(self, event=None):
-        if self.ignore_modified_event:
-            self.ignore_modified_event = False
-        if not self.is_modified:
-            return
-        self.original_menubar_background = self.menubar.cget("background")
-        self.menubar.configure(background=constants.MODIFIED_COLOR)
-        self.main.flag_treeview_entry(self.filepath, modified=True)
 
     def get_configuration(self):
         return dict(geometry=self.toplevel.geometry(),
@@ -303,12 +348,9 @@ class Editor:
         start = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.parse(child)
-        try:
-            links = self.links
-        except AttributeError:
-            pass
-        else:
-            links.add(ast, start, tk.INSERT)
+        tag = self.main.add_link(ast["dest"], ast["title"])
+        self.text.tag_add(constants.LINK, start, tk.INSERT)
+        self.text.tag_add(tag, start, tk.INSERT)
 
     def parse_quote(self, ast):
         if self.prev_blank_line:
@@ -422,9 +464,6 @@ class Editor:
         self.close(force=True)
         self.main.delete_text(self.filepath, force=True)
 
-    # def delete_text(self, filepath):
-    #     self.main.treeview.delete(self.filepath)
-
     def close(self, event=None, force=False):
         if self.is_modified and not force:
             if not tk_messagebox.askokcancel(
@@ -492,7 +531,7 @@ class Editor:
             if name == "text":
                 self.text.insert(tk.INSERT, content)
             elif name == "tagon":
-                # XXX handle link, footnote!
+                # XXX handle footnote!
                 if content.startswith(constants.FOOTNOTE_REF_PREFIX):
                     # XXX Create new footnote
                     pass
@@ -500,11 +539,19 @@ class Editor:
                     # XXX Define new footnote
                     pass
                 elif content.startswith(constants.LINK_PREFIX):
-                    # XXX Create new link
-                    pass
+                    self.paste_link = self.main.links.get(tag=content)
+                    self.paste_first = self.text.index(tk.INSERT)
                 tags_first[content] = self.text.index(tk.INSERT)
             elif name == "tagoff":
-                self.text.tag_add(content, tags_first[content], tk.INSERT)
+                if content.startswith(constants.LINK_PREFIX):
+                    self.main.links.new(self.paste_link["url"],
+                                        self.paste_link["title"],
+                                        self.paste_first,
+                                        tk.INSERT)
+                elif content in (constants.LINK, constants.FOOTNOTE):
+                    pass
+                else:
+                    self.text.tag_add(content, tags_first[content], tk.INSERT)
 
     def add_link(self):
         try:
@@ -529,24 +576,26 @@ class Editor:
                 title = title.strip()
         except ValueError:
             title = None
-        self.links.new(url, title, first, last)
+        self.main.links.new(url, title, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
     def remove_link(self):
-        try:
-            current = self.text.index(tk.INSERT)
-        except tk.TclError:
+        link = self.get_link()
+        if not link:
             return
-        for tag in self.text.tag_names(current):
-            if tag.startswith(constants.LINK_PREFIX):
-                if not tk_messagebox.askokcancel(
-                        parent=self.toplevel,
-                        title="Remove link?",
-                        message=f"Really remove link?"):
-                    return
-                self.links.remove(tag)
-                break
+        if not tk_messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Remove link?",
+                message=f"Really remove link?"):
+            return
+        self.main.remove_link(tag)
+        first, last = self.text.tag_nextrange(link["tag"], "1.0")
+        self.text.tag_delete(link["tag"])
+        self.text.tag_remove(constants.LINK, first, last)
+        self.ignore_modified_event = True
+        # Links are not removed from the main lookup;
+        # the link count must remain strictly increasing.
 
     def add_bold(self):
         try:
@@ -693,7 +742,7 @@ class Editor:
         self.current_link_tag = None
         self.write_line_indents = []
         self.write_line_indented = False
-        self.saved_footnotes = dict()
+        self.referred_footnotes = dict()
         self.current_footnote = None
         self.do_not_write_text = False
         for item in self.text.dump("1.0", tk.END):
@@ -704,7 +753,7 @@ class Editor:
             else:
                 method(item)
         self.write_line_indents = ["  "]
-        footnotes = list(self.saved_footnotes.values())
+        footnotes = list(self.referred_footnotes.values())
         footnotes.sort(key=lambda f: int(f["label"]))
         for footnote in footnotes:
             self.outfile.write(f"\n[^{footnote['label']}]: ")
@@ -782,7 +831,7 @@ class Editor:
                 return
 
     def write_tagoff_link(self, item):
-        link = self.links.get(self.current_link_tag)
+        link = self.main.links.get(self.current_link_tag)
         if link["title"]:
             self.write_characters(f"""]({link['url']} "{link['title']}")""")
         else:
@@ -797,13 +846,13 @@ class Editor:
 
     def write_tagon_footnote_ref(self, item):
         try:
-            footnote = self.saved_footnotes[self.current_footnote]
+            footnote = self.referred_footnotes[self.current_footnote]
         except KeyError:
-            # Renumber labels according to which actually exist.
-            label = str(len(self.saved_footnotes) + 1)
+            # Renumber labels according to which footnote references actually exist.
+            label = str(len(self.referred_footnotes) + 1)
             footnote = dict(label=label)
             # 'current_footnote' is the old label.
-            self.saved_footnotes[self.current_footnote] = footnote
+            self.referred_footnotes[self.current_footnote] = footnote
         self.write_characters(f"[^{label}]")
         self.do_not_write_text = True
 
@@ -812,7 +861,7 @@ class Editor:
         self.do_not_write_text = False
 
     def write_tagon_footnote_def(self, item):
-        footnote = self.saved_footnotes[self.current_footnote]
+        footnote = self.referred_footnotes[self.current_footnote]
         footnote["outfile"] = io.StringIO()
         self.outfiles_stack.append(footnote["outfile"])
 
@@ -822,3 +871,47 @@ class Editor:
 
     def write_mark(self, item):
         pass
+
+
+class EditLink(tk_simpledialog.Dialog):
+    "Dialog window for editing URL and title for a link."
+
+    def __init__(self, toplevel, link):
+        self.link = link
+        self.result = None
+        super().__init__(toplevel, title="Edit link")
+
+    def body(self, body):
+        label = ttk.Label(body, text="URL")
+        label.grid(row=0, column=0, padx=4, sticky=tk.E)
+        self.url_entry = tk.Entry(body, width=50)
+        if self.link["url"]:
+            self.url_entry.insert(0, self.link["url"])
+        self.url_entry.grid(row=0, column=1)
+        label = ttk.Label(body, text="Title")
+        label.grid(row=1, column=0, padx=4, sticky=tk.E)
+        self.title_entry = tk.Entry(body, width=50)
+        if self.link["title"]:
+            self.title_entry.insert(0, self.link["title"])
+        self.title_entry.grid(row=1, column=1)
+        return self.url_entry
+
+    def validate(self):
+        self.result = dict(url=self.url_entry.get(),
+                           title=self.title_entry.get())
+        return True
+
+    def buttonbox(self):
+        box = tk.Frame(self)
+        w = ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Visit", width=10, command=self.visit)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bind("<Return>", self.ok)
+        self.bind("<Escape>", self.cancel)
+        box.pack()
+
+    def visit(self):
+        webbrowser.open_new_tab(self.url_entry.get())
