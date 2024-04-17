@@ -153,7 +153,6 @@ class Editor:
 
         self.links = links.Links(self)
         self.footnotes = dict()
-        self.selected_dump = None
 
         with open(os.path.join(self.main.absdirpath, self.filepath)) as infile:
             ast = utils.get_ast(infile.read())
@@ -445,9 +444,33 @@ class Editor:
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
-        self.selected_dump = self.text.dump(first, last)
-        ic(self.selected_dump)
-        # raise NotImplementedError
+        self.copy_text_dump(first, last)
+        raise NotImplementedError
+
+    def copy_text_dump(self, first, last):
+        first_tags = list(self.text.tag_names(first))
+        first_tags.remove("sel")
+        last_tags = list(self.text.tag_names(last))
+        current_tags = []
+        self.main.copied_text_dump = []
+        for entry in self.text.dump(first, last):
+            action, content, pos = entry
+            if action == "tagoff":
+                try:
+                    current_tags.remove(content)
+                except ValueError:
+                    self.main.copied_text_dump.insert(0, ("tagon", content, "?"))
+            elif action == "tagon":
+                if content == "sel":
+                    continue
+                current_tags.append(content)
+            elif action == "mark":
+                continue
+            self.main.copied_text_dump.append(entry)
+        current_tags.extend(set(last_tags).difference(current_tags))
+        for tag in current_tags:
+            self.main.copied_text_dump.append(("tagoff", tag, "?"))
+        ic(self.main.copied_text_dump)
 
     def cut_text(self, event=None):
         try:
@@ -455,7 +478,7 @@ class Editor:
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
-        self.selected_dump = self.text.dump(first, last)
+        self.copy_text_dump(first, last)
         raise NotImplementedError
 
     def paste_text(self, event=None):

@@ -19,11 +19,11 @@ import utils
 import help_text
 import docx_interface
 
-VERSION = (0, 4, 3)
+VERSION = (0, 5, 0)
 
 
 class Main:
-    "Root window listing sections and texts."
+    "Root window showing the tree of sections and texts."
 
     def __init__(self, absdirpath):
         self.absdirpath = absdirpath
@@ -37,6 +37,7 @@ class Main:
         except (OSError, json.JSONDecodeError, ValueError):
             self.configuration = dict(main=dict(), help=dict(), texts=dict())
         self.texts = dict()
+        self.copied_text = self.configuration.get("copied_text")
 
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk_font.families())
