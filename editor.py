@@ -241,7 +241,7 @@ class Editor:
                 region = self.text.tag_nextrange(link["tag"], "1.0")
                 self.text.tag_remove(constants.LINK, *region)
                 self.text.tag_delete(link["tag"])
-                # Do not remove entry from main.links: the count must be preserved.
+                # Do not remove entry from 'main.links': the count must be preserved.
             self.ignore_modified_event = True
             self.text.edit_modified(True)
 
@@ -490,6 +490,9 @@ class Editor:
 
     def dump(self, first, last):
         "Clean up the raw dump to make in consistent."
+        raw_dump = self.text.dump(first, last)
+        # XXX if footnote_ref-X exists, but not footnote_def-X,
+        # then extend the raw dump so that it does.
         first_tags = list(self.text.tag_names(first))
         skip_tags = set([tk.SEL,
                          constants.LINK,
@@ -507,7 +510,7 @@ class Editor:
         current_tags = []
         footnote_ref_labels = set()
         result = []
-        for entry in self.text.dump(first, last):
+        for entry in raw_dump:
             name, content, pos = entry
             if name == "tagon":
                 if content in skip_tags:
@@ -523,9 +526,7 @@ class Editor:
             elif name == "mark":
                 continue
             result.append(entry)
-        ic(current_tags, last_tags)
         current_tags.extend(last_tags.difference(current_tags))
-        ic(current_tags)
         for tag in current_tags:
             result.append(("tagoff", tag, "?"))
         return result
@@ -641,8 +642,8 @@ class Editor:
         self.text.tag_remove(constants.LINK, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
-        # Links are not removed from the main lookup;
-        # the link count must remain strictly increasing.
+        # Links are not removed from 'main.lookup' during a session.
+        # The link count must remain strictly increasing.
 
     def add_bold(self):
         try:
@@ -938,7 +939,7 @@ class Editor:
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
-        print("--- dump selected ---")
+        print(f"--- dump selected: {first}, {last} ---")
         for entry in self.dump(first, last):
             print(entry)
 

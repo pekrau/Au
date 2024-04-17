@@ -837,8 +837,8 @@ class Main:
         os.rename(os.path.join(self.absdirpath, filepath), archivedfilepath)
 
     def new_link(self, url, title):
-        # Links are not removed from the main lookup.
-        # The link count must remain strictly increasing during a session.
+        # Links are not removed from 'main.lookup' during a session.
+        # The link count must remain strictly increasing.
         tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
         self.links[tag] = dict(tag=tag, url=url, title=title)
         return tag
