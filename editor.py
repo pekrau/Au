@@ -34,6 +34,11 @@ class Editor:
         self.toplevel.bind("<Control-q>", self.close)
         self.toplevel.bind("<Home>", self.move_cursor_home)
         self.toplevel.bind("<End>", self.move_cursor_end)
+        self.toplevel.bind("<F1>", self.debug_tags)
+        self.toplevel.bind("<F2>", self.debug_selected)
+        self.toplevel.bind("<F3>", self.debug_paste_buffer)
+        self.toplevel.bind("<F4>", self.debug_dump)
+        self.toplevel.bind("<F5>", self.debug_raw_dump)
 
         try:
             self.toplevel.geometry(config["geometry"])
@@ -173,13 +178,6 @@ class Editor:
         self.text.edit_modified(False)
 
     def key_press(self, event):
-        if event.keysym == "F1": # Debug
-            print(self.text.index(tk.INSERT), self.text.tag_names(tk.INSERT))
-            return
-        if event.keysym == "F2": # Debug
-            for entry in self.text.dump("1.0", tk.END):
-                print(entry)
-            return
         if event.char not in constants.AFFECTS_CHARACTER_COUNT:
             return
         pos = self.text.index(tk.INSERT)
@@ -482,6 +480,10 @@ class Editor:
         self.set_paste_buffer(first, last)
 
     def set_paste_buffer(self, first, last):
+        self.main.paste_buffer = self.dump(first, last)
+        self.text.tag_remove(tk.SEL, first, last)
+
+    def dump(self, first, last):
         "Clean up the raw dump to make in consistent."
         first_tags = list(self.text.tag_names(first))
         for tag in ("sel", constants.FOOTNOTE_REF, constants.FOOTNOTE_DEF):
@@ -495,24 +497,23 @@ class Editor:
         last_tags = list(self.text.tag_names(last))
         current_tags = []
         footnote_ref_labels = set()
-        self.main.paste_buffer = []
+        result = []
         for entry in self.text.dump(first, last):
             name, content, pos = entry
             if name == "tagoff":
                 try:
-                    ic(content)
                     current_tags.remove(content)
                 except ValueError:
-                    self.main.paste_buffer.insert(0, ("tagon", content, "?"))
+                    result.insert(0, ("tagon", content, "?"))
             elif name == "tagon":
                 current_tags.append(content)
             elif name == "mark":
                 continue
-            self.main.paste_buffer.append(entry)
+            result.append(entry)
         current_tags.extend(set(last_tags).difference(current_tags))
         for tag in current_tags:
-            self.main.paste_buffer.append(("tagoff", tag, "?"))
-        self.text.tag_remove(tk.SEL, first, last)
+            result.append(("tagoff", tag, "?"))
+        return result
 
     def cut(self):
         try:
@@ -530,7 +531,6 @@ class Editor:
             if name == "text":
                 self.text.insert(tk.INSERT, content)
             elif name == "tagon":
-                # XXX handle footnote!
                 if content.startswith(constants.FOOTNOTE_REF_PREFIX):
                     # XXX Create new footnote
                     pass
@@ -877,6 +877,35 @@ class Editor:
 
     def write_mark(self, item):
         pass
+
+    def debug_tags(self, event=None):
+        print("--- tags ---")
+        print(self.text.index(tk.INSERT), self.text.tag_names(tk.INSERT))
+
+    def debug_selected(self, event=None):
+        try:
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        print("--- dump selected ---")
+        for entry in self.dump(first, last):
+            print(entry)
+
+    def debug_paste_buffer(self, event=None):
+        print("--- dump paste buffer ---")
+        for entry in self.main.paste_buffer:
+            print(entry)
+
+    def debug_dump(self, event=None):
+        print("--- entire dump ---")
+        for entry in self.dump("1.0", tk.END):
+            print(entry)
+
+    def debug_raw_dump(self, event=None):
+        print("--- entire raw dump ---")
+        for entry in self.text.dump("1.0", tk.END):
+            print(entry)
 
 
 class EditLink(tk_simpledialog.Dialog):

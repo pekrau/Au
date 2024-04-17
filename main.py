@@ -19,7 +19,7 @@ import editor
 import help_text
 import utils
 
-VERSION = (0, 5, 1)
+VERSION = (0, 5, 2)
 
 
 class Main:
@@ -39,7 +39,9 @@ class Main:
 
         # All texts, with references to any open editor windows.
         self.texts = dict()
-        self.links = dict()     # The links lookup is global to all editors.
+        # The links lookup is global to all editors, to facilitate cut-and-paste.
+        self.links = dict()
+        # The paste buffer is global to all editors, to facilitate cut-and-paste.
         self.paste_buffer = self.configuration.get("paste_buffer")
 
         self.root = tk.Tk()
