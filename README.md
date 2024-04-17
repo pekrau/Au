@@ -33,6 +33,10 @@ Written in Python 3 using Tkinter.
 | Ctrl-P | Move cursor to previous line.             |
 | Ctrl-A | Move cursor to beginning of line.         |
 | Ctrl-E | Move cursor to end of line.               |
+| Ctrl-C | Copy selected text into Au paste buffer.     |
+| Ctrl-X | Copy selected text into Au paste buffer and delete. |
+| Ctr-W  | Insert text from Au paste buffer.            |
+| Ctrl-V | Insert text from system paste buffer.     |
 | Home   | Move cursor to the beginning of the text. |
 | End    | Move cursor to the end of the text.       |
 | PgUp   | Move cursor one page up                   |

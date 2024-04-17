@@ -273,7 +273,7 @@ class Main:
                                  open=open,
                                  tags=("section", itempath))
         else:
-            ic("unhandled file", ext)
+            ic("Ignored file", itemname)
         if set_selection:
             self.treeview.see(itempath)
             self.treeview.selection_set(itempath)
@@ -467,7 +467,7 @@ class Main:
                 self.treeview.focus(newdirpath)
 
             else:
-                ic("no such old item", newabspath)
+                ic("No such old item", newabspath)
 
             self.save_configuration()
         finally:
@@ -561,7 +561,6 @@ class Main:
         oldindex = self.treeview.index(oldpath)
         self.add_treeview_entry(newpath, index=oldindex+1)
         for dirpath, dirnames, filenames in os.walk(newabspath):
-            ic(dirpath, dirnames, filenames)
             for dirname in dirnames:
                 self.add_treeview_entry(os.path.join(newpath, dirname))
             for filename in filenames:
@@ -703,7 +702,6 @@ class Main:
                                     title="Exists",
                                     message="The name is already in use.")
             return
-        ic(oldpath, newpath)
         try:
             ed = self.texts[oldpath]["editor"]
         except KeyError:
@@ -846,6 +844,7 @@ class Main:
         Get current state from the respective widgets.
         """
         self.configuration["main"]["geometry"] = self.root.geometry()
+        self.configuration["copied_text"] = self.copied_text
         if self.help_text:
             self.configuration["help"] = self.help_text.get_configuration()
         else:

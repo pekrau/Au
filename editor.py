@@ -29,9 +29,6 @@ class Editor:
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
         self.toplevel.bind("<Control-s>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
-        self.toplevel.bind("<Control-c>", self.copy_text)
-        self.toplevel.bind("<Control-x>", self.cut_text)
-        self.toplevel.bind("<Control-v>", self.paste_text)
 
         self.toplevel.bind("<Home>", self.move_cursor_home)
         self.toplevel.bind("<End>", self.move_cursor_end)
@@ -61,12 +58,9 @@ class Editor:
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Copy", command=self.copy_text,
-                                   accelerator="Ctrl-C")
-        self.menu_edit.add_command(label="Cut", command=self.cut_text,
-                                   accelerator="Ctrl-X")
-        self.menu_edit.add_command(label="Paste", command=self.paste_text,
-                                   accelerator="Ctrl-V")
+        self.menu_edit.add_command(label="Copy", command=self.copy_text)
+        self.menu_edit.add_command(label="Cut", command=self.cut_text)
+        self.menu_edit.add_command(label="Paste", command=self.paste_text)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Add link", command=self.add_link)
         self.menu_edit.add_command(label="Remove link", command=self.add_link)
@@ -195,7 +189,9 @@ class Editor:
         try:
             self.text.index(tk.SEL_FIRST)
         except tk.TclError:
-            pass
+            if self.main.copied_text:
+                menu.add_command(label="Paste", command=self.paste_text)
+                any_item = True
         else:
             if any_item:
                 menu.add_separator()
@@ -204,6 +200,9 @@ class Editor:
             menu.add_command(label="Italic", command=self.add_italic)
             menu.add_command(label="Quote", command=self.add_quote)
             menu.add_command(label="Footnote", command=self.add_footnote)
+            menu.add_separator()
+            menu.add_command(label="Copy", command=self.copy_text)
+            menu.add_command(label="Cut", command=self.cut_text)
             any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
@@ -438,51 +437,75 @@ class Editor:
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
 
-    def copy_text(self, event=None):
+    def copy_text(self):
         try:
             first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
         self.copy_text_dump(first, last)
-        raise NotImplementedError
 
     def copy_text_dump(self, first, last):
+        "Clean up the raw dump to make in consistent."
         first_tags = list(self.text.tag_names(first))
-        first_tags.remove("sel")
+        for tag in ("sel", constants.FOOTNOTE_REF, constants.FOOTNOTE_DEF):
+            try:
+                first_tags.remove(tag)
+            except ValueError:
+                pass
+        for tag in list(first_tags):
+            if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                first_tags.remove(tag)
         last_tags = list(self.text.tag_names(last))
         current_tags = []
-        self.main.copied_text_dump = []
+        footnote_ref_labels = set()
+        self.main.copied_text = []
         for entry in self.text.dump(first, last):
-            action, content, pos = entry
-            if action == "tagoff":
+            name, content, pos = entry
+            if name == "tagoff":
                 try:
+                    ic(content)
                     current_tags.remove(content)
                 except ValueError:
-                    self.main.copied_text_dump.insert(0, ("tagon", content, "?"))
-            elif action == "tagon":
-                if content == "sel":
-                    continue
+                    self.main.copied_text.insert(0, ("tagon", content, "?"))
+            elif name == "tagon":
                 current_tags.append(content)
-            elif action == "mark":
+            elif name == "mark":
                 continue
-            self.main.copied_text_dump.append(entry)
+            self.main.copied_text.append(entry)
         current_tags.extend(set(last_tags).difference(current_tags))
         for tag in current_tags:
-            self.main.copied_text_dump.append(("tagoff", tag, "?"))
-        ic(self.main.copied_text_dump)
+            self.main.copied_text.append(("tagoff", tag, "?"))
+        self.text.tag_remove(tk.SEL, first, last)
 
-    def cut_text(self, event=None):
+    def cut_text(self):
         try:
             first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             return
         self.copy_text_dump(first, last)
-        raise NotImplementedError
+        self.text.delete(first, last)
 
-    def paste_text(self, event=None):
-        raise NotImplementedError
+    def paste_text(self):
+        tags_first = dict()
+        for name, content, pos in self.main.copied_text:
+            if name == "text":
+                self.text.insert(tk.INSERT, content)
+            elif name == "tagon":
+                # XXX handle link, footnote!
+                if content.startswith(constants.FOOTNOTE_REF_PREFIX):
+                    # XXX Create new footnote
+                    pass
+                elif content.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                    # XXX Define new footnote
+                    pass
+                elif content.startswith(constants.LINK_PREFIX):
+                    # XXX Create new link
+                    pass
+                tags_first[content] = self.text.index(tk.INSERT)
+            elif name == "tagoff":
+                self.text.tag_add(content, tags_first[content], tk.INSERT)
 
     def add_link(self):
         try:
