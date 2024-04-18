@@ -41,8 +41,7 @@ class Writer:
             self.document.add_page_break()
         title = os.path.splitext(os.path.split(filepath)[1])[0]
         self.document.add_heading(title, len(dirstack) + 1)
-        with open(os.path.join(self.absdirpath, filepath)) as infile:
-            ast = utils.get_ast(infile.read())
+        frontmatter, ast = utils.get_frontmatter_ast(os.path.join(self.absdirpath, filepath))
         self.parse(ast)
 
     def parse(self, ast):

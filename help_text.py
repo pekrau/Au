@@ -27,6 +27,3 @@ class HelpText:
     def close(self, event=None):
         self.main.help_text = None
         self.toplevel.destroy()
-
-    def get_configuration(self):
-        return dict(geometry=self.toplevel.geometry())

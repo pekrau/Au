@@ -125,12 +125,16 @@ class Main:
         self.treeview.heading("age", text="Age")
         self.treeview.column("status",
                              anchor=tk.E,
-                             width=6*constants.FONT_NORMAL_SIZE)
+                             minwidth=4*constants.FONT_NORMAL_SIZE,
+                             width=8*constants.FONT_NORMAL_SIZE)
         self.treeview.column("size",
                              anchor=tk.E,
-                             minwidth=6*constants.FONT_NORMAL_SIZE,
-                             width=10*constants.FONT_NORMAL_SIZE)
-        self.treeview.column("age", anchor=tk.E)
+                             minwidth=4*constants.FONT_NORMAL_SIZE,
+                             width=8*constants.FONT_NORMAL_SIZE)
+        self.treeview.column("age",
+                             anchor=tk.E,
+                             minwidth=4*constants.FONT_NORMAL_SIZE,
+                             width=8*constants.FONT_NORMAL_SIZE)
         self.treeview_scroll_y = ttk.Scrollbar(self.treeview_frame,
                                                orient=tk.VERTICAL,
                                                command=self.treeview.yview)
@@ -871,7 +875,7 @@ class Main:
         self.configuration["main"]["geometry"] = self.root.geometry()
         self.configuration["paste_buffer"] = self.paste_buffer
         if self.help_text:
-            self.configuration["help"] = self.help_text.get_configuration()
+            self.configuration["help"] = dict(geometry=self.help_text.toplevel.geometry())
         else:
             self.configuration["help"] = dict()
         # Get the order of the texts as shown in the treeview.
@@ -884,7 +888,7 @@ class Main:
             except KeyError:
                 pass
             else:
-                conf.update(editor.get_configuration())
+                conf["geometry"] = editor.toplevel.geometry()
             if not filepath.endswith(".md"):
                 conf["open"] = bool(self.treeview.item(filepath, "open"))
         with open(self.configurationpath, "w") as outfile:            

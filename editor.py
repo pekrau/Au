@@ -14,6 +14,8 @@ from tkinter import ttk
 from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
 
+import yaml
+
 import constants
 import utils
 
@@ -171,14 +173,13 @@ class Editor:
         status_label["textvariable"] = self.status_var
         self.info_frame.columnconfigure(3, weight=1)
 
-        with open(os.path.join(self.main.absdirpath, self.filepath)) as infile:
-            ast = utils.get_ast(infile.read())
+        self.frontmatter, ast = utils.get_frontmatter_ast(self.absfilepath)
         self.parsed_footnotes = dict() # For use only while parsing.
         self.parse(ast)
 
-        self.set_status(status=config.get("status"))
+        self.set_status(status=self.frontmatter.get("status"))
 
-        cursor = config.get("cursor") or "1.0"
+        cursor = self.frontmatter.get("cursor") or "1.0"
         self.text.mark_set(tk.INSERT, cursor)
         self.text.see(cursor)
         self.info_update()
@@ -300,12 +301,6 @@ class Editor:
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
 
-    def get_configuration(self):
-        ic(repr(self.status))
-        return dict(geometry=self.toplevel.geometry(),
-                    cursor=self.text.index(tk.INSERT),
-                    status=repr(self.status))
-
     @property
     def is_modified(self):
         return self.text.edit_modified()
@@ -421,11 +416,11 @@ class Editor:
 
     @property
     def timestamp(self):
-        return utils.get_timestamp(os.path.join(self.main.absdirpath, self.filepath))
+        return utils.get_timestamp(self.absfilepath)
 
     @property
     def age(self):
-        return utils.get_age(os.path.join(self.main.absdirpath, self.filepath))
+        return utils.get_age(self.absfilepath)
 
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
@@ -450,14 +445,13 @@ class Editor:
             return
         name = os.path.splitext(name)[0]
         filepath = os.path.join(dirpath, name + ".md")
-        absfilepath = os.path.normpath(os.path.join(self.main.absdirpath, filepath))
-        if not absfilepath.startswith(self.main.absdirpath):
+        if not self.absfilepath.startswith(self.main.absdirpath):
             tk_messagebox.showerror(
                 parent=parent or self.toplevel,
                 title="Wrong directory",
                 message=f"Must be within {self.main.absdirpath}")
             return
-        with open(absfilepath, "w") as outfile:
+        with open(self.absfilepath, "w") as outfile:
             self.outfiles_stack = [outfile]
             self.write_outfile()
             self.outfiles_stack = []
@@ -467,8 +461,13 @@ class Editor:
     def save_text(self, event=None):
         if not self.is_modified:
             return
+        self.frontmatter["cursor"] = self.text.index(tk.INSERT)
+        self.frontmatter["status"] = repr(self.status)
         self.main.move_file_to_archive(self.filepath)
-        with open(os.path.join(self.main.absdirpath, self.filepath), "w") as outfile:
+        with open(self.absfilepath, "w") as outfile:
+            outfile.write("---\n")
+            outfile.write(yaml.dump(self.frontmatter))
+            outfile.write("---\n")
             self.outfiles_stack = [outfile]
             self.write_outfile()
             self.outfiles_stack = []
@@ -849,6 +848,10 @@ class Editor:
         ic(self.status)
         self.status_var.set(str(self.status))
         self.text.edit_modified(True)
+
+    @property
+    def absfilepath(self):
+        return os.path.join(self.main.absdirpath, self.filepath)
 
     @property
     def outfile(self):

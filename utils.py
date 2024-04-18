@@ -4,19 +4,31 @@ from icecream import ic
 
 import datetime
 import os.path
+import re
 import time
 
 import marko
 import marko.ast_renderer
+import yaml
 
 import constants
 
+FRONTMATTER = re.compile(r"^---([\n\r].*?[\n\r])---[\n\r](.*)$", re.DOTALL)
 
-def get_ast(markdown):
-    "Convert Markdown text to AST."
+
+def get_frontmatter_ast(filepath):
+    "Read the file, returning a tuple of the YAML frontmatter and Markdown AST data."
+    with open(filepath) as infile:
+        content = infile.read()
+    match = FRONTMATTER.match(content)
+    if match:
+        frontmatter = yaml.safe_load(match.group(1))
+        content = content[match.start(2):]
+    else:
+        frontmatter = dict()
     parser = marko.Markdown(renderer=marko.ast_renderer.ASTRenderer,
                             extensions=["footnote"])
-    return parser.convert(markdown)
+    return frontmatter, parser.convert(content)
 
 def get_now():
     "Get formatted string for the current local time."
@@ -75,8 +87,5 @@ def split_all(filepath):
 
 
 if __name__ == "__main__":
-    import os
-    for filepath in os.listdir("."):
-        print(filepath,
-              get_age(filepath),
-              datetime.datetime.fromtimestamp(os.path.getmtime(filepath)))
+    frontmatter, ast = get_frontmatter_ast("test.md")
+    ic(frontmatter, ast)
