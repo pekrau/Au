@@ -37,6 +37,13 @@ class Main:
         except (OSError, json.JSONDecodeError, ValueError):
             self.configuration = dict(main=dict(), help=dict(), texts=dict())
 
+        try:
+            filepath = os.path.join(os.path.dirname(__file__), constants.HELP_FILENAME)
+            self.help_frontmatter, self.help_ast = utils.get_frontmatter_ast(filepath)
+        except OSError:
+            self.help_frontmatter = None
+            self.help_ast = None
+
         # All texts, with references to any open editor windows.
         self.texts = dict()
         # The links lookup is global to all editors, to facilitate cut-and-paste.
@@ -148,7 +155,7 @@ class Main:
         self.treeview.bind("<Control-Right>", self.move_item_into_section)
         self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
 
-        self.treeview.bind("<Button-3>", self.popup_menu_right_click)
+        self.treeview.bind("<Button-3>", self.popup_menu)
 
         self.section_menu = tk.Menu(self.treeview, tearoff=False)
         self.section_menu.add_command(label="Rename", command=self.rename_section)
@@ -196,7 +203,7 @@ class Main:
 
         self.save_configuration()
 
-    def popup_menu_right_click(self, event):
+    def popup_menu(self, event):
         path = self.treeview.identify_row(event.y)
         if not path: 
             return
@@ -222,10 +229,13 @@ class Main:
         # Get directories and files that actually exist.
         pos = len(self.absdirpath) + 1
         archivedirpath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
+        referencesdirpath = os.path.join(self.absdirpath, constants.REFERENCES_DIRNAME)
         # The set of existing files needs to be ordered. Use dict.
         existing = dict()
         for absdirpath, dirnames, filenames in os.walk(self.absdirpath):
             if absdirpath.startswith(archivedirpath):
+                continue
+            if absdirpath.startswith(referencesdirpath):
                 continue
             dirpath = absdirpath[pos:]
             if dirpath:
@@ -893,7 +903,6 @@ class Main:
                 conf["open"] = bool(self.treeview.item(filepath, "open"))
         with open(self.configurationpath, "w") as outfile:            
             json.dump(self.configuration, outfile, indent=2)
-        print("saved configuration")
 
     def write_docx(self):
         title = os.path.basename(self.absdirpath)

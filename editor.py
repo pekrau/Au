@@ -261,43 +261,71 @@ class Editor:
             self.ignore_modified_event = True
             self.text.edit_modified(True)
 
+    def get_selection(self, check_no_region_boundary=True):
+        "Raise ValueError if no current selection, or region boundary (if checked)."
+        try:
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
+        except tk.TclError:
+            raise ValueError("no current selection")
+        if check_no_region_boundary:
+            if self.selection_contains_region_boundary(first, last):
+                raise ValueError
+        return first, last
+
+    def selection_contains_region_boundary(self, first=None, last=None, show=True):
+        try:
+            if first is None or last is None:
+                first, last = self.get_selection()
+        except ValueError:
+            return False
+        first_tags = set(self.text.tag_names(first))
+        first_tags.remove("sel")
+        last_tags = set(self.text.tag_names(last))
+        result = first_tags != last_tags
+        if result and show:
+            tk_messagebox.showerror(
+                parent=self.toplevel,
+                title="Region boundary",
+                message="Selection contains a region boundary")
+        return result
+
     def popup_menu(self, event):
         menu = tk.Menu(self.text, tearoff=False)
-        tags = self.text.tag_names(tk.CURRENT)
         any_item = False
-        if constants.LINK in tags:
-            menu.add_command(label="Remove link", command=self.remove_link)
-            any_item = True
-        if constants.BOLD in tags:
-            menu.add_command(label="Remove bold", command=self.remove_bold)
-            any_item = True
-        if constants.ITALIC in tags:
-            menu.add_command(label="Remove italic", command=self.remove_italic)
-            any_item = True
-        if constants.QUOTE in tags:
-            menu.add_command(label="Remove quote", command=self.remove_quote)
-            any_item = True
-        if constants.FOOTNOTE_REF in tags or constants.FOOTNOTE_DEF in tags:
-            menu.add_command(label="Remove footnote", command=self.remove_footnote)
-            any_item = True
         try:
-            self.text.index(tk.SEL_FIRST)
-        except tk.TclError:
+            first, last = self.get_selection(check_no_region_boundary=False)
+        except ValueError:
             if self.main.paste_buffer:
                 menu.add_command(label="Paste", command=self.paste)
                 any_item = True
+            tags = self.text.tag_names(tk.CURRENT)
+            if constants.LINK in tags:
+                menu.add_command(label="Remove link", command=self.remove_link)
+                any_item = True
+            if constants.BOLD in tags:
+                menu.add_command(label="Remove bold", command=self.remove_bold)
+                any_item = True
+            if constants.ITALIC in tags:
+                menu.add_command(label="Remove italic", command=self.remove_italic)
+                any_item = True
+            if constants.QUOTE in tags:
+                menu.add_command(label="Remove quote", command=self.remove_quote)
+                any_item = True
+            if constants.FOOTNOTE_REF in tags or constants.FOOTNOTE_DEF in tags:
+                menu.add_command(label="Remove footnote", command=self.remove_footnote)
+                any_item = True
         else:
-            if any_item:
+            if not self.selection_contains_region_boundary(first, last, show=False):
+                menu.add_command(label="Link", command=self.add_link)
+                menu.add_command(label="Bold", command=self.add_bold)
+                menu.add_command(label="Italic", command=self.add_italic)
+                menu.add_command(label="Quote", command=self.add_quote)
+                menu.add_command(label="Footnote", command=self.add_footnote)
                 menu.add_separator()
-            menu.add_command(label="Link", command=self.add_link)
-            menu.add_command(label="Bold", command=self.add_bold)
-            menu.add_command(label="Italic", command=self.add_italic)
-            menu.add_command(label="Quote", command=self.add_quote)
-            menu.add_command(label="Footnote", command=self.add_footnote)
-            menu.add_separator()
-            menu.add_command(label="Copy", command=self.copy)
-            menu.add_command(label="Cut", command=self.cut)
-            any_item = True
+                menu.add_command(label="Copy", command=self.copy)
+                menu.add_command(label="Cut", command=self.cut)
+                any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
 
@@ -499,9 +527,8 @@ class Editor:
 
     def copy(self):
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection()
+        except ValueError:
             return
         self.set_paste_buffer(first, last)
 
@@ -589,9 +616,8 @@ class Editor:
 
     def cut(self):
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection()
+        except ValueError:
             return
         self.set_paste_buffer(first, last)
         self.text.delete(first, last)
@@ -644,7 +670,6 @@ class Editor:
 
                 elif content.startswith(constants.FOOTNOTE_DEF_PREFIX):
                     first = current_footnote["first"]
-                    ic(first, self.text.index(tk.INSERT))
                     self.text.tag_add(constants.FOOTNOTE_DEF, first, tk.INSERT)
                     self.text.tag_add(current_footnote["tag"], first, tk.INSERT)
                     self.text.tag_configure(current_footnote["tag"], elide=False)
@@ -656,9 +681,8 @@ class Editor:
 
     def add_link(self):
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection()
+        except ValueError:
             return
         url = tk_simpledialog.askstring(
             parent=self.toplevel,
@@ -706,53 +730,44 @@ class Editor:
 
     def add_bold(self):
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection()
+        except ValueError:
             return
         self.text.tag_add(constants.BOLD, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
     def remove_bold(self):
-        try:
-            current = self.text.index(tk.INSERT)
-        except tk.TclError:
-            return
+        current = self.text.index(tk.INSERT)
         if constants.BOLD in self.text.tag_names(current):
-            pos = self.text.tag_prevrange(constants.BOLD, current)
-            if pos:
-                self.text.tag_remove(constants.BOLD, *pos)
+            region = self.text.tag_prevrange(constants.BOLD, current)
+            if region:
+                self.text.tag_remove(constants.BOLD, *region)
                 self.ignore_modified_event = True
                 self.text.edit_modified(True)
 
     def add_italic(self):
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection()
+        except ValueError:
             return
         self.text.tag_add(constants.ITALIC, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
     def remove_italic(self):
-        try:
-            current = self.text.index(tk.INSERT)
-        except tk.TclError:
-            return
+        current = self.text.index(tk.INSERT)
         if constants.ITALIC in self.text.tag_names(current):
-            pos = self.text.tag_prevrange(constants.ITALIC, current)
-            if pos:
-                self.text.tag_remove(constants.ITALIC, *pos)
+            region = self.text.tag_prevrange(constants.ITALIC, current)
+            if region:
+                self.text.tag_remove(constants.ITALIC, *region)
                 self.ignore_modified_event = True
                 self.text.edit_modified(True)
 
     def add_quote(self):
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection()
+        except ValueError:
             return
         self.text.tag_add(constants.QUOTE, first, last)
         if "\n\n" not in self.text.get(last, last + "+2c"):
@@ -763,22 +778,18 @@ class Editor:
         self.text.edit_modified(True)
 
     def remove_quote(self):
-        try:
-            current = self.text.index(tk.INSERT)
-        except tk.TclError:
-            return
+        current = self.text.index(tk.INSERT)
         if constants.QUOTE in self.text.tag_names(current):
-            pos = self.text.tag_prevrange(constants.QUOTE, current)
-            if pos:
-                self.text.tag_remove(constants.QUOTE, *pos)
+            region = self.text.tag_prevrange(constants.QUOTE, current)
+            if region:
+                self.text.tag_remove(constants.QUOTE, *region)
                 self.ignore_modified_event = True
                 self.text.edit_modified(True)
 
     def add_footnote(self):
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection()
+        except ValueError:
             return
         label = str(len(self.footnotes) + 1)
         ref_tag = constants.FOOTNOTE_REF_PREFIX + label
@@ -790,15 +801,13 @@ class Editor:
         self.text.tag_configure(def_tag, elide=True)
         self.footnotes[label] = footnote
         self.text.insert(first, constants.FOOTNOTE)
-        self.text.tag_add(constants.FOOTNOTE_REF, first, tk.INSERT)
-        self.text.tag_add(ref_tag, first, tk.INSERT)
+        last = f"{first} +{len(constants.FOOTNOTE)}c"
+        self.text.tag_add(constants.FOOTNOTE_REF, first, last)
+        self.text.tag_add(ref_tag, first, last)
         self.text.tag_bind(ref_tag, "<Button-1>", self.footnote_toggle)
 
     def remove_footnote(self):
-        try:
-            current = self.text.index(tk.INSERT)
-        except tk.TclError:
-            return
+        current = self.text.index(tk.INSERT)
         tags = self.text.tag_names(tk.INSERT)
         for tag in tags:
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
@@ -843,9 +852,7 @@ class Editor:
         self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide") or 0))
 
     def set_status(self, status=None):
-        ic(status)
         self.status = constants.STATUS_LOOKUP.get(status or 1) or constants.STARTED
-        ic(self.status)
         self.status_var.set(str(self.status))
         self.text.edit_modified(True)
 
@@ -1005,11 +1012,11 @@ class Editor:
 
     def debug_selected(self, event=None):
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection(check_no_region_boundary=False)
+        except ValueError:
             return
         print(f"--- dump selected: {first}, {last} ---")
+        print(self.text.tag_names(first), self.text.tag_names(last))
         for entry in self.text.dump(first, last):
             print(entry)
 

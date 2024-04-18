@@ -9,9 +9,10 @@ DEFAULT_ROOT_GEOMETRY = "400x400+700+0"
 DEFAULT_TEXT_WIDTH = 80
 DEFAULT_TEXT_HEIGHT = 30
 
-CONFIGURATION_FILENAME = ".configuration.json"
-HELP_FILENAME = ".help.md"
-ARCHIVE_DIRNAME = ".archive"
+CONFIGURATION_FILENAME = "configuration.json"
+HELP_FILENAME = "help.md"
+ARCHIVE_DIRNAME = "au_archive"
+REFERENCES_DIRNAME = "au_references"
 
 @functools.total_ordering
 class Status:
