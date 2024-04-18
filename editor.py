@@ -489,10 +489,37 @@ class Editor:
         self.text.tag_remove(tk.SEL, first, last)
 
     def dump(self, first, last):
-        "Clean up the raw dump to make in consistent."
-        raw_dump = self.text.dump(first, last)
-        # XXX if footnote_ref-X exists, but not footnote_def-X,
-        # then extend the raw dump so that it does.
+        "Clean up the raw dump to make it consistent."
+        # The selection may contain 'footnote_ref' without the corresponding
+        # 'footnote_def', and vice versa. Remove such entries from the dump.
+        dump = self.text.dump(first, last)
+        footnote_ref = None
+        for name, content, pos in dump:
+            if name in ("tagon", "tagoff") and content == constants.FOOTNOTE_REF:
+                footnote_ref = content
+                break
+        footnote_def = None
+        for name, content, pos in dump:
+            if name in ("tagon", "tagoff") and content == constants.FOOTNOTE_DEF:
+                footnote_def = content
+                break
+        broken_footnote = ((footnote_ref and not footnote_def) or
+                            (not footnote_ref and footnote_def))
+        if broken_footnote:
+            result = []
+            for name, content, pos in dump:
+                if name in ("tagon", "tagoff"):
+                    if content == constants.FOOTNOTE_REF:
+                        continue
+                    if content == constants.FOOTNOTE_DEF:
+                        continue
+                    if content.startswith(constants.FOOTNOTE_REF_PREFIX):
+                        continue
+                    if content.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                        continue
+                result.append((name, content, pos))
+            dump = result
+
         first_tags = list(self.text.tag_names(first))
         skip_tags = set([tk.SEL,
                          constants.LINK,
@@ -507,11 +534,19 @@ class Editor:
             if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
                 first_tags.remove(tag)
         last_tags = set(self.text.tag_names(last)).difference(skip_tags)
+
+        if broken_footnote:
+            first_tags = set([t for t in first_tags
+                              if not (t.startswith(constants.FOOTNOTE_REF_PREFIX) or
+                                      t.startswith(constants.FOOTNOTE_DEF_PREFIX))])
+            last_tags = set([t for t in last_tags
+                             if not (t.startswith(constants.FOOTNOTE_REF_PREFIX) or
+                                     t.startswith(constants.FOOTNOTE_DEF_PREFIX))])
+
         current_tags = []
         footnote_ref_labels = set()
         result = []
-        for entry in raw_dump:
-            name, content, pos = entry
+        for name, content, pos in dump:
             if name == "tagon":
                 if content in skip_tags:
                     continue
@@ -525,7 +560,7 @@ class Editor:
                     result.insert(0, ("tagon", content, "?"))
             elif name == "mark":
                 continue
-            result.append(entry)
+            result.append((name, content, pos))
         current_tags.extend(last_tags.difference(current_tags))
         for tag in current_tags:
             result.append(("tagoff", tag, "?"))
@@ -553,9 +588,10 @@ class Editor:
                     self.text.insert(tk.INSERT, content)
 
             elif name == "tagon":
+                first = self.text.index(tk.INSERT)
                 if content.startswith(constants.LINK_PREFIX):
                     current_link = self.get_link(tag=content)
-                    current_link["first"] = self.text.index(tk.INSERT)
+                    current_link["first"] = first
 
                 elif content.startswith(constants.FOOTNOTE_REF_PREFIX):
                     current_footnote = self.new_footnote_ref(
@@ -563,9 +599,11 @@ class Editor:
                     do_output_text = False
 
                 elif content.startswith(constants.FOOTNOTE_DEF_PREFIX):
-                    current_footnote["first"] = self.text.index(tk.INSERT)
+                    current_footnote["first"] = first
                     tag = constants.FOOTNOTE_DEF_PREFIX + current_footnote["label"]
                     current_footnote["tag"] = tag
+                else:
+                    tags_first[content] = first
 
             elif name == "tagoff":
                 if content.startswith(constants.LINK_PREFIX):
@@ -940,7 +978,7 @@ class Editor:
         except tk.TclError:
             return
         print(f"--- dump selected: {first}, {last} ---")
-        for entry in self.dump(first, last):
+        for entry in self.text.dump(first, last):
             print(entry)
 
     def debug_paste_buffer(self, event=None):

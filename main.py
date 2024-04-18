@@ -576,7 +576,6 @@ class Main:
         self.treeview.focus(newpath)
         self.save_configuration()
 
-
     def create_section(self, parent=None):
         try:
             dirpath = self.treeview.selection()[0]
@@ -904,6 +903,7 @@ class Main:
                             title="Quit?",
                             message="All unsaved changes will be lost. Really quit?"):
                         return
+                    break
             except KeyError:
                 pass
         self.root.destroy()
