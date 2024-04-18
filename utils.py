@@ -2,6 +2,7 @@
 
 from icecream import ic
 
+import datetime
 import os.path
 import time
 
@@ -17,18 +18,39 @@ def get_ast(markdown):
                             extensions=["footnote"])
     return parser.convert(markdown)
 
-def get_time(value=None):
-    """Get formatted string for the given time.
-    If a string, then interpret as a filepath and get its modification timestamp.
-    If None, current local time.
-    """
-    if value is None:
-        return time.strftime(constants.TIME_FORMAT, time.localtime())
-    elif type(value) == str:
-        return time.strftime(constants.TIME_FORMAT,
-                             time.localtime(os.path.getmtime(value)))
+def get_now():
+    "Get formatted string for the current local time."
+    return time.strftime(constants.TIME_FORMAT, time.localtime())
+
+def get_timestamp(value=None):
+    "Get formatted string for the modification timestamp of the given file."
+    return time.strftime(constants.TIME_FORMAT,
+                         time.localtime(os.path.getmtime(value)))
+
+def get_age(filepath):
+    "Get the age of the file, as a tuple (value, unit)."
+    now = datetime.datetime.today()
+    modified = datetime.datetime.fromtimestamp(os.path.getmtime(filepath))
+    age = now - modified
+    if age.days >= 365.25:
+        value = age.days / 365.25
+        unit = "years"
+    elif age.days >= 30.5:
+        value = age.days / 30.5
+        unit = "months"
+    elif age.days >= 1:
+        value = age.days + age.seconds / 86400.0
+        unit = "days"
+    elif age.seconds >= 86400.0:
+        value = age.seconds / 86400.0
+        unit = "hours"
+    elif age.seconds >= 60.0:
+        value = age.seconds / 60.0
+        unit= "mins"
     else:
-        raise ValueError("invalid argument")
+        value = age.seconds + age.microseconds / 1000000.0
+        unit = "secs"
+    return (f"{value:.1f}", unit)
 
 def get_size(absfilepath):
     "Get the size of the text file. Approximate only; Markdown not taken into account."
@@ -50,3 +72,11 @@ def split_all(filepath):
         result.append(child)
         filepath = parent
     return list(reversed(result))
+
+
+if __name__ == "__main__":
+    import os
+    for filepath in os.listdir("."):
+        print(filepath,
+              get_age(filepath),
+              datetime.datetime.fromtimestamp(os.path.getmtime(filepath)))

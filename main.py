@@ -114,7 +114,7 @@ class Main:
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
         self.treeview = ttk.Treeview(self.treeview_frame,
-                                     columns=("characters", "timestamp"),
+                                     columns=("characters", "age"),
                                      selectmode="browse")
         self.treeview.tag_configure("section", background=constants.SECTION_COLOR)
         self.treeview.tag_configure("modified", background=constants.MODIFIED_COLOR)
@@ -125,8 +125,8 @@ class Main:
                              anchor=tk.E,
                              minwidth=6*constants.FONT_NORMAL_SIZE,
                              width=10*constants.FONT_NORMAL_SIZE)
-        self.treeview.heading("timestamp", text="Timestamp")
-        self.treeview.column("timestamp", anchor=tk.CENTER)
+        self.treeview.heading("age", text="Age")
+        self.treeview.column("age", anchor=tk.E)
         self.treeview_scroll_y = ttk.Scrollbar(self.treeview_frame,
                                                orient=tk.VERTICAL,
                                                command=self.treeview.yview)
@@ -257,16 +257,17 @@ class Main:
         if ext == ".md":
             try:
                 size = str(utils.get_size(absitempath))
-                timestamp = utils.get_time(absitempath)
+                age, unit = utils.get_age(absitempath)
             except OSError:
                 size = "?"
-                timestamp = "?"
+                age = "?"
+                unit = ""
             self.treeview.insert(dirpath,
                                  index or tk.END,
                                  iid=itempath,
                                  text=name,
                                  tags=(itempath, ),
-                                 values=(size, timestamp))
+                                 values=(size, f"{age} {unit:<10}"))
             self.treeview.tag_bind(itempath,
                                    "<Double-Button-1>",
                                    functools.partial(self.open_text, filepath=itempath))
@@ -297,13 +298,18 @@ class Main:
                 ed.toplevel.title(os.path.splitext(newpath)[0])
             self.add_treeview_entry(newpath)
 
-    def flag_treeview_entry(self, filepath, modified=True):
-        tags = set(self.treeview.item(filepath, "tags"))
-        if modified:
-            tags.add("modified")
-        else:
-            tags.discard("modified")
-        self.treeview.item(filepath, tags=tuple(tags))
+    def update_treeview_entry(self, filepath, modified=None, size=None, age=None):
+        if modified is not None:
+            tags = set(self.treeview.item(filepath, "tags"))
+            if modified:
+                tags.add("modified")
+            else:
+                tags.discard("modified")
+            self.treeview.item(filepath, tags=tuple(tags))
+        if size is not None:
+            self.treeview.set(filepath, "characters", size)
+        if age is not None:
+            self.treeview.set(filepath, "age", f"{age[0]} {age[1]:<10}")
 
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
@@ -648,7 +654,7 @@ class Main:
                     ed.close(force=True)
             for filename in filenames:
                 os.rename(os.path.join(sectiondir, filename),
-                          f"{archivedirpath}/{filename} {utils.get_time()}")
+                          f"{archivedirpath}/{filename} {utils.get_now()}")
         # Remove the entry in the main window.
         self.treeview.delete(dirpath)
         # Actually remove the directory and files.
@@ -828,7 +834,7 @@ class Main:
         # Create archive subdirectory if it does not exist.
         archivedfilepath = os.path.join(self.absdirpath, 
                                         constants.ARCHIVE_DIRNAME, 
-                                        f"{filepath} {utils.get_time()}")
+                                        f"{filepath} {utils.get_now()}")
         archivepath = os.path.dirname(archivedfilepath)
         if not os.path.exists(archivepath):
             os.makedirs(archivepath)
@@ -884,7 +890,7 @@ class Main:
         if os.path.exists(absfilepath):
             archivedfilepath = os.path.join(self.absdirpath,
                                             constants.ARCHIVE_DIRNAME,
-                                            f"{title} {utils.get_time()}" + ".docx")
+                                            f"{title} {utils.get_now()}" + ".docx")
             os.rename(absfilepath, archivedfilepath)
         docx_interface.Writer(self.absdirpath, self.texts).write()
 

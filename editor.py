@@ -204,7 +204,7 @@ class Editor:
             return
         self.original_menubar_background = self.menubar.cget("background")
         self.menubar.configure(background=constants.MODIFIED_COLOR)
-        self.main.flag_treeview_entry(self.filepath, modified=True)
+        self.main.update_treeview_entry(self.filepath, modified=True)
 
     def get_link(self, tag=None):
         if tag is None:
@@ -393,9 +393,10 @@ class Editor:
     def info_update(self, size_only=False):
         self.size_var.set(f"{self.character_count} characters")
         self.main.treeview.set(self.filepath, "characters",
-                               f"{self.character_count} ch")
-        if not size_only:
-            self.main.treeview.set(self.filepath, "timestamp", self.timestamp)
+                               )
+        self.main.update_treeview_entry(self.filepath,
+                                        size=f"{self.character_count} ch",
+                                        age=self.age)
 
     @property
     def character_count(self):
@@ -403,7 +404,11 @@ class Editor:
 
     @property
     def timestamp(self):
-        return utils.get_time(os.path.join(self.main.absdirpath, self.filepath))
+        return utils.get_timestamp(os.path.join(self.main.absdirpath, self.filepath))
+
+    @property
+    def age(self):
+        return utils.get_age(os.path.join(self.main.absdirpath, self.filepath))
 
     def move_cursor_home(self, event=None):
         self.text.mark_set(tk.INSERT, "1.0")
@@ -452,7 +457,7 @@ class Editor:
             self.outfiles_stack = []
         self.menubar.configure(background=self.original_menubar_background)
         self.info_update()
-        self.main.flag_treeview_entry(self.filepath, modified=False)
+        self.main.update_treeview_entry(self.filepath, modified=False)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
@@ -472,7 +477,7 @@ class Editor:
                     title="Close?",
                     message="Modifications will not be saved. Really close?"):
                 return
-        self.main.flag_treeview_entry(self.filepath, modified=False)
+        self.main.update_treeview_entry(self.filepath, modified=False)
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
 
