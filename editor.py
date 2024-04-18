@@ -3,6 +3,7 @@
 from icecream import ic
 
 import collections
+import functools
 import io
 import json
 import os
@@ -85,6 +86,12 @@ class Editor:
         self.menu_format.add_command(label="Remove footnote",
                                      command=self.remove_footnote)
 
+        self.menu_status = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_status, label="Status")
+        for status in constants.STATUSES:
+            command = functools.partial(self.set_status, status=repr(status))
+            self.menu_status.add_command(label=str(status), command=command)
+
         self.text_frame = ttk.Frame(self.toplevel, padding=4)
         self.text_frame.pack(fill=tk.BOTH, expand=1)
 
@@ -158,10 +165,18 @@ class Editor:
         title_label["textvariable"] = self.title_var
         self.info_frame.columnconfigure(2, weight=1)
 
+        self.status_var = tk.StringVar()
+        status_label = ttk.Label(self.info_frame)
+        status_label.grid(row=0, column=3, padx=4, sticky=tk.E)
+        status_label["textvariable"] = self.status_var
+        self.info_frame.columnconfigure(3, weight=1)
+
         with open(os.path.join(self.main.absdirpath, self.filepath)) as infile:
             ast = utils.get_ast(infile.read())
         self.parsed_footnotes = dict() # For use only while parsing.
         self.parse(ast)
+
+        self.set_status(status=config.get("status"))
 
         cursor = config.get("cursor") or "1.0"
         self.text.mark_set(tk.INSERT, cursor)
@@ -195,7 +210,7 @@ class Editor:
                 quench = event.keysym == "Delete"
         if quench:
             return "break"
-        self.info_update(size_only=True)
+        self.size_var.set(f"{self.character_count} characters")
 
     def handle_modified(self, event=None):
         if self.ignore_modified_event:
@@ -286,8 +301,10 @@ class Editor:
             menu.tk_popup(event.x_root, event.y_root)
 
     def get_configuration(self):
+        ic(repr(self.status))
         return dict(geometry=self.toplevel.geometry(),
-                    cursor=self.text.index(tk.INSERT))
+                    cursor=self.text.index(tk.INSERT),
+                    status=repr(self.status))
 
     @property
     def is_modified(self):
@@ -390,11 +407,11 @@ class Editor:
         self.text.tag_add(constants.FOOTNOTE_DEF, first, tk.INSERT)
         self.text.tag_add(tag, first, tk.INSERT)
 
-    def info_update(self, size_only=False):
+    def info_update(self):
         self.size_var.set(f"{self.character_count} characters")
-        self.main.treeview.set(self.filepath, "characters",
-                               )
+        self.status_var.set(str(self.status))
         self.main.update_treeview_entry(self.filepath,
+                                        status=str(self.status),
                                         size=f"{self.character_count} ch",
                                         age=self.age)
 
@@ -825,6 +842,13 @@ class Editor:
             return
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide") or 0))
+
+    def set_status(self, status=None):
+        ic(status)
+        self.status = constants.STATUS_LOOKUP.get(status or 1) or constants.STARTED
+        ic(self.status)
+        self.status_var.set(str(self.status))
+        self.text.edit_modified(True)
 
     @property
     def outfile(self):

@@ -37,12 +37,12 @@ def get_age(filepath):
         unit = "years"
     elif age.days >= 30.5:
         value = age.days / 30.5
-        unit = "months"
+        unit = "mnths"
     elif age.days >= 1:
         value = age.days + age.seconds / 86400.0
         unit = "days"
-    elif age.seconds >= 86400.0:
-        value = age.seconds / 86400.0
+    elif age.seconds >= 3600.0:
+        value = age.seconds / 3600.0
         unit = "hours"
     elif age.seconds >= 60.0:
         value = age.seconds / 60.0

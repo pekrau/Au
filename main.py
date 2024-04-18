@@ -19,7 +19,7 @@ import editor
 import help_text
 import utils
 
-VERSION = (0, 5, 2)
+VERSION = (0, 5, 4)
 
 
 class Main:
@@ -114,18 +114,22 @@ class Main:
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
         self.treeview = ttk.Treeview(self.treeview_frame,
-                                     columns=("characters", "age"),
+                                     columns=("status", "size", "age"),
                                      selectmode="browse")
         self.treeview.tag_configure("section", background=constants.SECTION_COLOR)
         self.treeview.tag_configure("modified", background=constants.MODIFIED_COLOR)
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.treeview.heading("#0", text="Text")
-        self.treeview.heading("characters", text="Characters")
-        self.treeview.column("characters",
+        self.treeview.heading("status", text="Status")
+        self.treeview.heading("size", text="Size")
+        self.treeview.heading("age", text="Age")
+        self.treeview.column("status",
+                             anchor=tk.E,
+                             width=6*constants.FONT_NORMAL_SIZE)
+        self.treeview.column("size",
                              anchor=tk.E,
                              minwidth=6*constants.FONT_NORMAL_SIZE,
                              width=10*constants.FONT_NORMAL_SIZE)
-        self.treeview.heading("age", text="Age")
         self.treeview.column("age", anchor=tk.E)
         self.treeview_scroll_y = ttk.Scrollbar(self.treeview_frame,
                                                orient=tk.VERTICAL,
@@ -267,7 +271,7 @@ class Main:
                                  iid=itempath,
                                  text=name,
                                  tags=(itempath, ),
-                                 values=(size, f"{age} {unit:<10}"))
+                                 values=("?", size, f"{age} {unit}"))
             self.treeview.tag_bind(itempath,
                                    "<Double-Button-1>",
                                    functools.partial(self.open_text, filepath=itempath))
@@ -278,7 +282,7 @@ class Main:
                                  iid=itempath,
                                  text=name,
                                  open=open,
-                                 tags=("section", itempath))
+                                 tags=("?", "section", itempath))
         else:
             ic("Ignored file", itemname)
         if set_selection:
@@ -298,7 +302,8 @@ class Main:
                 ed.toplevel.title(os.path.splitext(newpath)[0])
             self.add_treeview_entry(newpath)
 
-    def update_treeview_entry(self, filepath, modified=None, size=None, age=None):
+    def update_treeview_entry(self, filepath,
+                              modified=None, status=None, size=None, age=None):
         if modified is not None:
             tags = set(self.treeview.item(filepath, "tags"))
             if modified:
@@ -306,10 +311,12 @@ class Main:
             else:
                 tags.discard("modified")
             self.treeview.item(filepath, tags=tuple(tags))
+        if status is not None:
+            self.treeview.set(filepath, "status", str(status))
         if size is not None:
-            self.treeview.set(filepath, "characters", size)
+            self.treeview.set(filepath, "size", size)
         if age is not None:
-            self.treeview.set(filepath, "age", f"{age[0]} {age[1]:<10}")
+            self.treeview.set(filepath, "age", f"{age[0]} {age[1]}")
 
     def move_item_up(self, event=None):
         "Move the currently selected item up in its level of the treeview."
