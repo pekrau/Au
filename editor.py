@@ -7,6 +7,7 @@ import functools
 import io
 import json
 import os
+import string
 import webbrowser
 
 import tkinter as tk
@@ -155,16 +156,16 @@ class Editor:
         self.info_frame.columnconfigure(0, weight=1)
 
         size_label["textvariable"] = self.size_var
-        self.url_var = tk.StringVar()
+        self.link_url_var = tk.StringVar()
         url_label = ttk.Label(self.info_frame)
         url_label.grid(row=0, column=1, padx=4, sticky=tk.W)
-        url_label["textvariable"] = self.url_var
+        url_label["textvariable"] = self.link_url_var
         self.info_frame.columnconfigure(1, weight=1)
 
-        self.title_var = tk.StringVar()
+        self.link_title_var = tk.StringVar()
         title_label = ttk.Label(self.info_frame)
         title_label.grid(row=0, column=2, padx=4, sticky=tk.W)
-        title_label["textvariable"] = self.title_var
+        title_label["textvariable"] = self.link_title_var
         self.info_frame.columnconfigure(2, weight=1)
 
         self.status_var = tk.StringVar()
@@ -235,14 +236,14 @@ class Editor:
         link = self.get_link()
         if not link:
             return
-        self.url_var.set(link["url"])
-        self.title_var.set(link["title"] or "-")
+        self.link_url_var.set(link["url"])
+        self.link_title_var.set(link["title"] or "-")
         self.text.configure(cursor="hand1")
 
     def leave_link(self, event):
         self.text.configure(cursor="")
-        self.url_var.set("")
-        self.title_var.set("")
+        self.link_url_var.set("")
+        self.link_title_var.set("")
 
     def edit_link(self, event):
         link = self.get_link()
@@ -261,27 +262,47 @@ class Editor:
             self.ignore_modified_event = True
             self.text.edit_modified(True)
 
-    def get_selection(self, check_no_region_boundary=True):
-        "Raise ValueError if no current selection, or region boundary (if checked)."
+    def get_selection(self, check_no_boundary=True, adjust=False):
+        """Raise ValueError if no current selection, or region boundary (if checked).
+        Optionally adjust region to have non-blank beginning and end.
+        """
         try:
             first = self.text.index(tk.SEL_FIRST)
             last = self.text.index(tk.SEL_LAST)
         except tk.TclError:
             raise ValueError("no current selection")
-        if check_no_region_boundary:
-            if self.selection_contains_region_boundary(first, last):
+        if adjust:
+            ic(first, last)
+            if self.text.get(first) in string.whitespace:
+                original_first = first
+                for offset in range(1, 10):
+                    first = f"{original_first}+{offset}c"
+                    if self.text.get(first) not in string.whitespace:
+                        break
+            if self.text.get(last + "-1c") in string.whitespace:
+                original_last = last
+                for offset in range(1, 11):
+                    last = f"{original_last}-{offset}c"
+                    probe = f"{original_last}-{offset+1}c"
+                    if self.text.get(probe) not in string.whitespace:
+                        break
+            ic(first, last)
+        if check_no_boundary:
+            if self.selection_contains_boundary(first, last):
                 raise ValueError
         return first, last
 
-    def selection_contains_region_boundary(self, first=None, last=None, show=True):
+    def selection_contains_boundary(self, first=None, last=None, show=True):
         try:
             if first is None or last is None:
                 first, last = self.get_selection()
         except ValueError:
             return False
         first_tags = set(self.text.tag_names(first))
-        first_tags.remove("sel")
+        first_tags.discard("sel")
         last_tags = set(self.text.tag_names(last))
+        last_tags.discard("sel")
+        ic(first_tags, last_tags)
         result = first_tags != last_tags
         if result and show:
             tk_messagebox.showerror(
@@ -294,7 +315,7 @@ class Editor:
         menu = tk.Menu(self.text, tearoff=False)
         any_item = False
         try:
-            first, last = self.get_selection(check_no_region_boundary=False)
+            first, last = self.get_selection(check_no_boundary=False)
         except ValueError:
             if self.main.paste_buffer:
                 menu.add_command(label="Paste", command=self.paste)
@@ -316,7 +337,7 @@ class Editor:
                 menu.add_command(label="Remove footnote", command=self.remove_footnote)
                 any_item = True
         else:
-            if not self.selection_contains_region_boundary(first, last, show=False):
+            if not self.selection_contains_boundary(first, last, show=False):
                 menu.add_command(label="Link", command=self.add_link)
                 menu.add_command(label="Bold", command=self.add_bold)
                 menu.add_command(label="Italic", command=self.add_italic)
@@ -730,7 +751,7 @@ class Editor:
 
     def add_bold(self):
         try:
-            first, last = self.get_selection()
+            first, last = self.get_selection(adjust=True)
         except ValueError:
             return
         self.text.tag_add(constants.BOLD, first, last)
@@ -748,7 +769,7 @@ class Editor:
 
     def add_italic(self):
         try:
-            first, last = self.get_selection()
+            first, last = self.get_selection(adjust=True)
         except ValueError:
             return
         self.text.tag_add(constants.ITALIC, first, last)
@@ -1012,7 +1033,7 @@ class Editor:
 
     def debug_selected(self, event=None):
         try:
-            first, last = self.get_selection(check_no_region_boundary=False)
+            first, last = self.get_selection(check_no_boundary=False)
         except ValueError:
             return
         print(f"--- dump selected: {first}, {last} ---")

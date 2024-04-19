@@ -138,3 +138,14 @@ def get_markdown_to_json():
     "Get a new instance of the Markdown-to-JSON converter."
     return marko.Markdown(extensions=[AstExtensions], 
                           renderer=marko.ast_renderer.ASTRenderer)
+
+
+# class ReferenceLink(marko.inline.InlineElement):
+#     "Link to a reference."
+
+#     pattern = re.compile(r"\[@(.+?)\]")
+#     parse_children = False
+
+#     def __init__(self, match):
+#         self.target = match.group(1).strip()
+

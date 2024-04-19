@@ -19,7 +19,7 @@ import editor
 import help_text
 import utils
 
-VERSION = (0, 5, 4)
+VERSION = (0, 5, 5)
 
 
 class Main:
@@ -233,6 +233,7 @@ class Main:
         # The set of existing files needs to be ordered. Use dict.
         existing = dict()
         for absdirpath, dirnames, filenames in os.walk(self.absdirpath):
+            # Skip special directories.
             if absdirpath.startswith(archivedirpath):
                 continue
             if absdirpath.startswith(referencesdirpath):
@@ -297,8 +298,6 @@ class Main:
                                  text=name,
                                  open=open,
                                  tags=("?", "section", itempath))
-        else:
-            ic("Ignored file", itemname)
         if set_selection:
             self.treeview.see(itempath)
             self.treeview.selection_set(itempath)

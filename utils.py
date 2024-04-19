@@ -9,11 +9,22 @@ import time
 
 import marko
 import marko.ast_renderer
+import marko.inline
+import marko.helpers
 import yaml
 
 import constants
 
 FRONTMATTER = re.compile(r"^---([\n\r].*?[\n\r])---[\n\r](.*)$", re.DOTALL)
+
+class ReferenceLink(marko.inline.InlineElement):
+    "Link to a reference."
+
+    pattern = re.compile(r"\[@(.+?)\]")
+    parse_children = False
+
+    def __init__(self, match):
+        self.target = match.group(1).strip()
 
 
 def get_frontmatter_ast(filepath):
@@ -28,6 +39,7 @@ def get_frontmatter_ast(filepath):
         frontmatter = dict()
     parser = marko.Markdown(renderer=marko.ast_renderer.ASTRenderer,
                             extensions=["footnote"])
+    parser.use(marko.helpers.MarkoExtension(elements=[ReferenceLink]))
     return frontmatter, parser.convert(content)
 
 def get_now():
