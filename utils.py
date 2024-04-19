@@ -17,8 +17,18 @@ import constants
 
 FRONTMATTER = re.compile(r"^---([\n\r].*?[\n\r])---[\n\r](.*)$", re.DOTALL)
 
-class ReferenceLink(marko.inline.InlineElement):
-    "Link to a reference."
+class Indexed(marko.inline.InlineElement):
+    "Indexed term."
+
+    pattern = re.compile(r"\[#(.+?)\]")
+    parse_children = False
+
+    def __init__(self, match):
+        self.target = match.group(1).strip()
+
+
+class Reference(marko.inline.InlineElement):
+    "Source reference."
 
     pattern = re.compile(r"\[@(.+?)\]")
     parse_children = False
@@ -39,7 +49,7 @@ def get_frontmatter_ast(filepath):
         frontmatter = dict()
     parser = marko.Markdown(renderer=marko.ast_renderer.ASTRenderer,
                             extensions=["footnote"])
-    parser.use(marko.helpers.MarkoExtension(elements=[ReferenceLink]))
+    parser.use(marko.helpers.MarkoExtension(elements=[Indexed, Reference]))
     return frontmatter, parser.convert(content)
 
 def get_now():

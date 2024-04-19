@@ -45,8 +45,15 @@ STATUS_LOOKUP = dict([(s.name, s) for s in STATUSES])
 BOLD = "bold"
 ITALIC = "italic"
 QUOTE = "quote"
+
+INDEXED = "indexed"
+
+REFERENCE = "reference"
+REFERENCE_COLOR = "magenta"
+
 LINK = "link"
 LINK_PREFIX = "link-"
+LINK_COLOR = "blue"
 
 FOOTNOTE = "[footnote]"
 FOOTNOTE_REF = "footnote_ref"
@@ -65,9 +72,8 @@ FONT_ITALIC = (FONT_FAMILY_NORMAL, FONT_NORMAL_SIZE, "italic")
 FONT_BOLD = (FONT_FAMILY_NORMAL, FONT_NORMAL_SIZE, "bold")
 FONT_LARGE_BOLD = (FONT_FAMILY_NORMAL, FONT_LARGE_SIZE, "bold")
 
-SECTION_COLOR = "gainsboro"
-LINK_COLOR = "blue"
 MODIFIED_COLOR = "lightpink"
+SECTION_COLOR = "gainsboro"
 
 QUOTE_LEFT_INDENT = 30
 QUOTE_RIGHT_INDENT = 70

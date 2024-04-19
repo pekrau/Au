@@ -75,6 +75,13 @@ class Editor:
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Add link", command=self.add_link)
         self.menu_edit.add_command(label="Remove link", command=self.remove_link)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Add indexed", command=self.add_indexed)
+        self.menu_edit.add_command(label="Remove indexed", command=self.remove_indexed)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Add reference", command=self.add_reference)
+        self.menu_edit.add_command(label="Remove reference",
+                                   command=self.remove_reference)
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_format, label="Format")
@@ -113,12 +120,17 @@ class Editor:
         self.text.bind("<Key>", self.key_press)
         self.text.bind("<<Modified>>", self.handle_modified)
         self.text.bind("<Button-3>", self.popup_menu)
+
         self.text.tag_configure(constants.LINK,
                                 foreground=constants.LINK_COLOR,
                                 underline=True)
         self.text.tag_bind(constants.LINK, "<Enter>", self.enter_link)
         self.text.tag_bind(constants.LINK, "<Leave>", self.leave_link)
         self.text.tag_bind(constants.LINK, "<Button-1>", self.edit_link)
+
+        self.text.tag_configure(constants.INDEXED, underline=True)
+        self.text.tag_configure(constants.REFERENCE,
+                                foreground=constants.REFERENCE_COLOR)
 
         self.text_scroll_y = ttk.Scrollbar(self.text_frame,
                                            orient=tk.VERTICAL,
@@ -136,8 +148,7 @@ class Editor:
                                 spacing2=0,
                                 font=constants.FONT_FAMILY_QUOTE)
         self.text.tag_configure(constants.FOOTNOTE_REF,
-                                foreground=constants.FOOTNOTE_REF_COLOR,
-                                font=constants.FONT_BOLD)
+                                foreground=constants.FOOTNOTE_REF_COLOR)
         self.text.tag_configure(constants.FOOTNOTE_DEF,
                                 background=constants.FOOTNOTE_DEF_COLOR,
                                 lmargin1=constants.FOOTNOTE_DEF_MARGIN,
@@ -272,7 +283,6 @@ class Editor:
         except tk.TclError:
             raise ValueError("no current selection")
         if adjust:
-            ic(first, last)
             if self.text.get(first) in string.whitespace:
                 original_first = first
                 for offset in range(1, 10):
@@ -286,7 +296,6 @@ class Editor:
                     probe = f"{original_last}-{offset+1}c"
                     if self.text.get(probe) not in string.whitespace:
                         break
-            ic(first, last)
         if check_no_boundary:
             if self.selection_contains_boundary(first, last):
                 raise ValueError
@@ -302,7 +311,6 @@ class Editor:
         first_tags.discard("sel")
         last_tags = set(self.text.tag_names(last))
         last_tags.discard("sel")
-        ic(first_tags, last_tags)
         result = first_tags != last_tags
         if result and show:
             tk_messagebox.showerror(
@@ -429,7 +437,7 @@ class Editor:
         self.footnotes[label] = footnote
         if parsed_label:
             self.parsed_footnotes[parsed_label] = footnote
-        # Insert the standard text '[footnote]' as the visible reference.
+        # Insert the standard text '[footnote]' as the visible footnote reference.
         self.text.insert(tk.INSERT, constants.FOOTNOTE, (constants.FOOTNOTE_REF, tag))
         self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
         return footnote
@@ -450,6 +458,12 @@ class Editor:
         # The order of adding tags is essential for 'write_outfile'.
         self.text.tag_add(constants.FOOTNOTE_DEF, first, tk.INSERT)
         self.text.tag_add(tag, first, tk.INSERT)
+
+    def parse_indexed(self, ast):
+        self.text.insert(tk.INSERT, ast["target"], constants.INDEXED)
+
+    def parse_reference(self, ast):
+        self.text.insert(tk.INSERT, f"[{ast['target']}]", constants.REFERENCE)
 
     def info_update(self):
         self.size_var.set(f"{self.character_count} characters")
@@ -749,6 +763,18 @@ class Editor:
         # Links are not removed from 'main.lookup' during a session.
         # The link count must remain strictly increasing.
 
+    def add_indexed(self):
+        raise NotImplementedError
+
+    def remove_indexed(self):
+        raise NotImplementedError
+
+    def add_reference(self):
+        raise NotImplementedError
+
+    def remove_reference(self):
+        raise NotImplementedError
+
     def add_bold(self):
         try:
             first, last = self.get_selection(adjust=True)
@@ -891,7 +917,8 @@ class Editor:
         self.write_line_indented = False
         self.referred_footnotes = dict()
         self.current_footnote = None
-        self.do_not_write_text = False
+        self.flag_do_not_write_text = False
+        self.flag_remove_leading_character = None
         for item in self.text.dump("1.0", tk.END):
             try:
                 method = getattr(self, f"write_{item[0]}")
@@ -941,9 +968,14 @@ class Editor:
                 self.write_line_indented = False
 
     def write_text(self, item):
-        if self.do_not_write_text:
+        if self.flag_do_not_write_text:
             return
-        self.write_characters(item[1])
+        if self.flag_remove_leading_character:
+            text = item[1].lstrip(self.flag_remove_leading_character)
+            self.flag_remove_leading_character = None            
+        else:
+            text = item[1]
+        self.write_characters(text)
 
     def write_tagon(self, item):
         tag = item[1]
@@ -1009,11 +1041,11 @@ class Editor:
             # 'current_footnote' is the old label.
             self.referred_footnotes[self.current_footnote] = footnote
         self.write_characters(f"[^{label}]")
-        self.do_not_write_text = True
+        self.flag_do_not_write_text = True
 
     def write_tagoff_footnote_ref(self, item):
         self.current_footnote = None
-        self.do_not_write_text = False
+        self.flag_do_not_write_text = False
 
     def write_tagon_footnote_def(self, item):
         footnote = self.referred_footnotes[self.current_footnote]
@@ -1023,6 +1055,19 @@ class Editor:
     def write_tagoff_footnote_def(self, item):
         self.current_footnote = None
         outfile = self.outfiles_stack.pop()
+
+    def write_tagon_indexed(self, item):
+        self.write_characters("[#")
+
+    def write_tagoff_indexed(self, item):
+        self.write_characters("]")
+
+    def write_tagon_reference(self, item):
+        self.flag_remove_leading_character = "["
+        self.write_characters("[@")
+
+    def write_tagoff_reference(self, item):
+        pass
 
     def write_mark(self, item):
         pass

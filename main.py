@@ -183,8 +183,6 @@ class Main:
                                    command=self.move_item_out_of_section)
 
         self.setup_treeview()
-        self.root.update_idletasks()
-        self.root.lift()
 
         for filepath in self.texts:
             try:
@@ -194,13 +192,15 @@ class Main:
             else:
                 if config.get("geometry"):
                     self.open_text(filepath=filepath)
-        self.treeview.focus_set()
 
         if self.configuration["help"].get("geometry"):
             self.help_text = help_text.HelpText(self)
         else:
             self.help_text = None
 
+        self.root.update_idletasks()
+        self.root.focus_set()
+        self.root.lift()
         self.save_configuration()
 
     def popup_menu(self, event):
