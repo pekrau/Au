@@ -19,7 +19,7 @@ import editor
 import help_text
 import utils
 
-VERSION = (0, 5, 5)
+VERSION = (0, 5, 6)
 
 
 class Main:
@@ -157,7 +157,7 @@ class Main:
 
         self.treeview.bind("<Button-3>", self.popup_menu)
 
-        self.section_menu = tk.Menu(self.treeview, tearoff=False)
+        self.section_menu = tk.Menu(self.treeview)
         self.section_menu.add_command(label="Rename", command=self.rename_section)
         self.section_menu.add_command(label="Copy", command=self.copy_section)
         self.section_menu.add_command(label="Delete", command=self.delete_section)
@@ -169,7 +169,7 @@ class Main:
         self.section_menu.add_command(label="Move out of section", 
                                       command=self.move_item_out_of_section)
 
-        self.text_menu = tk.Menu(self.treeview, tearoff=False)
+        self.text_menu = tk.Menu(self.treeview)
         self.text_menu.add_command(label="Open", command=self.open_text)
         self.text_menu.add_command(label="Rename", command=self.rename_text)
         self.text_menu.add_command(label="Copy", command=self.copy_text)
@@ -199,8 +199,8 @@ class Main:
             self.help_text = None
 
         self.root.update_idletasks()
-        self.root.focus_set()
         self.root.lift()
+        self.treeview.focus_set()
         self.save_configuration()
 
     def popup_menu(self, event):

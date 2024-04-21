@@ -3,7 +3,6 @@
 from icecream import ic
 
 import collections
-import functools
 import io
 import json
 import os
@@ -98,9 +97,11 @@ class Editor:
 
         self.menu_status = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_status, label="Status")
+        self.status_var = tk.StringVar()
         for status in constants.STATUSES:
-            command = functools.partial(self.set_status, status=repr(status))
-            self.menu_status.add_command(label=str(status), command=command)
+            self.menu_status.add_radiobutton(label=status,
+                                             variable=self.status_var,
+                                             command=self.set_status)
 
         self.text_frame = ttk.Frame(self.toplevel, padding=4)
         self.text_frame.pack(fill=tk.BOTH, expand=1)
@@ -179,17 +180,18 @@ class Editor:
         title_label["textvariable"] = self.link_title_var
         self.info_frame.columnconfigure(2, weight=1)
 
-        self.status_var = tk.StringVar()
         status_label = ttk.Label(self.info_frame)
         status_label.grid(row=0, column=3, padx=4, sticky=tk.E)
-        status_label["textvariable"] = self.status_var
+        status_label["textvariable"] = self.status_var # Defined above for menu.
         self.info_frame.columnconfigure(3, weight=1)
 
         self.frontmatter, ast = utils.get_frontmatter_ast(self.absfilepath)
+
+        self.status_var.set(str(constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED))
+        self.set_status()
+
         self.parsed_footnotes = dict() # For use only while parsing.
         self.parse(ast)
-
-        self.set_status(status=self.frontmatter.get("status"))
 
         cursor = self.frontmatter.get("cursor") or "1.0"
         self.text.mark_set(tk.INSERT, cursor)
@@ -211,17 +213,10 @@ class Editor:
         pos = self.text.index(tk.INSERT)
         tags = self.text.tag_names(pos)
         # Do not allow modifying keys from encroaching on a footnote reference.
-        quench = False
         if constants.FOOTNOTE_REF in tags:
-            ref_at_right = self.text.tag_nextrange(constants.FOOTNOTE_REF, pos, tk.END)
-            if event.keysym == "Return" and not ref_at_right:
-                self.footnote_toggle(tags=self.text.tag_names(tk.INSERT))
-            quench = True
-            if ref_at_right:
-                # Delete is special; do not allow it to remove characters at
-                # right when just at the beginning of the footnote reference.
-                quench = event.keysym == "Delete"
-        if quench:
+            return "break"
+        # Do not allow modifying keys from encroaching on a reference.
+        if constants.REFERENCE in tags:
             return "break"
         self.size_var.set(f"{self.character_count} characters")
 
@@ -320,7 +315,7 @@ class Editor:
         return result
 
     def popup_menu(self, event):
-        menu = tk.Menu(self.text, tearoff=False)
+        menu = tk.Menu(self.text)
         any_item = False
         try:
             first, last = self.get_selection(check_no_boundary=False)
@@ -463,11 +458,10 @@ class Editor:
         self.text.insert(tk.INSERT, ast["target"], constants.INDEXED)
 
     def parse_reference(self, ast):
-        self.text.insert(tk.INSERT, f"[{ast['target']}]", constants.REFERENCE)
+        self.text.insert(tk.INSERT, f"{{{ast['target']}}}", constants.REFERENCE)
 
     def info_update(self):
         self.size_var.set(f"{self.character_count} characters")
-        self.status_var.set(str(self.status))
         self.main.update_treeview_entry(self.filepath,
                                         status=str(self.status),
                                         size=f"{self.character_count} ch",
@@ -881,7 +875,7 @@ class Editor:
         self.text.see(last)
 
     def footnote_enter(self, event=None):
-        self.text.configure(cursor="dot")
+        self.text.configure(cursor="double_arrow")
 
     def footnote_leave(self, event=None):
         self.text.configure(cursor="")
@@ -898,10 +892,13 @@ class Editor:
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         self.text.tag_configure(tag, elide=not int(self.text.tag_cget(tag, "elide") or 0))
 
-    def set_status(self, status=None):
-        self.status = constants.STATUS_LOOKUP.get(status or 1) or constants.STARTED
-        self.status_var.set(str(self.status))
-        self.text.edit_modified(True)
+    def set_status(self):
+        try:
+            old_status = self.status
+        except AttributeError:
+            self.status = old_status =  None
+        self.status = constants.Status.lookup(self.status_var.get().lower()) or constants.STARTED
+        self.text.edit_modified(self.status != old_status)
 
     @property
     def absfilepath(self):

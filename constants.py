@@ -16,6 +16,9 @@ REFERENCES_DIRNAME = "au_references"
 
 @functools.total_ordering
 class Status:
+    @classmethod
+    def lookup(cls, name):
+        return STATUS_LOOKUP.get(name)
     def __init__(self, name, ordinal):
         self.name = name
         self.ordinal = ordinal
@@ -26,7 +29,7 @@ class Status:
     def __eq__(self, other):
         return self.name == other.name
     def __ne__(self, other):
-        return self.name != other.name
+        return other is None or self.name != other.name
     def __lt__(self, other):
         return self.ordinal < other.ordinal
 
