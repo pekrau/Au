@@ -1,4 +1,4 @@
-"Interactive authoring tool based on Tkinter."
+"Authoring editor based on Tkinter."
 
 from icecream import ic
 
@@ -15,7 +15,7 @@ from tkinter import font as tk_font
 
 import constants
 import docx_interface
-import text_editor
+import editor
 import help_text
 import utils
 
@@ -44,11 +44,11 @@ class Main:
             self.help_frontmatter = None
             self.help_ast = None
 
-        # All texts, with references to any open TextEditor windows.
+        # All texts, with references to any open editor windows.
         self.texts = dict()
-        # The links lookup is global for cut-and-paste.
+        # The links lookup is global to all editors, to facilitate cut-and-paste.
         self.links = dict()
-        # The paste buffer is global for cut-and-paste.
+        # The paste buffer is global to all editors, to facilitate cut-and-paste.
         self.paste_buffer = self.configuration.get("paste_buffer")
 
         self.root = tk.Tk()
@@ -663,7 +663,7 @@ class Main:
             archivedirpath = f"{archivepath}/{subdirpath}"
             if not os.path.exists(archivedirpath):
                 os.mkdir(archivedirpath)
-            # Close any open TextEditors for the affected files.
+            # Close any open editors for the affected files.
             for filename in filenames:
                 subfilepath = os.path.join(subdirpath, filename)
                 try:
@@ -692,7 +692,7 @@ class Main:
             ed.toplevel.lift()
         except KeyError:
             config = self.configuration["texts"].setdefault(filepath, dict())
-            ed = self.texts[filepath]["editor"] = text_editor.TextEditor(self, filepath, config)
+            ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath, config)
         self.treeview.see(filepath)
         ed.text.focus_set()
 
@@ -869,7 +869,7 @@ class Main:
         return tag
 
     def save_texts(self, event=None):
-        "Save contents of all open TextEditor windows, and the configuration."
+        "Save contents of all open text editor windows, and the configuration."
         for text in self.texts.values():
             try:
                 text["editor"].save_text()

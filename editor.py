@@ -2,6 +2,7 @@
 
 from icecream import ic
 
+import collections
 import io
 import json
 import os
@@ -17,29 +18,23 @@ import yaml
 
 import constants
 import utils
-from base_editor import BaseEditor
 
 
-class TextEditor(BaseEditor):
+class Editor:
     "Text editor window."
 
     def __init__(self, main, filepath, config):
         self.main = main
         self.filepath = filepath
 
-        self.setup_toplevel(main.root)
+        # The footnotes lookup is local to each editor window.
+        self.footnotes = dict()
 
+        self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.bind("<Control-s>", self.save_text)
-        self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
         self.toplevel.bind("<Control-q>", self.close)
-        self.toplevel.bind("<Home>", self.move_cursor_home)
-        self.toplevel.bind("<End>", self.move_cursor_end)
-        self.toplevel.bind("<F1>", self.debug_tags)
-        self.toplevel.bind("<F2>", self.debug_selected)
-        self.toplevel.bind("<F3>", self.debug_paste_buffer)
-        self.toplevel.bind("<F4>", self.debug_dump)
-        self.toplevel.bind("<F5>", self.debug_raw_dump)
+        self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
 
         try:
             self.toplevel.geometry(config["geometry"])
@@ -115,18 +110,13 @@ class TextEditor(BaseEditor):
         self.text.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.text_frame.rowconfigure(0, weight=1)
         self.text_frame.columnconfigure(0, weight=1)
-        self.text_frame.rowconfigure(1, minsize=22) # For 'info_frame' defined below.
-
-        self.text.bind("<Key>", self.key_press)
-        self.text.bind("<<Modified>>", self.handle_modified)
-        self.text.bind("<Button-3>", self.popup_menu)
 
         self.text.tag_configure(constants.LINK,
                                 foreground=constants.LINK_COLOR,
                                 underline=True)
-        self.text.tag_bind(constants.LINK, "<Enter>", self.enter_link)
-        self.text.tag_bind(constants.LINK, "<Leave>", self.leave_link)
-        self.text.tag_bind(constants.LINK, "<Button-1>", self.edit_link)
+        self.text.tag_bind(constants.LINK, "<Enter>", self.link_enter)
+        self.text.tag_bind(constants.LINK, "<Leave>", self.link_leave)
+        self.text.tag_bind(constants.LINK, "<Button-1>", self.link_edit)
 
         self.text.tag_configure(constants.INDEXED, underline=True)
         self.text.tag_configure(constants.REFERENCE,
@@ -137,6 +127,17 @@ class TextEditor(BaseEditor):
                                            command=self.text.yview)
         self.text_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.text.configure(yscrollcommand=self.text_scroll_y.set)
+
+        self.text.bind("<<Modified>>", self.handle_modified)
+        self.text.bind("<Home>", self.move_cursor_home)
+        self.text.bind("<End>", self.move_cursor_end)
+        self.text.bind("<Key>", self.key_press)
+        self.text.bind("<Button-3>", self.popup_menu)
+        self.text.bind("<F1>", self.debug_tags)
+        self.text.bind("<F2>", self.debug_selected)
+        self.text.bind("<F3>", self.debug_paste_buffer)
+        self.text.bind("<F4>", self.debug_dump)
+        self.text.bind("<F5>", self.debug_raw_dump)
 
         self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         self.text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
@@ -159,32 +160,37 @@ class TextEditor(BaseEditor):
 
         self.info_frame = ttk.Frame(self.text_frame, padding=2)
         self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
-        self.info_frame.columnconfigure(1, weight=1)
-        self.info_frame.columnconfigure(2, weight=1)
-        self.info_frame.columnconfigure(2, weight=1)
+        self.text_frame.rowconfigure(1, minsize=22)
 
         self.size_var = tk.StringVar()
-        size_label = ttk.Label(self.info_frame, textvariable=self.size_var)
+        size_label = ttk.Label(self.info_frame)
         size_label.grid(row=0, column=0, padx=4, sticky=tk.W)
         self.info_frame.columnconfigure(0, weight=1)
 
-        self.message_var = tk.StringVar()
-        message_label = ttk.Label(self.info_frame, textvariable=self.message_var)
-        message_label.grid(row=0, column=1, padx=4, sticky=tk.W)
+        size_label["textvariable"] = self.size_var
+        self.link_url_var = tk.StringVar()
+        url_label = ttk.Label(self.info_frame)
+        url_label.grid(row=0, column=1, padx=4, sticky=tk.W)
+        url_label["textvariable"] = self.link_url_var
+        self.info_frame.columnconfigure(1, weight=1)
 
-         # 'status_var' was defined above for menu.
-        status_label = ttk.Label(self.info_frame, textvariable=self.status_var)
-        status_label.grid(row=0, column=2, padx=4, sticky=tk.E)
+        self.link_title_var = tk.StringVar()
+        title_label = ttk.Label(self.info_frame)
+        title_label.grid(row=0, column=2, padx=4, sticky=tk.W)
+        title_label["textvariable"] = self.link_title_var
+        self.info_frame.columnconfigure(2, weight=1)
+
+        status_label = ttk.Label(self.info_frame)
+        status_label.grid(row=0, column=3, padx=4, sticky=tk.E)
+        status_label["textvariable"] = self.status_var # Defined above for menu.
+        self.info_frame.columnconfigure(3, weight=1)
 
         self.frontmatter, ast = utils.get_frontmatter_ast(self.absfilepath)
 
         self.status_var.set(str(constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED))
         self.set_status()
 
-        # The footnotes lookup is local to each editor window.
-        self.footnotes = dict()
-
-        self.parsed_footnotes = dict() # For use only while parsing.
+        self.parsed_footnotes = dict() # Used only while parsing.
         self.parse(ast)
 
         cursor = self.frontmatter.get("cursor") or "1.0"
@@ -196,7 +202,8 @@ class TextEditor(BaseEditor):
         self.text.edit_modified(False)
         self.text.update()
         width = self.text.winfo_width() / 2
-        message_label.configure(wraplength=width)
+        url_label.configure(wraplength=width)
+        title_label.configure(wraplength=width)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
@@ -231,26 +238,29 @@ class TextEditor(BaseEditor):
                 return None
         return self.main.links.get(tag)
 
-    def enter_link(self, event):
+    def link_enter(self, event):
         link = self.get_link()
         if not link:
             return
-        message = link["url"]
-        if link["title"]:
-            message += ' "' + link["title"] + '"'
-        self.message_var.set(message)
+        self.link_url_var.set(link["url"])
+        self.link_title_var.set(link["title"] or "-")
+        self.text.configure(cursor="hand1")
 
-    def leave_link(self, event):
+    def link_leave(self, event):
         self.text.configure(cursor="")
-        self.message_var.set("")
+        self.link_url_var.set("")
+        self.link_title_var.set("")
 
-    def edit_link(self, event):
+    def link_edit(self, event):
         link = self.get_link()
         if not link:
             return
-        edit = EditLink(self.toplevel, link)
+        edit = LinkEdit(self.toplevel, link)
         if edit.result:
-            if not edit.result["url"]: # No URL means delete the link.
+            if edit.result["url"]:
+                link["url"] = edit.result["url"]
+                link["title"] = edit.result["title"]
+            else:
                 region = self.text.tag_nextrange(link["tag"], "1.0")
                 self.text.tag_remove(constants.LINK, *region)
                 self.text.tag_delete(link["tag"])
@@ -1088,7 +1098,7 @@ class TextEditor(BaseEditor):
             print(entry)
 
 
-class EditLink(tk_simpledialog.Dialog):
+class LinkEdit(tk_simpledialog.Dialog):
     "Dialog window for editing the URL and title for a link."
 
     def __init__(self, toplevel, link):
@@ -1114,7 +1124,6 @@ class EditLink(tk_simpledialog.Dialog):
     def validate(self):
         self.result = dict(url=self.url_entry.get(),
                            title=self.title_entry.get())
-        self.link.update(self.result)
         return True
 
     def buttonbox(self):
