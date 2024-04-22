@@ -15,9 +15,9 @@ from tkinter import font as tk_font
 
 import constants
 import docx_interface
-import editor
 import help_text
 import utils
+from text_editor import TextEditor
 
 VERSION = (0, 5, 6)
 
@@ -38,11 +38,10 @@ class Main:
             self.configuration = dict(main=dict(), help=dict(), texts=dict())
 
         try:
-            filepath = os.path.join(os.path.dirname(__file__), constants.HELP_FILENAME)
-            self.help_frontmatter, self.help_ast = utils.get_frontmatter_ast(filepath)
+            self.help_parsed = utils.parse(os.path.join(os.path.dirname(__file__),
+                                              constants.HELP_FILENAME))
         except OSError:
-            self.help_frontmatter = None
-            self.help_ast = None
+            self.help_parsed = None
 
         # All texts, with references to any open editor windows.
         self.texts = dict()
@@ -54,8 +53,8 @@ class Main:
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk_font.families())
         self.root.title(os.path.basename(dirpath))
-        self.root.geometry(self.configuration["main"].get(
-            "geometry", constants.DEFAULT_ROOT_GEOMETRY))
+        self.root.geometry(
+            self.configuration["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
         self.root.minsize(400, 400)
         self.au64 = tk.PhotoImage(data=constants.AU64)
@@ -190,7 +189,7 @@ class Main:
             except KeyError:
                 pass
             else:
-                if config.get("geometry"):
+                if config.get("open"):
                     self.open_text(filepath=filepath)
 
         if self.configuration["help"].get("geometry"):
@@ -198,9 +197,9 @@ class Main:
         else:
             self.help_text = None
 
-        self.root.update_idletasks()
         self.root.lift()
         self.treeview.focus_set()
+        self.root.update_idletasks()
         self.save_configuration()
 
     def popup_menu(self, event):
@@ -691,8 +690,7 @@ class Main:
             ed = self.texts[filepath]["editor"]
             ed.toplevel.lift()
         except KeyError:
-            config = self.configuration["texts"].setdefault(filepath, dict())
-            ed = self.texts[filepath]["editor"] = editor.Editor(self, filepath, config)
+            ed = self.texts[filepath]["editor"] = TextEditor(self, filepath)
         self.treeview.see(filepath)
         ed.text.focus_set()
 
@@ -892,13 +890,9 @@ class Main:
         self.configuration["texts"] = dict()
         for filepath in self.get_all_items():
             self.configuration["texts"][filepath] = conf = dict()
-            try:
-                editor = self.texts[filepath]["editor"]
-            except KeyError:
-                pass
+            if filepath.endswith(".md"):
+                conf["open"] = "editor" in self.texts[filepath]
             else:
-                conf["geometry"] = editor.toplevel.geometry()
-            if not filepath.endswith(".md"):
                 conf["open"] = bool(self.treeview.item(filepath, "open"))
         with open(self.configurationpath, "w") as outfile:            
             json.dump(self.configuration, outfile, indent=2)

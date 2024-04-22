@@ -2,6 +2,7 @@
 
 from icecream import ic
 
+import collections
 import datetime
 import os.path
 import re
@@ -16,6 +17,9 @@ import yaml
 import constants
 
 FRONTMATTER = re.compile(r"^---([\n\r].*?[\n\r])---[\n\r](.*)$", re.DOTALL)
+
+Parsed = collections.namedtuple("Parsed", ["frontmatter", "ast"])
+
 
 class Indexed(marko.inline.InlineElement):
     "Indexed term."
@@ -37,8 +41,10 @@ class Reference(marko.inline.InlineElement):
         self.target = match.group(1).strip()
 
 
-def get_frontmatter_ast(filepath):
-    "Read the file, returning a tuple of the YAML frontmatter and Markdown AST data."
+def parse(filepath):
+    """Read and parse the file, returning a named tuple containing 
+    the YAML frontmatter and Markdown AST data.
+    """
     with open(filepath) as infile:
         content = infile.read()
     match = FRONTMATTER.match(content)
@@ -50,7 +56,7 @@ def get_frontmatter_ast(filepath):
     parser = marko.Markdown(renderer=marko.ast_renderer.ASTRenderer,
                             extensions=["footnote"])
     parser.use(marko.helpers.MarkoExtension(elements=[Indexed, Reference]))
-    return frontmatter, parser.convert(content)
+    return Parsed(frontmatter, parser.convert(content))
 
 def get_now():
     "Get formatted string for the current local time."
