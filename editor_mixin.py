@@ -69,9 +69,8 @@ class EditorMixin:
         self.text.bind("<Button-3>", self.popup_menu)
         self.text.bind("<F1>", self.debug_tags)
         self.text.bind("<F2>", self.debug_selected)
-        self.text.bind("<F3>", self.debug_paste_buffer)
-        self.text.bind("<F4>", self.debug_dump)
-        self.text.bind("<F5>", self.debug_raw_dump)
+        self.text.bind("<F4>", self.debug_paste_buffer)
+        self.text.bind("<F3>", self.debug_dump)
 
         self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         self.text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
@@ -253,47 +252,7 @@ class EditorMixin:
             first, last = self.get_selection()
         except ValueError:
             return
-        self.set_paste_buffer(first, last)
-
-    def set_paste_buffer(self, first, last):
-        self.main.paste_buffer = self.dump(first, last)
-        self.text.tag_remove(tk.SEL, first, last)
-
-    def dump(self, first, last):
-        "Clean up the raw dump to make it consistent."
-        first_tags = list(self.text.tag_names(first))
-        skip_tags = set([tk.SEL,
-                         constants.LINK,
-                         constants.FOOTNOTE])
-        for tag in skip_tags:
-            try:
-                first_tags.remove(tag)
-            except ValueError:
-                pass
-        last_tags = set(self.text.tag_names(last)).difference(skip_tags)
-
-        current_tags = []
-        footnote_ref_labels = set()
-        result = []
-        for name, content, pos in dump:
-            if name == "tagon":
-                if content in skip_tags:
-                    continue
-                current_tags.append(content)
-            elif name == "tagoff":
-                if content in skip_tags:
-                    continue
-                try:
-                    current_tags.remove(content)
-                except ValueError:
-                    result.insert(0, ("tagon", content, "?"))
-            elif name == "mark":
-                continue
-            result.append((name, content, pos))
-        current_tags.extend(last_tags.difference(current_tags))
-        for tag in current_tags:
-            result.append(("tagoff", tag, "?"))
-        return result
+        self.main.paste_buffer = self.text.dump(first, last)
 
     def cut_buffer(self):
         "Cut the current selection into the paste buffer."
@@ -301,66 +260,14 @@ class EditorMixin:
             first, last = self.get_selection()
         except ValueError:
             return
-        self.set_paste_buffer(first, last)
+        self.main.paste_buffer = self.text.dump(first, last)
         self.text.delete(first, last)
 
     def paste_buffer(self):
         "Paste in contents from the paste buffer."
-        tags_first = dict()
-        first = self.text.index(tk.INSERT)
-        current_link = None
-        current_footnote = None
-        do_output_text = True
-        self.parsed_footnotes = dict() # For use only while cut-and-paste.
-        for name, content, pos in self.main.paste_buffer:
-            if name == "text":
-                if do_output_text:
-                    self.text.insert(tk.INSERT, content)
-
-            elif name == "tagon":
-                first = self.text.index(tk.INSERT)
-                if content.startswith(constants.LINK_PREFIX):
-                    current_link = self.get_link(tag=content)
-                    current_link["first"] = first
-
-                # elif content.startswith(constants.FOOTNOTE_REF_PREFIX):
-                #     current_footnote = self.new_footnote_ref(
-                #         parsed_label=content[len(constants.FOOTNOTE_REF_PREFIX):])
-                #     do_output_text = False
-
-                # elif content.startswith(constants.FOOTNOTE_DEF_PREFIX):
-                #     current_footnote["first"] = first
-                #     tag = constants.FOOTNOTE_DEF_PREFIX + current_footnote["label"]
-                #     current_footnote["tag"] = tag
-                else:
-                    tags_first[content] = first
-
-            elif name == "tagoff":
-                if content.startswith(constants.LINK_PREFIX):
-                    self.new_link(current_link["url"],
-                                  current_link["title"],
-                                  current_link["first"],
-                                  tk.INSERT)
-
-                elif content == constants.LINK:
-                    pass
-
-                # elif content == constants.FOOTNOTE:
-                #     pass
-
-                # elif content.startswith(constants.FOOTNOTE_REF_PREFIX):
-                #     do_output_text = True
-
-                # elif content.startswith(constants.FOOTNOTE_DEF_PREFIX):
-                #     first = current_footnote["first"]
-                #     self.text.tag_add(constants.FOOTNOTE_DEF, first, tk.INSERT)
-                #     self.text.tag_add(current_footnote["tag"], first, tk.INSERT)
-                #     self.text.tag_configure(current_footnote["tag"], elide=False)
-                #     current_footnote = None
-
-                else:
-                    self.text.tag_add(content, tags_first[content], tk.INSERT)
-        self.text.tag_remove(tk.SEL, first, tk.INSERT)
+        start = self.text.index(tk.INSERT)
+        self.undump(self.main.paste_buffer)
+        self.text.tag_remove(tk.SEL, start, tk.INSERT)
 
     def add_link(self):
         try:
@@ -475,21 +382,42 @@ class EditorMixin:
             self.render(child)
         self.text.tag_add("quote", start, tk.INSERT)
 
-    def render_footnote_ref(self, ast):
-        label = ast["label"]
-        tag = constants.FOOTNOTE_PREFIX + label
-        self.footnotes[label] = dict(label=label, tag=tag, ast=ast)
-        self.text.insert(tk.INSERT, f"[^{label}]", (constants.FOOTNOTE, tag))
-        self.text.tag_bind(tag, "<Button-1>", self.footnote_edit)
-
-    def render_footnote_def(self, ast):
-        self.footnotes[ast["label"]]["ast"] = ast
-
     def render_indexed(self, ast):
         self.text.insert(tk.INSERT, ast["target"], constants.INDEXED)
 
     def render_reference(self, ast):
         self.text.insert(tk.INSERT, f"{{{ast['target']}}}", constants.REFERENCE)
+
+    def undump(self, dump):
+        tags = dict()
+        for entry in dump:
+            try:
+                method = getattr(self, f"undump_{entry[0]}")
+            except AttributeError:
+                ic("Could not handle", entry)
+            else:
+                method(entry, tags)
+
+    def undump_text(self, entry, tags):
+        self.text.insert(tk.INSERT, entry[1])
+
+    def undump_tagon(self, entry, tags):
+        tags[entry[1]] = self.text.index(tk.INSERT)
+
+    def undump_tagoff(self, entry, tags):
+        try:
+            start = tags.pop(entry[1])
+        except KeyError:
+            ic("No tagon for", entry)
+        else:
+            self.text.tag_add(entry[1], start, tk.INSERT)
+
+    def undump_mark(self, entry, tags):
+        if entry[1] in (tk.INSERT, tk.CURRENT):
+            return
+        if entry[1].startswith("tk::"):
+            return
+        self.text.mark_set(entry[1], tk.INSERT)
 
     def write(self):
         self.current_link_tag = None
@@ -618,30 +546,21 @@ class EditorMixin:
         pass
 
     def debug_tags(self, event=None):
-        print("--- tags ---")
-        print(self.text.index(tk.INSERT), self.text.tag_names(tk.INSERT))
+        ic("--- tags ---", self.text.tag_names(tk.INSERT))
 
     def debug_selected(self, event=None):
         try:
             first, last = self.get_selection(check_no_boundary=False)
         except ValueError:
             return
-        print(f"--- dump selected: {first}, {last} ---")
-        print(self.text.tag_names(first), self.text.tag_names(last))
-        for entry in self.text.dump(first, last):
-            print(entry)
+        ic("--- selected ---",
+           self.text.tag_names(first),
+           self.text.tag_names(last),
+           self.text.dump(first, last))
 
     def debug_paste_buffer(self, event=None):
-        print("--- dump paste buffer ---")
-        for entry in self.main.paste_buffer:
-            print(entry)
+        ic("--- paste buffer ---",  self.main.paste_buffer)
 
     def debug_dump(self, event=None):
-        print("--- entire dump ---")
-        for entry in self.dump("1.0", tk.END):
-            print(entry)
-
-    def debug_raw_dump(self, event=None):
-        print("--- entire raw dump ---")
-        for entry in self.text.dump("1.0", tk.END):
-            print(entry)
+        dump = self.text.dump("1.0", tk.END)
+        ic("--- dump ---", dump)

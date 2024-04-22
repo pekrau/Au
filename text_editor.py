@@ -17,7 +17,6 @@ import yaml
 import constants
 import utils
 from editor_mixin import EditorMixin
-from footnote_editor import FootnoteEditor
 
 
 class TextEditor(EditorMixin):
@@ -93,9 +92,17 @@ class TextEditor(EditorMixin):
 
         self.setup_text()
 
-        self.text.tag_configure(constants.FOOTNOTE, foreground=constants.FOOTNOTE_COLOR)
-        self.text.tag_bind(constants.FOOTNOTE, "<Enter>", self.footnote_enter)
-        self.text.tag_bind(constants.FOOTNOTE, "<Leave>", self.footnote_leave)
+        self.text.tag_configure(constants.FOOTNOTE_REF,
+                                foreground=constants.FOOTNOTE_REF_COLOR)
+        self.text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
+        self.text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
+        self.text.tag_configure(constants.FOOTNOTE_DEF,
+                                background=constants.FOOTNOTE_DEF_COLOR,
+                                borderwidth=1,
+                                relief=tk.SOLID,
+                                lmargin1=4,
+                                lmargin2=4,
+                                rmargin=4)
 
         self.info_frame = ttk.Frame(self.text_frame, padding=2)
         self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
@@ -140,7 +147,7 @@ class TextEditor(EditorMixin):
         pos = self.text.index(tk.INSERT)
         tags = self.text.tag_names(pos)
         # Do not allow modifying keys from encroaching on a footnote reference.
-        if constants.FOOTNOTE in tags:
+        if constants.FOOTNOTE_REF in tags:
             return "break"
         # Do not allow modifying keys from encroaching on a reference.
         if constants.REFERENCE in tags:
@@ -285,6 +292,24 @@ class TextEditor(EditorMixin):
     def remove_reference(self):
         raise NotImplementedError
 
+    def render_footnote_ref(self, ast):
+        label = ast["label"]
+        tag = constants.FOOTNOTE_REF_PREFIX + label
+        self.text.insert(tk.INSERT, f"[^{label}]", (constants.FOOTNOTE_REF, tag))
+        self.footnotes[label] = dict(label=label, tag=tag)
+        self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+
+    def render_footnote_def(self, ast):
+        tag = self.footnotes[ast["label"]]["tag"]
+        start = self.text.tag_nextrange(tag, "1.0")[1]
+        self.text.mark_set(tk.INSERT, start)
+        for child in ast["children"]:
+            self.render(child)
+        self.text.tag_add(constants.FOOTNOTE_DEF, start + "+1c", tk.INSERT)
+        tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
+        self.text.tag_configure(tag, elide=True)
+        self.text.tag_add(tag, start, tk.INSERT)
+
     def add_footnote(self):
         raise NotImplementedError
 
@@ -297,17 +322,16 @@ class TextEditor(EditorMixin):
     def footnote_leave(self, event=None):
         self.text.configure(cursor="")
 
-    def footnote_edit(self, event=None):
+    def footnote_toggle(self, event=None):
         for tag in self.text.tag_names(tk.CURRENT):
-            if tag.startswith(constants.FOOTNOTE_PREFIX):
-                label = tag[len(constants.FOOTNOTE_PREFIX):]
+            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
                 break
         else:
             return
-        footnote = self.footnotes[label]
-        editor = FootnoteEditor(self)
-        for child in footnote["ast"]["children"]:
-            editor.render(child)
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        elided = bool(int(self.text.tag_cget(tag, "elide")))
+        self.text.tag_configure(tag, elide=not elided)
 
     def set_status(self, status=None):
         if status:
