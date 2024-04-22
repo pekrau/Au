@@ -20,19 +20,20 @@ class FootnoteEditor(EditorMixin):
 
     def __init__(self, text_editor):
         self.text_editor = text_editor
+        self.main = text_editor.main
         self.setup_toplevel(self.text_editor.toplevel,
                             "Edit footnote",
                             self.text_editor.toplevel.geometry())
 
         self.setup_text()
+        self.prev_blank_line = False
 
     def save(self, event=None):
-        raise NotImplementedError
+        ic("save")
 
     def close(self, event=None):
-        raise NotImplementedError
+        ic("close")
 
     def handle_modified(self, event=None):
         ic("handle_modified")
-
     

@@ -58,14 +58,9 @@ LINK = "link"
 LINK_PREFIX = "link-"
 LINK_COLOR = "blue"
 
-FOOTNOTE = "[footnote]"
-FOOTNOTE_REF = "footnote_ref"
-FOOTNOTE_REF_COLOR = "red"
-FOOTNOTE_DEF = "footnote_def"
-FOOTNOTE_DEF_COLOR = "linen"
-FOOTNOTE_REF_PREFIX = "footnote_ref-"
-FOOTNOTE_DEF_PREFIX = "footnote_def-"
-FOOTNOTE_DEF_MARGIN = 5
+FOOTNOTE = "footnote"
+FOOTNOTE_PREFIX = "footnote-"
+FOOTNOTE_COLOR = "red"
 
 FONT_FAMILY_NORMAL = "Arial"
 FONT_NORMAL_SIZE = 12
