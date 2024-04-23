@@ -19,7 +19,7 @@ import help_text
 import utils
 from text_editor import TextEditor
 
-VERSION = (0, 5, 7)
+VERSION = (0, 5, 8)
 
 
 class Main:
@@ -859,7 +859,7 @@ class Main:
         # Move current file to archive.
         os.rename(os.path.join(self.absdirpath, filepath), archivedfilepath)
 
-    def new_link(self, url, title):
+    def link_create(self, url, title):
         # Links are not removed from 'main.lookup' during a session.
         # The link count must remain strictly increasing.
         tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"

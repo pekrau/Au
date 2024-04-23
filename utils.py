@@ -90,7 +90,7 @@ def get_age(filepath):
     else:
         value = age.seconds + age.microseconds / 1000000.0
         unit = "secs"
-    return (f"{value:.1f}", unit)
+    return (f"{value:.0f}", unit)
 
 def get_size(absfilepath):
     "Get the size of the text file. Approximate only; Markdown not taken into account."

@@ -102,7 +102,7 @@ class EditorMixin:
         self.text.bind("<Button-3>", self.popup_menu)
         self.text.bind("<F1>", self.debug_tags)
         self.text.bind("<F2>", self.debug_selected)
-        self.text.bind("<F3>", self.debug_paste_buffer)
+        self.text.bind("<F3>", self.debug_buffer_paste)
         self.text.bind("<F4>", self.debug_dump)
 
         # The footnotes lookup is local for each Editor instance.
@@ -119,7 +119,16 @@ class EditorMixin:
     def character_count(self):
         return len(self.text.get("1.0", tk.END))
 
+    def save(self, event=None):
+        raise NotImplementedError
+
+    def close(self, event=None):
+        raise NotImplementedError
+
     def handle_modified(self, event=None):
+        raise NotImplementedError
+
+    def key_press(self, event):
         raise NotImplementedError
 
     def move_cursor(self, position=None):
@@ -135,9 +144,6 @@ class EditorMixin:
     def move_cursor_end(self, event=None):
         self.move_cursor(tk.END)
 
-    def key_press(self, event):
-        raise NotImplementedError
-
     def popup_menu(self, event):
         menu = tk.Menu(self.text)
         any_item = False
@@ -149,31 +155,31 @@ class EditorMixin:
                 any_item = True
             tags = self.text.tag_names(tk.CURRENT)
             if constants.LINK in tags:
-                menu.add_command(label="Remove link", command=self.remove_link)
+                menu.add_command(label="Remove link", command=self.link_remove)
                 any_item = True
             if constants.BOLD in tags:
-                menu.add_command(label="Remove bold", command=self.remove_bold)
+                menu.add_command(label="Remove bold", command=self.bold_remove)
                 any_item = True
             if constants.ITALIC in tags:
-                menu.add_command(label="Remove italic", command=self.remove_italic)
+                menu.add_command(label="Remove italic", command=self.italic_remove)
                 any_item = True
             if constants.QUOTE in tags:
-                menu.add_command(label="Remove quote", command=self.remove_quote)
+                menu.add_command(label="Remove quote", command=self.quote_remove)
                 any_item = True
         else:
             if not self.selection_contains_boundary(first, last, show=False):
-                menu.add_command(label="Link", command=self.add_link)
-                menu.add_command(label="Bold", command=self.add_bold)
-                menu.add_command(label="Italic", command=self.add_italic)
-                menu.add_command(label="Quote", command=self.add_quote)
+                menu.add_command(label="Link", command=self.link_add)
+                menu.add_command(label="Bold", command=self.bold_add)
+                menu.add_command(label="Italic", command=self.italic_add)
+                menu.add_command(label="Quote", command=self.quote_add)
                 menu.add_separator()
-                menu.add_command(label="Copy", command=self.copy_buffer)
-                menu.add_command(label="Cut", command=self.cut_buffer)
+                menu.add_command(label="Copy", command=self.buffer_copy)
+                menu.add_command(label="Cut", command=self.buffer_cut)
                 any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
 
-    def add_bold(self):
+    def bold_add(self):
         try:
             first, last = self.get_selection(adjust=True)
         except ValueError:
@@ -182,7 +188,7 @@ class EditorMixin:
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
-    def remove_bold(self):
+    def bold_remove(self):
         current = self.text.index(tk.INSERT)
         if constants.BOLD in self.text.tag_names(current):
             region = self.text.tag_prevrange(constants.BOLD, current)
@@ -191,7 +197,7 @@ class EditorMixin:
                 self.ignore_modified_event = True
                 self.text.edit_modified(True)
 
-    def add_italic(self):
+    def italic_add(self):
         try:
             first, last = self.get_selection(adjust=True)
         except ValueError:
@@ -200,7 +206,7 @@ class EditorMixin:
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
-    def remove_italic(self):
+    def italic_remove(self):
         current = self.text.index(tk.INSERT)
         if constants.ITALIC in self.text.tag_names(current):
             region = self.text.tag_prevrange(constants.ITALIC, current)
@@ -209,7 +215,7 @@ class EditorMixin:
                 self.ignore_modified_event = True
                 self.text.edit_modified(True)
 
-    def add_quote(self):
+    def quote_add(self):
         try:
             first, last = self.get_selection()
         except ValueError:
@@ -222,7 +228,7 @@ class EditorMixin:
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
-    def remove_quote(self):
+    def quote_remove(self):
         current = self.text.index(tk.INSERT)
         if constants.QUOTE in self.text.tag_names(current):
             region = self.text.tag_prevrange(constants.QUOTE, current)
@@ -230,12 +236,6 @@ class EditorMixin:
                 self.text.tag_remove(constants.QUOTE, *region)
                 self.ignore_modified_event = True
                 self.text.edit_modified(True)
-
-    def save(self, event=None):
-        raise NotImplementedError
-
-    def close(self, event=None):
-        raise NotImplementedError
 
     def get_link(self, tag=None):
         if tag is None:
@@ -272,7 +272,7 @@ class EditorMixin:
             self.ignore_modified_event = True
             self.text.edit_modified(True)
 
-    def add_link(self):
+    def link_add(self):
         try:
             first, last = self.get_selection()
         except ValueError:
@@ -294,17 +294,17 @@ class EditorMixin:
                 title = title.strip()
         except ValueError:
             title = None
-        self.new_link(url, title, first, last)
+        self.link_create(url, title, first, last)
         self.text.tag_remove(tk.SEL, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
 
-    def new_link(self, url, title, first, last):
-        tag = self.main.new_link(url, title)
+    def link_create(self, url, title, first, last):
+        tag = self.main.link_create(url, title)
         self.text.tag_add(constants.LINK, first, last)
         self.text.tag_add(tag, first, last)
 
-    def remove_link(self):
+    def link_remove(self):
         link = self.get_link()
         if not link:
             return
@@ -330,6 +330,12 @@ class EditorMixin:
     def reference_view(self, event):
         raise NotImplementedError
 
+    def reference_add(self):
+        raise NotImplementedError
+
+    def reference_remove(self):
+        raise NotImplementedError
+
     def indexed_enter(self, event):
         self.text.configure(cursor="hand2")
 
@@ -337,6 +343,12 @@ class EditorMixin:
         self.text.configure(cursor="")
 
     def indexed_view(self, event):
+        raise NotImplementedError
+
+    def indexed_add(self):
+        raise NotImplementedError
+
+    def indexed_remove(self):
         raise NotImplementedError
 
     def footnote_enter(self, event=None):
@@ -356,7 +368,54 @@ class EditorMixin:
         elided = bool(int(self.text.tag_cget(tag, "elide")))
         self.text.tag_configure(tag, elide=not elided)
 
-    def copy_buffer(self):
+    def footnote_add(self):
+        try:
+            first, last = self.get_selection()
+        except ValueError:
+            return
+        try:
+            label = str(max([int(label) for label in self.footnotes]) + 1)
+        except ValueError:
+            label = "1"
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        self.text.tag_configure(tag, elide=True)
+        self.text.tag_add(constants.FOOTNOTE_DEF, first, last)
+        self.text.tag_add(tag, first, last)
+        self.text.insert(self.text.tag_nextrange(tag, "1.0")[0], "\n", tag)
+        tag = constants.FOOTNOTE_REF_PREFIX + label
+        self.footnotes[label] = dict(label=label, tag=tag)
+        self.text.insert(first, f"^{label}", (constants.FOOTNOTE_REF, tag))
+        self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+
+    def footnote_remove(self):
+        current = self.text.index(tk.INSERT)
+        tags = self.text.tag_names(current)
+        if constants.FOOTNOTE_REF in tags or constants.FOOTNOTE_DEF in tags:
+            ic(tags)
+            for tag in tags:
+                if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                    label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
+                    break
+                elif tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                    label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
+                    break
+            else:
+                return
+        ic(tags, label)
+        tag = constants.FOOTNOTE_REF_PREFIX + label
+        region = self.text.tag_nextrange(tag, "1.0")
+        ic(tag, region)
+        self.text.tag_remove(constants.FOOTNOTE_REF, *region)
+        self.text.tag_delete(tag)
+        self.text.delete(*region)
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        region = self.text.tag_nextrange(tag, "1.0")
+        ic(tag, region)
+        self.text.tag_remove(constants.FOOTNOTE_DEF, *region)
+        self.text.tag_delete(tag)
+        self.text.tag_add(tk.SEL, *region)
+
+    def buffer_copy(self):
         "Copy the current selection into the paste buffer."
         try:
             first, last = self.get_selection()
@@ -364,7 +423,7 @@ class EditorMixin:
             return
         self.main.paste_buffer = self.dump(first, last)
 
-    def cut_buffer(self):
+    def buffer_cut(self):
         "Cut the current selection into the paste buffer."
         try:
             first, last = self.get_selection()
@@ -373,7 +432,7 @@ class EditorMixin:
         self.main.paste_buffer = self.dump(first, last)
         self.text.delete(first, last)
 
-    def paste_buffer(self):
+    def buffer_paste(self):
         "Paste in contents from the paste buffer."
         first = self.text.index(tk.INSERT)
         self.undump(self.main.paste_buffer)
@@ -432,7 +491,7 @@ class EditorMixin:
         first = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.new_link(ast["dest"], ast["title"], first, tk.INSERT)
+        self.link_create(ast["dest"], ast["title"], first, tk.INSERT)
 
     def render_quote(self, ast):
         if self.prev_blank_line:
@@ -446,8 +505,8 @@ class EditorMixin:
     def render_footnote_ref(self, ast):
         label = ast["label"]
         tag = constants.FOOTNOTE_REF_PREFIX + label
-        self.text.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
         self.footnotes[label] = dict(label=label, tag=tag)
+        self.text.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
         self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
 
     def render_footnote_def(self, ast):
@@ -508,7 +567,7 @@ class EditorMixin:
             ic("No tagon for", entry)
         else:
             if entry[1].startswith(constants.LINK_PREFIX):
-                self.new_link(entry[2], entry[3], first, self.text.index(tk.INSERT))
+                self.link_create(entry[2], entry[3], first, self.text.index(tk.INSERT))
             else:
                 self.text.tag_add(entry[1], first, self.text.index(tk.INSERT))
 
@@ -539,9 +598,8 @@ class EditorMixin:
                 ic("Could not handle item", item)
             else:
                 method(item)
-        if self.referred_footnotes:
-            self.outfile.write("\n")
         for label, footnote in sorted(self.referred_footnotes.items()):
+            self.outfile.write("\n")
             self.outfile.write(f"[^{label}]: ")
             lines = footnote["outfile"].getvalue().split("\n")
             self.outfile.write(lines[0])
@@ -683,7 +741,7 @@ class EditorMixin:
            self.text.tag_names(last),
            self.text.dump(first, last))
 
-    def debug_paste_buffer(self, event=None):
+    def debug_buffer_paste(self, event=None):
         ic("--- paste buffer ---",  self.main.paste_buffer)
 
     def debug_dump(self, event=None):

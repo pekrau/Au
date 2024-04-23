@@ -52,32 +52,34 @@ class TextEditor(EditorMixin):
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Copy", command=self.copy_buffer)
-        self.menu_edit.add_command(label="Cut", command=self.cut_buffer)
-        self.menu_edit.add_command(label="Paste", command=self.paste_buffer)
+        self.menu_edit.add_command(label="Copy", command=self.buffer_copy)
+        self.menu_edit.add_command(label="Cut", command=self.buffer_cut)
+        self.menu_edit.add_command(label="Paste", command=self.buffer_paste)
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add link", command=self.add_link)
-        self.menu_edit.add_command(label="Remove link", command=self.remove_link)
+        self.menu_edit.add_command(label="Add link", command=self.link_add)
+        self.menu_edit.add_command(label="Remove link", command=self.link_remove)
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add indexed", command=self.add_indexed)
-        self.menu_edit.add_command(label="Remove indexed", command=self.remove_indexed)
+        self.menu_edit.add_command(label="Add footnote", command=self.footnote_add)
+        self.menu_edit.add_command(label="Remove footnote",
+
+                                   command=self.footnote_remove)
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add reference", command=self.add_reference)
+        self.menu_edit.add_command(label="Add indexed", command=self.indexed_add)
+        self.menu_edit.add_command(label="Remove indexed", command=self.indexed_remove)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Add reference", command=self.reference_add)
         self.menu_edit.add_command(label="Remove reference",
-                                   command=self.remove_reference)
+                                   command=self.reference_remove)
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_format, label="Format")
-        self.menu_format.add_command(label="Bold", command=self.add_bold)
-        self.menu_format.add_command(label="Italic", command=self.add_italic)
-        self.menu_format.add_command(label="Quote", command=self.add_quote)
-        self.menu_format.add_command(label="Footnote", command=self.add_footnote)
+        self.menu_format.add_command(label="Bold", command=self.bold_add)
+        self.menu_format.add_command(label="Italic", command=self.italic_add)
+        self.menu_format.add_command(label="Quote", command=self.quote_add)
         self.menu_format.add_separator()
-        self.menu_format.add_command(label="Remove bold", command=self.remove_bold)
-        self.menu_format.add_command(label="Remove italic", command=self.remove_italic)
-        self.menu_format.add_command(label="Remove quote", command=self.remove_quote)
-        self.menu_format.add_command(label="Remove footnote",
-                                     command=self.remove_footnote)
+        self.menu_format.add_command(label="Remove bold", command=self.bold_remove)
+        self.menu_format.add_command(label="Remove italic", command=self.italic_remove)
+        self.menu_format.add_command(label="Remove quote", command=self.quote_remove)
 
         self.menu_status = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_status, label="Status")
@@ -262,24 +264,6 @@ class TextEditor(EditorMixin):
         self.main.update_treeview_entry(self.filepath, modified=False)
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
-
-    def add_indexed(self):
-        raise NotImplementedError
-
-    def remove_indexed(self):
-        raise NotImplementedError
-
-    def add_reference(self):
-        raise NotImplementedError
-
-    def remove_reference(self):
-        raise NotImplementedError
-
-    def add_footnote(self):
-        raise NotImplementedError
-
-    def remove_footnote(self):
-        raise NotImplementedError
 
     def set_status(self, status=None):
         if status:
