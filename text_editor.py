@@ -88,9 +88,9 @@ class TextEditor(EditorMixin):
             self.menu_status.add_radiobutton(label=status,
                                              variable=self.status_var,
                                              command=self.set_status)
-        self.set_status(self.frontmatter.get("status"))
 
         self.setup_text()
+        self.set_status(self.frontmatter.get("status"))
 
         self.info_frame = ttk.Frame(self.text_frame, padding=2)
         self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))

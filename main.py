@@ -19,7 +19,7 @@ import help_text
 import utils
 from text_editor import TextEditor
 
-VERSION = (0, 5, 9)
+VERSION = (0, 6, 0)
 
 
 class Main:
@@ -56,18 +56,17 @@ class Main:
         self.root.geometry(
             self.configuration["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
-        self.root.minsize(400, 400)
+        self.root.option_add("*Text.background", "linen")
+        self.root.minsize(600, 400)
         self.au64 = tk.PhotoImage(data=constants.AU64)
         self.root.iconphoto(False, self.au64, self.au64)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.root.bind_all("<Control-h>", self.open_help_text)
 
-        self.menubar = tk.Menu(self.root)
+        self.menubar = tk.Menu(self.root, background="gold")
         self.root["menu"] = self.menubar
         assert constants.FONT_FAMILY_NORMAL in constants.FONT_FAMILIES
-        self.menubar.add_command(label="Au",
-                                 font=constants.FONT_LARGE_BOLD,
-                                 background="gold")
+        self.menubar.add_command(label="Au", font=constants.FONT_LARGE_BOLD)
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
@@ -115,8 +114,14 @@ class Main:
 
         self.menubar.add_command(label="Help", command=self.open_help_text)
 
-        self.treeview_frame = ttk.Frame(self.root, padding=4)
+        self.panes = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        self.panes.pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
+        
+        # self.treeview_frame = ttk.Frame(self.root, padding=4)
+        self.treeview_frame = ttk.Frame(self.panes, width=100, height=100)
         self.treeview_frame.pack(fill=tk.BOTH, expand=1)
+        self.panes.add(self.treeview_frame)
+
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
         self.treeview = ttk.Treeview(self.treeview_frame,
@@ -131,16 +136,16 @@ class Main:
         self.treeview.heading("age", text="Age")
         self.treeview.column("status",
                              anchor=tk.E,
-                             minwidth=4*constants.FONT_NORMAL_SIZE,
-                             width=8*constants.FONT_NORMAL_SIZE)
+                             minwidth=3*constants.FONT_NORMAL_SIZE,
+                             width=6*constants.FONT_NORMAL_SIZE)
         self.treeview.column("size",
                              anchor=tk.E,
-                             minwidth=4*constants.FONT_NORMAL_SIZE,
-                             width=8*constants.FONT_NORMAL_SIZE)
+                             minwidth=3*constants.FONT_NORMAL_SIZE,
+                             width=6*constants.FONT_NORMAL_SIZE)
         self.treeview.column("age",
                              anchor=tk.E,
-                             minwidth=4*constants.FONT_NORMAL_SIZE,
-                             width=8*constants.FONT_NORMAL_SIZE)
+                             minwidth=2*constants.FONT_NORMAL_SIZE,
+                             width=6*constants.FONT_NORMAL_SIZE)
         self.treeview_scroll_y = ttk.Scrollbar(self.treeview_frame,
                                                orient=tk.VERTICAL,
                                                command=self.treeview.yview)
@@ -182,6 +187,36 @@ class Main:
                                    command=self.move_item_out_of_section)
 
         self.setup_treeview()
+
+        self.notebook_frame = ttk.Frame(self.panes
+                                        )
+        self.notebook_frame.pack(fill=tk.BOTH, expand=1)
+        self.panes.add(self.notebook_frame)
+
+        self.notebook = ttk.Notebook(self.notebook_frame)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
+        for number in range(1, 20):
+            frame = ttk.Frame(self.notebook)
+            text = tk.Text(frame)
+            text.pack(fill=tk.BOTH, expand=True)
+            text.insert("1.0", f"This is some text for frame {number}.")
+            frame.pack(fill='both', expand=True)
+            self.notebook.add(frame, text=f"Text {number}")
+
+        self.lookup_frame = ttk.Frame(self.panes)
+        self.lookup_frame.pack(fill=tk.BOTH, expand=1)
+        self.panes.add(self.lookup_frame)
+
+        self.lookup = ttk.Notebook(self.lookup_frame)
+        self.lookup.pack(fill=tk.BOTH, expand=True)
+        frame = ttk.Frame(self.lookup)
+        frame.pack(fill='both', expand=True)
+        self.lookup.add(frame, text="References")
+        ttk.Label(frame, text="References").pack(fill=tk.BOTH, expand=True)
+        frame = ttk.Frame(self.lookup)
+        frame.pack(fill='both', expand=True)
+        self.lookup.add(frame, text="Index")
+        ttk.Label(frame, text="Index").pack(fill=tk.BOTH, expand=True)
 
         for filepath in self.texts:
             try:

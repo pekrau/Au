@@ -14,7 +14,99 @@ import utils
 from link_edit import LinkEdit
 
 
-class EditorMixin:
+class RendererMixin:
+    "Mixin for rendering the Markdown AST into Text widget content."
+
+    def render(self, ast):
+        try:
+            method = getattr(self, f"render_{ast['element']}")
+        except AttributeError:
+            ic("Could not handle ast", ast)
+        else:
+            method(ast)
+
+    def render_document(self, ast):
+        self.prev_blank_line = False
+        for child in ast["children"]:
+            self.render(child)
+
+    def render_paragraph(self, ast):
+        if self.prev_blank_line:
+            self.text.insert(tk.INSERT, "\n")
+            self.prev_blank_line = False
+        for child in ast["children"]:
+            self.render(child)
+
+    def render_emphasis(self, ast):
+        first = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.render(child)
+        self.text.tag_add(constants.ITALIC, first, tk.INSERT)
+
+    def render_strong_emphasis(self, ast):
+        first = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.render(child)
+        self.text.tag_add(constants.BOLD, first, tk.INSERT)
+
+    def render_raw_text(self, ast):
+        children = ast["children"]
+        if type(children) == str:
+            if children[-1] == "\n":
+                children[-1] = " "
+            self.text.insert(tk.INSERT, children)
+        elif type(children) == list:
+            for child in ast["children"]:
+                self.render(child)
+
+    def render_line_break(self, ast):
+        self.text.insert(tk.INSERT, " ")
+
+    def render_blank_line(self, ast):
+        self.text.insert(tk.INSERT, "\n")
+        self.prev_blank_line = True
+
+    def render_link(self, ast):
+        first = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.render(child)
+        self.link_create(ast["dest"], ast["title"], first, tk.INSERT)
+
+    def render_quote(self, ast):
+        if self.prev_blank_line:
+            self.text.insert(tk.INSERT, "\n")
+        self.prev_blank_line = False
+        first = self.text.index(tk.INSERT)
+        for child in ast["children"]:
+            self.render(child)
+        self.text.tag_add("quote", first, tk.INSERT)
+
+    def render_footnote_ref(self, ast):
+        label = ast["label"]
+        tag = constants.FOOTNOTE_REF_PREFIX + label
+        self.footnotes[label] = dict(label=label, tag=tag)
+        self.text.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
+        self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+
+    def render_footnote_def(self, ast):
+        tag = self.footnotes[ast["label"]]["tag"]
+        first = self.text.tag_nextrange(tag, "1.0")[1]
+        self.text.mark_set(tk.INSERT, first)
+        for child in ast["children"]:
+            self.render(child)
+        self.text.tag_add(constants.FOOTNOTE_DEF, first + "+1c", tk.INSERT)
+        tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
+        self.text.tag_configure(tag, elide=True)
+        self.text.tag_add(tag, first, tk.INSERT)
+
+    def render_indexed(self, ast):
+        self.text.insert(tk.INSERT, ast["target"], constants.INDEXED)
+
+    def render_reference(self, ast):
+        self.text.insert(tk.INSERT, f"{ast['target']}", constants.REFERENCE)
+
+
+class EditorMixin(RendererMixin):
     "Mixin containing common code for different editor classes."
 
     TEXT_WIDTH = constants.DEFAULT_TEXT_WIDTH
@@ -437,94 +529,6 @@ class EditorMixin:
         first = self.text.index(tk.INSERT)
         self.undump(self.main.paste_buffer)
         self.text.tag_remove(tk.SEL, first, tk.INSERT)
-
-    def render(self, ast):
-        try:
-            method = getattr(self, f"render_{ast['element']}")
-        except AttributeError:
-            ic("Could not handle ast", ast)
-        else:
-            method(ast)
-
-    def render_document(self, ast):
-        self.prev_blank_line = False
-        for child in ast["children"]:
-            self.render(child)
-
-    def render_paragraph(self, ast):
-        if self.prev_blank_line:
-            self.text.insert(tk.INSERT, "\n")
-            self.prev_blank_line = False
-        for child in ast["children"]:
-            self.render(child)
-
-    def render_emphasis(self, ast):
-        first = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add(constants.ITALIC, first, tk.INSERT)
-
-    def render_strong_emphasis(self, ast):
-        first = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add(constants.BOLD, first, tk.INSERT)
-
-    def render_raw_text(self, ast):
-        children = ast["children"]
-        if type(children) == str:
-            if children[-1] == "\n":
-                children[-1] = " "
-            self.text.insert(tk.INSERT, children)
-        elif type(children) == list:
-            for child in ast["children"]:
-                self.render(child)
-
-    def render_line_break(self, ast):
-        self.text.insert(tk.INSERT, " ")
-
-    def render_blank_line(self, ast):
-        self.text.insert(tk.INSERT, "\n")
-        self.prev_blank_line = True
-
-    def render_link(self, ast):
-        first = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.link_create(ast["dest"], ast["title"], first, tk.INSERT)
-
-    def render_quote(self, ast):
-        if self.prev_blank_line:
-            self.text.insert(tk.INSERT, "\n")
-        self.prev_blank_line = False
-        first = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add("quote", first, tk.INSERT)
-
-    def render_footnote_ref(self, ast):
-        label = ast["label"]
-        tag = constants.FOOTNOTE_REF_PREFIX + label
-        self.footnotes[label] = dict(label=label, tag=tag)
-        self.text.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
-        self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
-
-    def render_footnote_def(self, ast):
-        tag = self.footnotes[ast["label"]]["tag"]
-        first = self.text.tag_nextrange(tag, "1.0")[1]
-        self.text.mark_set(tk.INSERT, first)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add(constants.FOOTNOTE_DEF, first + "+1c", tk.INSERT)
-        tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
-        self.text.tag_configure(tag, elide=True)
-        self.text.tag_add(tag, first, tk.INSERT)
-
-    def render_indexed(self, ast):
-        self.text.insert(tk.INSERT, ast["target"], constants.INDEXED)
-
-    def render_reference(self, ast):
-        self.text.insert(tk.INSERT, f"{ast['target']}", constants.REFERENCE)
 
     def dump(self, first, last):
         "Get the dump of the contents, cleanup and preprocess."
