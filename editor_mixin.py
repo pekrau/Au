@@ -589,6 +589,7 @@ class EditorMixin:
         self.write_line_indents = []
         self.written_line_indent = False
         self.write_skip_text = False
+        # Only used from this method.
         self.referred_footnotes = dict()
         # This does not need the cleaned dump.
         for item in self.text.dump("1.0", tk.END):
@@ -598,9 +599,11 @@ class EditorMixin:
                 ic("Could not handle item", item)
             else:
                 method(item)
-        for label, footnote in sorted(self.referred_footnotes.items()):
+        footnotes = list(self.referred_footnotes.values())
+        footnotes.sort(key=lambda f: int(f["new_label"]))
+        for footnote in footnotes:
             self.outfile.write("\n")
-            self.outfile.write(f"[^{label}]: ")
+            self.outfile.write(f"[^{footnote['new_label']}]: ")
             lines = footnote["outfile"].getvalue().split("\n")
             self.outfile.write(lines[0])
             self.outfile.write("\n")
@@ -608,6 +611,7 @@ class EditorMixin:
                 self.outfile.write("  ")
                 self.outfile.write(line)
                 self.outfile.write("\n")
+        del self.referred_footnotes
 
     def write_line_indent(self):
         if self.written_line_indent:
@@ -695,10 +699,13 @@ class EditorMixin:
     def handle_tagon_footnote_ref(self, item):
         for tag in self.text.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
-                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
-                self.referred_footnotes[label] = self.footnotes[label]
+                old_label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
+                footnote = self.footnotes[old_label]
+                new_label = str(len(self.referred_footnotes) + 1)
+                footnote["new_label"] = new_label
+                self.referred_footnotes[old_label] = footnote
                 break
-        self.write_characters(f"[^{label}]")
+        self.write_characters(f"[^{new_label}]")
         self.write_skip_text = True
 
     def handle_tagoff_footnote_ref(self, item):
@@ -707,8 +714,8 @@ class EditorMixin:
     def handle_tagon_footnote_def(self, item):
         for tag in self.text.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
-                label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
-        footnote = self.referred_footnotes[label]
+                old_label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
+        footnote = self.referred_footnotes[old_label]
         footnote["outfile"] = io.StringIO()
         self.outfile_stack.append(footnote["outfile"])
         self.write_skip_text = False

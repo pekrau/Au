@@ -19,7 +19,7 @@ import help_text
 import utils
 from text_editor import TextEditor
 
-VERSION = (0, 5, 8)
+VERSION = (0, 5, 9)
 
 
 class Main:
