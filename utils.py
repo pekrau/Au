@@ -34,7 +34,7 @@ class Indexed(marko.inline.InlineElement):
 class Reference(marko.inline.InlineElement):
     "Source reference."
 
-    pattern = re.compile(r"\{(.+?)\}")
+    pattern = re.compile(r"\[@(.+?)\]")
     parse_children = False
 
     def __init__(self, match):

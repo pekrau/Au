@@ -1,5 +1,7 @@
 "Mixin for Editor classes."
 
+import io
+
 from icecream import ic
 
 import tkinter as tk
@@ -45,6 +47,16 @@ class EditorMixin:
         self.text_frame.rowconfigure(0, weight=1)
         self.text_frame.columnconfigure(0, weight=1)
 
+        self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
+        self.text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
+        self.text.tag_configure(constants.QUOTE,
+                                lmargin1=constants.QUOTE_LEFT_INDENT,
+                                lmargin2=constants.QUOTE_LEFT_INDENT,
+                                rmargin=constants.QUOTE_RIGHT_INDENT,
+                                spacing1=0,
+                                spacing2=0,
+                                font=constants.FONT_FAMILY_QUOTE)
+
         self.text.tag_configure(constants.LINK,
                                 foreground=constants.LINK_COLOR,
                                 underline=True)
@@ -53,8 +65,29 @@ class EditorMixin:
         self.text.tag_bind(constants.LINK, "<Button-1>", self.link_edit)
 
         self.text.tag_configure(constants.INDEXED, underline=True)
+        self.text.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
+        self.text.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
+        self.text.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_view)
+
         self.text.tag_configure(constants.REFERENCE,
-                                foreground=constants.REFERENCE_COLOR)
+                                foreground=constants.REFERENCE_COLOR,
+                                underline=True)
+        self.text.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
+        self.text.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
+        self.text.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
+
+        self.text.tag_configure(constants.FOOTNOTE_REF,
+                                foreground=constants.FOOTNOTE_REF_COLOR,
+                                underline=True)
+        self.text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
+        self.text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
+        self.text.tag_configure(constants.FOOTNOTE_DEF,
+                                background=constants.FOOTNOTE_DEF_COLOR,
+                                borderwidth=1,
+                                relief=tk.SOLID,
+                                lmargin1=4,
+                                lmargin2=4,
+                                rmargin=4)
 
         self.text_scroll_y = ttk.Scrollbar(self.text_frame,
                                            orient=tk.VERTICAL,
@@ -72,15 +105,8 @@ class EditorMixin:
         self.text.bind("<F4>", self.debug_paste_buffer)
         self.text.bind("<F3>", self.debug_dump)
 
-        self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
-        self.text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
-        self.text.tag_configure(constants.QUOTE,
-                                lmargin1=constants.QUOTE_LEFT_INDENT,
-                                lmargin2=constants.QUOTE_LEFT_INDENT,
-                                rmargin=constants.QUOTE_RIGHT_INDENT,
-                                spacing1=0,
-                                spacing2=0,
-                                font=constants.FONT_FAMILY_QUOTE)
+        # The footnotes lookup is local for each TextEditor instance.
+        self.footnotes = dict()
 
         self.ignore_modified_event = False
         self.text.update()
@@ -246,29 +272,6 @@ class EditorMixin:
             self.ignore_modified_event = True
             self.text.edit_modified(True)
 
-    def copy_buffer(self):
-        "Copy the current selection into the paste buffer."
-        try:
-            first, last = self.get_selection()
-        except ValueError:
-            return
-        self.main.paste_buffer = self.text.dump(first, last)
-
-    def cut_buffer(self):
-        "Cut the current selection into the paste buffer."
-        try:
-            first, last = self.get_selection()
-        except ValueError:
-            return
-        self.main.paste_buffer = self.text.dump(first, last)
-        self.text.delete(first, last)
-
-    def paste_buffer(self):
-        "Paste in contents from the paste buffer."
-        start = self.text.index(tk.INSERT)
-        self.undump(self.main.paste_buffer)
-        self.text.tag_remove(tk.SEL, start, tk.INSERT)
-
     def add_link(self):
         try:
             first, last = self.get_selection()
@@ -317,6 +320,64 @@ class EditorMixin:
         self.text.edit_modified(True)
         # Links are not removed from 'main.lookup' during a session.
         # The link count must remain strictly increasing.
+
+    def reference_enter(self, event):
+        self.text.configure(cursor="hand2")
+
+    def reference_leave(self, event):
+        self.text.configure(cursor="")
+
+    def reference_view(self, event):
+        raise NotImplementedError
+
+    def indexed_enter(self, event):
+        self.text.configure(cursor="hand2")
+
+    def indexed_leave(self, event):
+        self.text.configure(cursor="")
+
+    def indexed_view(self, event):
+        raise NotImplementedError
+
+    def footnote_enter(self, event=None):
+        self.text.configure(cursor="hand2")
+
+    def footnote_leave(self, event=None):
+        self.text.configure(cursor="")
+
+    def footnote_toggle(self, event=None):
+        for tag in self.text.tag_names(tk.CURRENT):
+            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
+                break
+        else:
+            return
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        elided = bool(int(self.text.tag_cget(tag, "elide")))
+        self.text.tag_configure(tag, elide=not elided)
+
+    def copy_buffer(self):
+        "Copy the current selection into the paste buffer."
+        try:
+            first, last = self.get_selection()
+        except ValueError:
+            return
+        self.main.paste_buffer = self.text.dump(first, last)
+
+    def cut_buffer(self):
+        "Cut the current selection into the paste buffer."
+        try:
+            first, last = self.get_selection()
+        except ValueError:
+            return
+        self.main.paste_buffer = self.text.dump(first, last)
+        self.text.delete(first, last)
+
+    def paste_buffer(self):
+        "Paste in contents from the paste buffer."
+        start = self.text.index(tk.INSERT)
+        self.undump(self.main.paste_buffer)
+        self.text.tag_remove(tk.SEL, start, tk.INSERT)
 
     def render(self, ast):
         try:
@@ -382,11 +443,29 @@ class EditorMixin:
             self.render(child)
         self.text.tag_add("quote", start, tk.INSERT)
 
+    def render_footnote_ref(self, ast):
+        label = ast["label"]
+        tag = constants.FOOTNOTE_REF_PREFIX + label
+        self.text.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
+        self.footnotes[label] = dict(label=label, tag=tag)
+        self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+
+    def render_footnote_def(self, ast):
+        tag = self.footnotes[ast["label"]]["tag"]
+        start = self.text.tag_nextrange(tag, "1.0")[1]
+        self.text.mark_set(tk.INSERT, start)
+        for child in ast["children"]:
+            self.render(child)
+        self.text.tag_add(constants.FOOTNOTE_DEF, start + "+1c", tk.INSERT)
+        tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
+        self.text.tag_configure(tag, elide=True)
+        self.text.tag_add(tag, start, tk.INSERT)
+
     def render_indexed(self, ast):
         self.text.insert(tk.INSERT, ast["target"], constants.INDEXED)
 
     def render_reference(self, ast):
-        self.text.insert(tk.INSERT, f"{{{ast['target']}}}", constants.REFERENCE)
+        self.text.insert(tk.INSERT, f"{ast['target']}", constants.REFERENCE)
 
     def undump(self, dump):
         tags = dict()
@@ -419,25 +498,41 @@ class EditorMixin:
             return
         self.text.mark_set(entry[1], tk.INSERT)
 
+    @property
+    def outfile(self):
+        return self.outfile_stack[-1]
+
+    def set_outfile(self, outfile=None):
+        if outfile is None:
+            self.outfile_stack = []
+        else:
+            self.outfile_stack = [outfile]
+
     def write(self):
         self.current_link_tag = None
         self.write_line_indents = []
-        self.written_line_indented = False
-        self.referred_footnotes = dict()
+        self.written_line_indent = False
         self.write_skip_text = False
+        self.referred_footnotes = dict()
         for item in self.text.dump("1.0", tk.END):
             try:
-                method = getattr(self, f"write_{item[0]}")
+                method = getattr(self, f"handle_{item[0]}")
             except AttributeError:
                 ic("Could not handle item", item)
             else:
                 method(item)
+        for label, footnote in sorted(self.referred_footnotes.items()):
+            self.outfile.write(f"[^{label}]: ")
+            lines = footnote["outfile"].getvalue().split("\n")
+            self.outfile.write(lines[0] + "\n")
+            for line in lines[1:]:
+                self.outfile.write("  " + line + "\n")
 
     def write_line_indent(self):
-        if self.written_line_indented:
+        if self.written_line_indent:
             return
         self.outfile.write("".join(self.write_line_indents))
-        self.written_line_indented = True
+        self.written_line_indent = True
 
     def write_characters(self, characters):
         if not characters:
@@ -451,55 +546,58 @@ class EditorMixin:
                 self.write_line_indent()
                 self.outfile.write(segment)
                 self.outfile.write("\n")
-                self.written_line_indented = False
+                self.written_line_indent = False
             if segments[-1]:
                 self.write_line_indent()
                 self.outfile.write(segments[-1])
                 self.outfile.write("\n")
-                self.written_line_indented = False
+                self.written_line_indent = False
 
-    def write_text(self, item):
+    def handle_text(self, item):
         if self.write_skip_text:
             return
         self.write_characters(item[1])
 
-    def write_tagon(self, item):
+    def handle_mark(self, item):
+        pass
+
+    def handle_tagon(self, item):
         tag = item[1]
         try:
-            method = getattr(self, f"write_tagon_{tag}")
+            method = getattr(self, f"handle_tagon_{tag}")
         except AttributeError:
             pass
         else:
             method(item)
 
-    def write_tagoff(self, item):
+    def handle_tagoff(self, item):
         try:
-            method = getattr(self, f"write_tagoff_{item[1]}")
+            method = getattr(self, f"handle_tagoff_{item[1]}")
         except AttributeError:
             pass
         else:
             method(item)
 
-    def write_tagon_italic(self, item):
+    def handle_tagon_italic(self, item):
         self.write_characters("*")
 
-    def write_tagoff_italic(self, item):
+    def handle_tagoff_italic(self, item):
         self.write_characters("*")
 
-    def write_tagon_bold(self, item):
+    def handle_tagon_bold(self, item):
         self.write_characters("**")
 
-    def write_tagoff_bold(self, item):
+    def handle_tagoff_bold(self, item):
         self.write_characters("**")
 
-    def write_tagon_link(self, item):
+    def handle_tagon_link(self, item):
         for tag in self.text.tag_names(item[2]):
             if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
                 self.write_characters("[")
                 return
 
-    def write_tagoff_link(self, item):
+    def handle_tagoff_link(self, item):
         link = self.main.links.get(self.current_link_tag)
         if link["title"]:
             self.write_characters(f"""]({link['url']} "{link['title']}")""")
@@ -507,43 +605,47 @@ class EditorMixin:
             self.write_characters(f"]({link['url']})")
         self.current_link_tag = None
 
-    def write_tagon_quote(self, item):
+    def handle_tagon_quote(self, item):
         self.write_line_indents.append("> ")
 
-    def write_tagoff_quote(self, item):
+    def handle_tagoff_quote(self, item):
         self.write_line_indents.pop()
 
-    # def write_tagon_footnote_ref(self, item):
-    #     self.write_characters(f"[^{label}]")
-    #     self.write_skip_text = True
+    def handle_tagon_footnote_ref(self, item):
+        for tag in self.text.tag_names(item[2]):
+            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
+                self.referred_footnotes[label] = self.footnotes[label]
+                break
+        self.write_characters(f"[^{label}]")
+        self.write_skip_text = True
 
-    # def write_tagoff_footnote_ref(self, item):
-    #     self.current_footnote = None
-    #     self.write_skip_text = False
+    def handle_tagoff_footnote_ref(self, item):
+        pass
 
-    # def write_tagon_footnote_def(self, item):
-    #     footnote = self.referred_footnotes[self.current_footnote]
-    #     footnote["outfile"] = io.StringIO()
-    #     self.outfiles_stack.append(footnote["outfile"])
+    def handle_tagon_footnote_def(self, item):
+        for tag in self.text.tag_names(item[2]):
+            if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
+        footnote = self.referred_footnotes[label]
+        footnote["outfile"] = io.StringIO()
+        self.outfile_stack.append(footnote["outfile"])
+        self.write_skip_text = False
 
-    # def write_tagoff_footnote_def(self, item):
-    #     self.current_footnote = None
-    #     outfile = self.outfiles_stack.pop()
+    def handle_tagoff_footnote_def(self, item):
+        self.outfile_stack.pop()
 
-    def write_tagon_indexed(self, item):
+    def handle_tagon_indexed(self, item):
         self.write_characters("[#")
 
-    def write_tagoff_indexed(self, item):
+    def handle_tagoff_indexed(self, item):
         self.write_characters("]")
 
-    def write_tagon_reference(self, item):
-        pass
+    def handle_tagon_reference(self, item):
+        self.write_characters("[@")
 
-    def write_tagoff_reference(self, item):
-        pass
-
-    def write_mark(self, item):
-        pass
+    def handle_tagoff_reference(self, item):
+        self.write_characters("]")
 
     def debug_tags(self, event=None):
         ic("--- tags ---", self.text.tag_names(tk.INSERT))
