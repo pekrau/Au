@@ -102,10 +102,10 @@ class EditorMixin:
         self.text.bind("<Button-3>", self.popup_menu)
         self.text.bind("<F1>", self.debug_tags)
         self.text.bind("<F2>", self.debug_selected)
-        self.text.bind("<F4>", self.debug_paste_buffer)
-        self.text.bind("<F3>", self.debug_dump)
+        self.text.bind("<F3>", self.debug_paste_buffer)
+        self.text.bind("<F4>", self.debug_dump)
 
-        # The footnotes lookup is local for each TextEditor instance.
+        # The footnotes lookup is local for each Editor instance.
         self.footnotes = dict()
 
         self.ignore_modified_event = False
@@ -362,7 +362,7 @@ class EditorMixin:
             first, last = self.get_selection()
         except ValueError:
             return
-        self.main.paste_buffer = self.text.dump(first, last)
+        self.main.paste_buffer = self.dump(first, last)
 
     def cut_buffer(self):
         "Cut the current selection into the paste buffer."
@@ -370,14 +370,14 @@ class EditorMixin:
             first, last = self.get_selection()
         except ValueError:
             return
-        self.main.paste_buffer = self.text.dump(first, last)
+        self.main.paste_buffer = self.dump(first, last)
         self.text.delete(first, last)
 
     def paste_buffer(self):
         "Paste in contents from the paste buffer."
-        start = self.text.index(tk.INSERT)
+        first = self.text.index(tk.INSERT)
         self.undump(self.main.paste_buffer)
-        self.text.tag_remove(tk.SEL, start, tk.INSERT)
+        self.text.tag_remove(tk.SEL, first, tk.INSERT)
 
     def render(self, ast):
         try:
@@ -400,16 +400,16 @@ class EditorMixin:
             self.render(child)
 
     def render_emphasis(self, ast):
-        start = self.text.index(tk.INSERT)
+        first = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.text.tag_add(constants.ITALIC, start, tk.INSERT)
+        self.text.tag_add(constants.ITALIC, first, tk.INSERT)
 
     def render_strong_emphasis(self, ast):
-        start = self.text.index(tk.INSERT)
+        first = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.text.tag_add(constants.BOLD, start, tk.INSERT)
+        self.text.tag_add(constants.BOLD, first, tk.INSERT)
 
     def render_raw_text(self, ast):
         children = ast["children"]
@@ -429,19 +429,19 @@ class EditorMixin:
         self.prev_blank_line = True
 
     def render_link(self, ast):
-        start = self.text.index(tk.INSERT)
+        first = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.new_link(ast["dest"], ast["title"], start, tk.INSERT)
+        self.new_link(ast["dest"], ast["title"], first, tk.INSERT)
 
     def render_quote(self, ast):
         if self.prev_blank_line:
             self.text.insert(tk.INSERT, "\n")
         self.prev_blank_line = False
-        start = self.text.index(tk.INSERT)
+        first = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.text.tag_add("quote", start, tk.INSERT)
+        self.text.tag_add("quote", first, tk.INSERT)
 
     def render_footnote_ref(self, ast):
         label = ast["label"]
@@ -452,20 +452,38 @@ class EditorMixin:
 
     def render_footnote_def(self, ast):
         tag = self.footnotes[ast["label"]]["tag"]
-        start = self.text.tag_nextrange(tag, "1.0")[1]
-        self.text.mark_set(tk.INSERT, start)
+        first = self.text.tag_nextrange(tag, "1.0")[1]
+        self.text.mark_set(tk.INSERT, first)
         for child in ast["children"]:
             self.render(child)
-        self.text.tag_add(constants.FOOTNOTE_DEF, start + "+1c", tk.INSERT)
+        self.text.tag_add(constants.FOOTNOTE_DEF, first + "+1c", tk.INSERT)
         tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
         self.text.tag_configure(tag, elide=True)
-        self.text.tag_add(tag, start, tk.INSERT)
+        self.text.tag_add(tag, first, tk.INSERT)
 
     def render_indexed(self, ast):
         self.text.insert(tk.INSERT, ast["target"], constants.INDEXED)
 
     def render_reference(self, ast):
         self.text.insert(tk.INSERT, f"{ast['target']}", constants.REFERENCE)
+
+    def dump(self, first, last):
+        "Get the dump of the contents, cleanup and preprocess."
+        # Get rid of irrelevant marks.
+        dump = [e for e in self.text.dump(first, last)
+                if not (e[0] == "mark" and (e[1] in (tk.INSERT, tk.CURRENT) or
+                                            e[1].startswith("tk::")))]
+        # Get rid of tag SEL.
+        dump = [e for e in dump if not (e[0] == "tagon" and e[1] == tk.SEL)]
+        # Get link data to make a copy. Loose the position.
+        result = []
+        for kind, value, pos in dump:
+            if kind == "tagoff" and value.startswith(constants.LINK_PREFIX):
+                link = self.get_link(value)
+                result.append((kind, value, link["url"], link["title"]))
+            else:
+                result.append((kind, value))
+        return result
 
     def undump(self, dump):
         tags = dict()
@@ -485,17 +503,16 @@ class EditorMixin:
 
     def undump_tagoff(self, entry, tags):
         try:
-            start = tags.pop(entry[1])
+            first = tags.pop(entry[1])
         except KeyError:
             ic("No tagon for", entry)
         else:
-            self.text.tag_add(entry[1], start, tk.INSERT)
+            if entry[1].startswith(constants.LINK_PREFIX):
+                self.new_link(entry[2], entry[3], first, self.text.index(tk.INSERT))
+            else:
+                self.text.tag_add(entry[1], first, self.text.index(tk.INSERT))
 
     def undump_mark(self, entry, tags):
-        if entry[1] in (tk.INSERT, tk.CURRENT):
-            return
-        if entry[1].startswith("tk::"):
-            return
         self.text.mark_set(entry[1], tk.INSERT)
 
     @property
@@ -514,6 +531,7 @@ class EditorMixin:
         self.written_line_indent = False
         self.write_skip_text = False
         self.referred_footnotes = dict()
+        # This does not need the cleaned dump.
         for item in self.text.dump("1.0", tk.END):
             try:
                 method = getattr(self, f"handle_{item[0]}")
@@ -521,12 +539,17 @@ class EditorMixin:
                 ic("Could not handle item", item)
             else:
                 method(item)
+        if self.referred_footnotes:
+            self.outfile.write("\n")
         for label, footnote in sorted(self.referred_footnotes.items()):
             self.outfile.write(f"[^{label}]: ")
             lines = footnote["outfile"].getvalue().split("\n")
-            self.outfile.write(lines[0] + "\n")
+            self.outfile.write(lines[0])
+            self.outfile.write("\n")
             for line in lines[1:]:
-                self.outfile.write("  " + line + "\n")
+                self.outfile.write("  ")
+                self.outfile.write(line)
+                self.outfile.write("\n")
 
     def write_line_indent(self):
         if self.written_line_indent:
