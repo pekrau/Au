@@ -16,7 +16,7 @@ from tkinter import font as tk_font
 import constants
 import docx_interface
 import utils
-from text_editor import TextEditor
+from text import TextViewer, TextEditor
 
 VERSION = (0, 6, 0)
 
@@ -52,15 +52,21 @@ class Main:
 
         # All texts, with references to any open editor windows.
         self.texts = dict()
+
         # The links lookup is global to all editors, to facilitate cut-and-paste.
         self.links = dict()
+
         # The paste buffer is global to all editors, to facilitate cut-and-paste.
         self.paste_buffer = self.config.get("paste_buffer")
 
         self.setup_menubar()
 
-        # Must be 'tk.PanedWindow', since the 'paneconfigure' command is required.
-        self.panedwindow = tk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        # Must be 'tk.PanedWindow', since the 'paneconfigure' command is needed.
+        self.panedwindow = tk.PanedWindow(self.root,
+                                          background="gold",
+                                          orient=tk.HORIZONTAL,
+                                          sashcursor="sb_h_double_arrow",
+                                          sashwidth=5)
         self.panedwindow.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         self.setup_treeview()
@@ -255,15 +261,12 @@ class Main:
         self.texts_notebook = ttk.Notebook(self.texts_notebook_frame)
         self.texts_notebook.pack(fill=tk.BOTH, expand=True)
 
-        for filepath in self.texts:
+        for filepath, text in self.texts.items():
             section, name = os.path.split(filepath)
             if not section:
-                frame = ttk.Frame(self.texts_notebook)
-                text = tk.Text(frame)
-                text.pack(fill=tk.BOTH, expand=True)
-                text.insert("1.0", f"Contents of '{name}'.")
-                frame.pack(fill=tk.BOTH, expand=True)
-                self.texts_notebook.add(frame, text=name)
+                viewer = TextViewer(self.texts_notebook, self, filepath)
+                text["viewer"] = viewer
+                self.texts_notebook.add(viewer.frame, text=name)
 
     def setup_lookup_notebook(self):
         "Create and initialize the reference, indexed and help notebook tabs."
