@@ -14,7 +14,7 @@ import yaml
 
 import constants
 import utils
-from editor_mixin import EditorMixin
+from mixins import EditorMixin
 
 
 class TextEditor(EditorMixin):
@@ -28,69 +28,17 @@ class TextEditor(EditorMixin):
         self.frontmatter = parsed.frontmatter
         self.ast = parsed.ast
 
-        self.setup_toplevel(self.main.root,
-                            os.path.splitext(self.filepath)[0],
-                            self.frontmatter.get("geometry"))
+        self.toplevel = tk.Toplevel(self.main.root)
+        self.toplevel.title(os.path.splitext(self.filepath)[0])
+        self.toplevel.bind("<Control-s>", self.save)
+        self.toplevel.bind("<Control-q>", self.close)
+        self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
+        geometry = self.frontmatter.get("geometry")
+        if geometry:
+            self.toplevel.geometry(geometry)
 
-        self.menubar = tk.Menu(self.toplevel)
-        self.toplevel["menu"] = self.menubar
-        self.menubar.add_command(label="Au",
-                                 font=constants.FONT_LARGE_BOLD,
-                                 background="gold",
-                                 command=self.main.root.lift)
-
-        self.menu_file = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Rename", command=self.rename)
-        self.menu_file.add_command(label="Copy", command=self.copy)
-        self.menu_file.add_command(label="Save",
-                                   command=self.save,
-                                   accelerator="Ctrl-S")
-        self.menu_file.add_command(label="Delete", command=self.delete)
-        self.menu_file.add_command(label="Close", command=self.close,
-                                   accelerator="Ctrl-Q")
-
-        self.menu_edit = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Copy", command=self.buffer_copy)
-        self.menu_edit.add_command(label="Cut", command=self.buffer_cut)
-        self.menu_edit.add_command(label="Paste", command=self.buffer_paste)
-        self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add link", command=self.link_add)
-        self.menu_edit.add_command(label="Remove link", command=self.link_remove)
-        self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add footnote", command=self.footnote_add)
-        self.menu_edit.add_command(label="Remove footnote",
-
-                                   command=self.footnote_remove)
-        self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add indexed", command=self.indexed_add)
-        self.menu_edit.add_command(label="Remove indexed", command=self.indexed_remove)
-        self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add reference", command=self.reference_add)
-        self.menu_edit.add_command(label="Remove reference",
-                                   command=self.reference_remove)
-
-        self.menu_format = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_format, label="Format")
-        self.menu_format.add_command(label="Bold", command=self.bold_add)
-        self.menu_format.add_command(label="Italic", command=self.italic_add)
-        self.menu_format.add_command(label="Quote", command=self.quote_add)
-        self.menu_format.add_separator()
-        self.menu_format.add_command(label="Remove bold", command=self.bold_remove)
-        self.menu_format.add_command(label="Remove italic", command=self.italic_remove)
-        self.menu_format.add_command(label="Remove quote", command=self.quote_remove)
-
-        self.menu_status = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_status, label="Status")
-        self.status_var = tk.StringVar()
-        for status in constants.STATUSES:
-            self.menu_status.add_radiobutton(label=status,
-                                             variable=self.status_var,
-                                             command=self.set_status)
-
-        self.setup_text()
-        self.set_status(self.frontmatter.get("status"))
+        self.setup_menubar()
+        self.setup_text(self.toplevel)
 
         self.info_frame = ttk.Frame(self.text_frame, padding=2)
         self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
@@ -125,6 +73,65 @@ class TextEditor(EditorMixin):
     @property
     def age(self):
         return utils.get_age(self.absfilepath)
+
+    def setup_menubar(self):
+        self.menubar = tk.Menu(self.toplevel)
+        self.toplevel["menu"] = self.menubar
+        self.menubar.add_command(label="Au",
+                                 font=constants.FONT_LARGE_BOLD,
+                                 background="gold",
+                                 command=self.main.root.lift)
+
+        self.menu_file = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_file, label="File")
+        self.menu_file.add_command(label="Rename", command=self.rename)
+        self.menu_file.add_command(label="Copy", command=self.copy)
+        self.menu_file.add_command(label="Delete", command=self.delete)
+        self.menu_file.add_command(label="Save",
+                                   command=self.save,
+                                   accelerator="Ctrl-S")
+        self.menu_file.add_command(label="Close",
+                                   command=self.close,
+                                   accelerator="Ctrl-Q")
+
+        self.menu_edit = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        self.menu_edit.add_command(label="Copy", command=self.buffer_copy)
+        self.menu_edit.add_command(label="Cut", command=self.buffer_cut)
+        self.menu_edit.add_command(label="Paste", command=self.buffer_paste)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Add link", command=self.link_add)
+        self.menu_edit.add_command(label="Remove link", command=self.link_remove)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Add footnote", command=self.footnote_add)
+        self.menu_edit.add_command(label="Remove footnote",
+                                   command=self.footnote_remove)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Add indexed", command=self.indexed_add)
+        self.menu_edit.add_command(label="Remove indexed", command=self.indexed_remove)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label="Add reference", command=self.reference_add)
+        self.menu_edit.add_command(label="Remove reference",
+                                   command=self.reference_remove)
+
+        self.menu_format = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_format, label="Format")
+        self.menu_format.add_command(label="Bold", command=self.bold_add)
+        self.menu_format.add_command(label="Italic", command=self.italic_add)
+        self.menu_format.add_command(label="Quote", command=self.quote_add)
+        self.menu_format.add_separator()
+        self.menu_format.add_command(label="Remove bold", command=self.bold_remove)
+        self.menu_format.add_command(label="Remove italic", command=self.italic_remove)
+        self.menu_format.add_command(label="Remove quote", command=self.quote_remove)
+
+        self.menu_status = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_status, label="Status")
+        self.status_var = tk.StringVar()
+        for status in constants.STATUSES:
+            self.menu_status.add_radiobutton(label=status,
+                                             variable=self.status_var,
+                                             command=self.set_status)
+        self.set_status(self.frontmatter.get("status"))
 
     def key_press(self, event):
         if event.char not in constants.AFFECTS_CHARACTER_COUNT:
