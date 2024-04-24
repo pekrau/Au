@@ -18,7 +18,7 @@ import docx_interface
 import utils
 from text import TextViewer, TextEditor
 
-VERSION = (0, 6, 0)
+VERSION = (0, 6, 1)
 
 
 class Main:
@@ -52,9 +52,6 @@ class Main:
 
         # All texts, with references to any open editor windows.
         self.texts = dict()
-
-        # The links lookup is global to all editors, to facilitate cut-and-paste.
-        self.links = dict()
 
         # The paste buffer is global to all editors, to facilitate cut-and-paste.
         self.paste_buffer = self.config.get("paste_buffer")
@@ -889,13 +886,6 @@ class Main:
             self.section_menu.tk_popup(event.x_root, event.y_root)
         elif os.path.isfile(abspath):
             self.text_menu.tk_popup(event.x_root, event.y_root)
-
-    def link_create(self, url, title):
-        # Links are not removed from 'main.lookup' during a session.
-        # The link count must remain strictly increasing.
-        tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
-        self.links[tag] = dict(tag=tag, url=url, title=title)
-        return tag
 
     def save_texts(self, event=None):
         "Save contents of all open text editor windows, and the config."

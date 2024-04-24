@@ -25,6 +25,9 @@ class BaseText:
         # The footnotes lookup is local for each BaseText instance.
         self.footnotes = dict()
 
+        # The links lookup is is local for each BaseText instance.
+        self.links = dict()
+
     def setup_text(self, parent):
         "Setup the text widget and its associates."
         self.frame = ttk.Frame(parent)
@@ -148,10 +151,13 @@ class BaseText:
                     break
             else:
                 return None
-        return self.main.links.get(tag)
+        return self.links.get(tag)
 
     def link_create(self, url, title, first, last):
-        tag = self.main.link_create(url, title)
+        # Links are not removed from 'links' during a session.
+        # The link count must remain strictly increasing.
+        tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
+        self.links[tag] = dict(tag=tag, url=url, title=title)
         self.text.tag_add(constants.LINK, first, last)
         self.text.tag_add(tag, first, last)
 
@@ -255,7 +261,7 @@ class BaseText:
         first = self.text.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.link_create(ast["dest"], ast["title"], first, tk.INSERT)
+        self.link_create(ast["dest"], ast["title"], first, self.text.index(tk.INSERT))
 
     def render_quote(self, ast):
         if self.prev_blank_line:

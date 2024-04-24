@@ -4,6 +4,7 @@ from icecream import ic
 
 import os.path
 import string
+import webbrowser
 
 import tkinter as tk
 from tkinter import ttk
@@ -36,6 +37,11 @@ class TextViewer(BaseText):
         "Stop modifying actions."
         if event.char in constants.AFFECTS_CHARACTER_COUNT:
             return "break"
+
+    def link_action(self, event):
+        link = self.get_link()
+        if link:
+            webbrowser.open_new_tab(link["url"])
 
 
 class TextEditor(BaseText):
@@ -341,7 +347,7 @@ class TextEditor(BaseText):
                 region = self.text.tag_nextrange(link["tag"], "1.0")
                 self.text.tag_remove(constants.LINK, *region)
                 self.text.tag_delete(link["tag"])
-                # Do not remove entry from 'main.links': the count must be preserved.
+                # Do not remove entry from 'links': the count must be preserved.
             self.ignore_modified_event = True
             self.text.edit_modified(True)
 
@@ -386,7 +392,7 @@ class TextEditor(BaseText):
         self.text.tag_remove(constants.LINK, first, last)
         self.ignore_modified_event = True
         self.text.edit_modified(True)
-        # Links are not removed from 'main.lookup' during a session.
+        # Links are not removed from 'links' during a session.
         # The link count must remain strictly increasing.
 
     def reference_add(self):
@@ -701,7 +707,7 @@ class TextEditor(BaseText):
                 return
 
     def convert_tagoff_link(self, item):
-        link = self.main.links.get(self.current_link_tag)
+        link = self.get_link(self.current_link_tag)
         if link["title"]:
             self.write_characters(f"""]({link['url']} "{link['title']}")""")
         else:
