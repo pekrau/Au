@@ -63,6 +63,7 @@ class TextEditor(BaseText):
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
+        self.set_status(self.frontmatter.get("status"))
         self.info_update()
         self.move_cursor(self.frontmatter.get("cursor"))
         self.text.update()
@@ -134,7 +135,6 @@ class TextEditor(BaseText):
             self.menu_status.add_radiobutton(label=status,
                                              variable=self.status_var,
                                              command=self.set_status)
-        self.set_status(self.frontmatter.get("status"))
 
     def setup_info(self):
         self.info_frame = ttk.Frame(self.frame, padding=2)

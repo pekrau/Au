@@ -62,11 +62,6 @@ def get_now():
     "Get formatted string for the current local time."
     return time.strftime(constants.TIME_FORMAT, time.localtime())
 
-def get_timestamp(value=None):
-    "Get formatted string for the modification timestamp of the given file."
-    return time.strftime(constants.TIME_FORMAT,
-                         time.localtime(os.path.getmtime(value)))
-
 def get_age(filepath):
     "Get the age of the file, as a tuple (value, unit)."
     now = datetime.datetime.today()

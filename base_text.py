@@ -18,15 +18,11 @@ class BaseText:
         self.main = main
         self.filepath = filepath
 
-        parsed = utils.parse(self.absfilepath)
-        self.frontmatter = parsed.frontmatter
-        self.ast = parsed.ast
+        self.frontmatter, self.ast = utils.parse(self.absfilepath)
 
-        # The footnotes lookup is local for each BaseText instance.
-        self.footnotes = dict()
-
-        # The links lookup is is local for each BaseText instance.
+        # These lookups are local for each BaseText instance.
         self.links = dict()
+        self.footnotes = dict()
 
     def setup_text(self, parent):
         "Setup the text widget and its associates."

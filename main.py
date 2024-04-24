@@ -18,7 +18,7 @@ import docx_interface
 import utils
 from text import TextViewer, TextEditor
 
-VERSION = (0, 6, 1)
+VERSION = (0, 6, 2)
 
 
 class Main:
@@ -82,7 +82,7 @@ class Main:
                 pass
             else:
                 if config.get("open"):
-                    self.open_text(filepath=filepath)
+                    self.open_texteditor(filepath=filepath)
 
         self.root.lift()
         self.root.update_idletasks()
@@ -118,8 +118,8 @@ class Main:
         self.menu_edit.add_command(label="Create section", command=self.create_section)
         self.menu_edit.add_command(label="Delete section", command=self.delete_section)
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Open text",
-                                   command=self.open_text,
+        self.menu_edit.add_command(label="Open text editor",
+                                   command=self.open_texteditor,
                                    accelerator="Ctrl-O")
         self.menu_edit.add_command(label="Rename text", command=self.rename_text)
         self.menu_edit.add_command(label="Copy text", command=self.copy_text)
@@ -154,7 +154,7 @@ class Main:
                                       command=self.move_item_out_of_section)
 
         self.text_menu = tk.Menu(self.menubar)
-        self.text_menu.add_command(label="Open", command=self.open_text)
+        self.text_menu.add_command(label="Open", command=self.open_texteditor)
         self.text_menu.add_command(label="Rename", command=self.rename_text)
         self.text_menu.add_command(label="Copy", command=self.copy_text)
         self.text_menu.add_command(label="Delete", command=self.delete_text)
@@ -202,7 +202,7 @@ class Main:
         self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
 
-        self.treeview.bind("<Control-o>", self.open_text)
+        self.treeview.bind("<Control-o>", self.open_texteditor)
         self.treeview.bind("<Control-n>", self.create_text)
         self.treeview.bind("<Control-Up>", self.move_item_up)
         self.treeview.bind("<Control-Down>", self.move_item_down)
@@ -265,10 +265,14 @@ class Main:
 
         for filepath, text in self.texts.items():
             section, name = os.path.split(filepath)
-            if not section:
-                viewer = TextViewer(self.texts_notebook, self, filepath)
-                text["viewer"] = viewer
-                self.texts_notebook.add(viewer.frame, text=name)
+            if section:
+                continue
+            viewer = TextViewer(self.texts_notebook, self, filepath)
+            text["viewer"] = viewer
+            self.texts_notebook.add(viewer.frame, text=name)
+            viewer.text.bind("<Double-Button-1>",
+                             functools.partial(self.open_texteditor, 
+                                               filepath=filepath))
 
     def setup_lookup_notebook(self):
         "Create and initialize the reference, indexed and help notebook tabs."
@@ -303,7 +307,8 @@ class Main:
                                  tags=(itempath, ))
             self.treeview.tag_bind(itempath,
                                    "<Double-Button-1>",
-                                   functools.partial(self.open_text, filepath=itempath))
+                                   functools.partial(self.open_texteditor,
+                                                     filepath=itempath))
             self.texts[itempath] = dict()
         elif not ext:
             self.treeview.insert(dirpath,
@@ -696,7 +701,7 @@ class Main:
         shutil.rmtree(absdirpath)
         self.save_config()
 
-    def open_text(self, event=None, filepath=None):
+    def open_texteditor(self, event=None, filepath=None):
         if filepath is None:
             try:
                 filepath = self.treeview.selection()[0]
@@ -704,9 +709,10 @@ class Main:
                 pass
         try:
             ed = self.texts[filepath]["editor"]
-            ed.toplevel.lift()
         except KeyError:
             ed = self.texts[filepath]["editor"] = TextEditor(self, filepath)
+        else:
+            ed.toplevel.lift()
         self.treeview.see(filepath)
         ed.text.focus_set()
 
@@ -799,7 +805,7 @@ class Main:
         with open(absfilepath, "w") as outfile:
             pass                # Empty file
         self.add_treeview_entry(filepath, set_selection=True)
-        self.open_text(filepath=filepath)
+        self.open_texteditor(filepath=filepath)
 
     def copy_text(self):
         try:

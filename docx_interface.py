@@ -41,28 +41,28 @@ class Writer:
             self.document.add_page_break()
         title = os.path.splitext(os.path.split(filepath)[1])[0]
         self.document.add_heading(title, len(dirstack) + 1)
-        parsed = utils.parse(os.path.join(self.absdirpath, filepath))
-        self.parse(parsed.ast)
+        frontmatter, ast = utils.parse(os.path.join(self.absdirpath, filepath))
+        self.render(ast)
 
-    def parse(self, ast):
+    def render(self, ast):
         try:
-            method = getattr(self, f"parse_{ast['element']}")
+            method = getattr(self, f"render_{ast['element']}")
         except AttributeError:
             ic("Could not handle ast", ast)
         else:
             method(ast)
 
-    def parse_document(self, ast):
+    def render_document(self, ast):
         self.prev_blank_line = False
         for child in ast["children"]:
-            self.parse(child)
+            self.render(child)
 
-    def parse_paragraph(self, ast):
+    def render_paragraph(self, ast):
         self.paragraph = self.document.add_paragraph()
         for child in ast["children"]:
-            self.parse(child)
+            self.render(child)
 
-    def parse_raw_text(self, ast):
+    def render_raw_text(self, ast):
         line = ast["children"]
         if line[-1] == "\n":
             line[-1] = " "
