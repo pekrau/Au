@@ -33,10 +33,12 @@ class BaseText:
         self.frame.columnconfigure(0, weight=1)
 
         self.text = tk.Text(self.frame,
-                            font=constants.FONT_FAMILY_NORMAL,
+                            padx=constants.TEXT_PADX,
+                            font=constants.FONT_NORMAL_FAMILY,
                             wrap=tk.WORD,
-                            spacing1=4,
-                            spacing2=8)
+                            spacing1=constants.TEXT_SPACING1,
+                            spacing2=constants.TEXT_SPACING2,
+                            spacing3=constants.TEXT_SPACING3)
         self.text.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
 
         self.text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
@@ -45,9 +47,11 @@ class BaseText:
                                 lmargin1=constants.QUOTE_LEFT_INDENT,
                                 lmargin2=constants.QUOTE_LEFT_INDENT,
                                 rmargin=constants.QUOTE_RIGHT_INDENT,
-                                spacing1=0,
-                                spacing2=0,
-                                font=constants.FONT_FAMILY_QUOTE)
+                                spacing1=constants.QUOTE_SPACING1,
+                                spacing2=constants.QUOTE_SPACING2,
+                                font=constants.QUOTE_FONT)
+        self.text.tag_configure(constants.H1,
+                                font=constants.H1_FONT)
 
         self.text.tag_configure(constants.LINK,
                                 foreground=constants.LINK_COLOR,
@@ -77,9 +81,9 @@ class BaseText:
                                 background=constants.FOOTNOTE_DEF_COLOR,
                                 borderwidth=1,
                                 relief=tk.SOLID,
-                                lmargin1=4,
-                                lmargin2=4,
-                                rmargin=4)
+                                lmargin1=constants.FOOTNOTE_MARGIN,
+                                lmargin2=constants.FOOTNOTE_MARGIN,
+                                rmargin=constants.FOOTNOTE_MARGIN)
 
         self.text_scroll_y = ttk.Scrollbar(self.frame,
                                            orient=tk.VERTICAL,
@@ -109,11 +113,17 @@ class BaseText:
 
     @property
     def is_modified(self):
-        return self.text.edit_modified()
+        return False
 
     @property
     def character_count(self):
         return len(self.text.get("1.0", tk.END))
+
+    def info_update(self):
+        self.main.update_treeview_entry(self.filepath,
+                                        status=str(self.status),
+                                        size=str(self.character_count),
+                                        age=self.age)
 
     def key_press(self, event):
         raise NotImplementedError

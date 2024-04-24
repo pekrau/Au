@@ -65,13 +65,18 @@ class Main:
         self.panedwindow = tk.PanedWindow(self.root,
                                           background="gold",
                                           orient=tk.HORIZONTAL,
-                                          sashcursor="sb_h_double_arrow",
                                           sashwidth=5)
         self.panedwindow.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
         self.setup_treeview()
         self.setup_texts_notebook()
         self.setup_lookup_notebook()
+
+        for text in self.texts.values():
+            try:
+                text["viewer"].info_update()
+            except KeyError:
+                pass
 
         for filepath in self.texts:
             try:
@@ -92,7 +97,7 @@ class Main:
     def setup_menubar(self):
         self.menubar = tk.Menu(self.root, background="gold")
         self.root["menu"] = self.menubar
-        assert constants.FONT_FAMILY_NORMAL in constants.FONT_FAMILIES
+        assert constants.FONT_NORMAL_FAMILY in constants.FONT_FAMILIES
         self.menubar.add_command(label="Au", font=constants.FONT_LARGE_BOLD)
 
         self.menu_file = tk.Menu(self.menubar)
@@ -294,19 +299,11 @@ class Main:
         name, ext = os.path.splitext(itemname)
         absitempath = os.path.join(self.absdirpath, itempath)
         if ext == ".md":
-            try:
-                size = str(utils.get_size(absitempath))
-                age, unit = utils.get_age(absitempath)
-            except OSError:
-                size = "?"
-                age = "?"
-                unit = ""
             self.treeview.insert(dirpath,
                                  index or tk.END,
                                  iid=itempath,
                                  text=name,
-                                 tags=(itempath, ),
-                                 values=("?", size, f"{age} {unit}"))
+                                 tags=(itempath, ))
             self.treeview.tag_bind(itempath,
                                    "<Double-Button-1>",
                                    functools.partial(self.open_text, filepath=itempath))
@@ -692,6 +689,7 @@ class Main:
                     pass
                 else:
                     ed.close(force=True)
+                    self.texts.pop(subfilepath)
             for filename in filenames:
                 os.rename(os.path.join(sectiondir, filename),
                           f"{archivedirpath}/{filename} {utils.get_now()}")
@@ -986,4 +984,5 @@ if __name__ == "__main__":
         absdirpath = os.getcwd()
     else:
         sys.exit("Error: at most one directory path can be provided.")
-    Main(absdirpath).mainloop()
+    main = Main(absdirpath)
+    main.mainloop()

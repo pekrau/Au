@@ -22,11 +22,15 @@ class TextViewer(BaseText):
 
     def __init__(self, parent, main, filepath):
         super().__init__(main, filepath)
-
         self.setup_text(parent)
-        self.move_cursor(self.frontmatter.get("cursor"))
-
+        self.render_title(os.path.splitext(os.path.basename(filepath))[0])
         self.render(self.ast)
+        self.move_cursor(self.frontmatter.get("cursor"))
+        self.status = constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED
+
+    def render_title(self, title):
+        self.text.insert(tk.INSERT, title, constants.H1)
+        self.text.insert(tk.INSERT, "\n\n")
 
     def key_press(self, event):
         "Stop modifying actions."
@@ -142,6 +146,9 @@ class TextEditor(BaseText):
         status_label["textvariable"] = self.status_var # Defined above for menu.
         self.info_frame.columnconfigure(1, weight=1)
 
+    def info_update(self):
+        super().info_update()
+        self.size_var.set(f"{self.character_count} characters")
 
     def key_press(self, event):
         if event.char not in constants.AFFECTS_CHARACTER_COUNT:
@@ -190,6 +197,10 @@ class TextEditor(BaseText):
                 any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
+
+    @property
+    def is_modified(self):
+        return self.text.edit_modified()
 
     def handle_modified(self, event=None):
         if self.ignore_modified_event:
@@ -245,13 +256,6 @@ class TextEditor(BaseText):
                 title="Region boundary",
                 message="Selection contains a region boundary")
         return result
-
-    def info_update(self):
-        self.size_var.set(f"{self.character_count} characters")
-        self.main.update_treeview_entry(self.filepath,
-                                        status=str(self.status),
-                                        size=f"{self.character_count} ch",
-                                        age=self.age)
 
     def set_status(self, status=None):
         if status:
