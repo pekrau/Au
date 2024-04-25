@@ -12,6 +12,7 @@ import marko
 import marko.ast_renderer
 import marko.inline
 import marko.helpers
+import marko.ext.gfm
 import yaml
 
 import constants
@@ -53,8 +54,13 @@ def parse(filepath):
         content = content[match.start(2):]
     else:
         frontmatter = dict()
-    parser = marko.Markdown(renderer=marko.ast_renderer.ASTRenderer,
-                            extensions=["footnote"])
+    parser = marko.Markdown(renderer=marko.ast_renderer.ASTRenderer)
+    parser.use("footnote")
+    parser.use(marko.helpers.MarkoExtension(elements=[
+        marko.ext.gfm.elements.Table,
+        marko.ext.gfm.elements.TableRow,
+        marko.ext.gfm.elements.TableCell
+    ]))
     parser.use(marko.helpers.MarkoExtension(elements=[Indexed, Reference]))
     return Parsed(frontmatter, parser.convert(content))
 

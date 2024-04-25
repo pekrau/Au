@@ -14,6 +14,12 @@ HELP_FILENAME = "help.md"
 ARCHIVE_DIRNAME = "au_archive"
 REFERENCES_DIRNAME = "au_references"
 
+TEXT_COLOR = "linen"
+MODIFIED_COLOR = "lightpink"
+SECTION_COLOR = "gainsboro"
+
+TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 @functools.total_ordering
 class Status:
     @classmethod
@@ -85,6 +91,8 @@ FONT_ITALIC = (FONT_NORMAL_FAMILY, FONT_NORMAL_SIZE, ITALIC)
 FONT_BOLD = (FONT_NORMAL_FAMILY, FONT_NORMAL_SIZE, BOLD)
 FONT_LARGE_BOLD = (FONT_NORMAL_FAMILY, FONT_LARGE_SIZE, BOLD)
 
+TITLE = "title"
+TITLE_FONT = (FONT_NORMAL_FAMILY, FONT_LARGE_SIZE + 8, BOLD)
 H1 = "h1"
 H1_FONT = (FONT_NORMAL_FAMILY, FONT_LARGE_SIZE + 6, BOLD)
 H2 = "h2"
@@ -93,11 +101,7 @@ H3 = "h3"
 H3_FONT = (FONT_NORMAL_FAMILY, FONT_LARGE_SIZE, BOLD)
 H4 = "h4"
 H4_FONT = (FONT_NORMAL_FAMILY, FONT_NORMAL_SIZE, BOLD)
-
-MODIFIED_COLOR = "lightpink"
-SECTION_COLOR = "gainsboro"
-
-TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+H = dict([(1, H1), (2, H2), (3, H3), (4, H4)])
 
 # Add Return, Backspace, Delete.
 AFFECTS_CHARACTER_COUNT = frozenset(string.printable + "\r" + "\x08" + "\x7f")

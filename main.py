@@ -16,7 +16,8 @@ from tkinter import font as tk_font
 import constants
 import docx_interface
 import utils
-from text import TextViewer, TextEditor
+from text_viewer import TextViewer, HelpViewer
+from text_editor import TextEditor
 
 VERSION = (0, 6, 2)
 
@@ -44,7 +45,6 @@ class Main:
         self.root.geometry(
             self.config["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
-        self.root.option_add("*Text.background", "linen")
         self.root.minsize(600, 400)
         self.au64 = tk.PhotoImage(data=constants.AU64)
         self.root.iconphoto(False, self.au64, self.au64)
@@ -85,7 +85,6 @@ class Main:
                     self.open_texteditor(filepath=filepath)
 
         self.root.lift()
-        self.root.update_idletasks()
 
     @property
     def configpath(self):
@@ -267,12 +266,13 @@ class Main:
             section, name = os.path.split(filepath)
             if section:
                 continue
-            viewer = TextViewer(self.texts_notebook, self, filepath)
+            title = os.path.splitext(os.path.basename(filepath))[0]
+            viewer = TextViewer(self.texts_notebook, self, filepath, title=title)
             text["viewer"] = viewer
             self.texts_notebook.add(viewer.frame, text=name)
-            viewer.text.bind("<Double-Button-1>",
-                             functools.partial(self.open_texteditor, 
-                                               filepath=filepath))
+            opener = functools.partial(self.open_texteditor, filepath=filepath)
+            viewer.text.bind("<Double-Button-1>", opener)
+            viewer.text.bind("<Return>", opener)
 
     def setup_lookup_notebook(self):
         "Create and initialize the reference, indexed and help notebook tabs."
@@ -294,6 +294,8 @@ class Main:
         self.help_frame = ttk.Frame(self.lookup_notebook)
         self.help_frame.pack(fill=tk.BOTH, expand=True)
         self.lookup_notebook.add(self.help_frame, text="Help")
+        filepath = os.path.join(os.path.dirname(__file__), constants.HELP_FILENAME)
+        self.help_text = HelpViewer(self.help_frame, self, filepath)
 
     def add_treeview_entry(self, itempath, set_selection=False, index=None, open=False):
         dirpath, itemname = os.path.split(itempath)

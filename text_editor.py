@@ -1,10 +1,9 @@
-"Text window classes."
+"Text editor window class."
 
 from icecream import ic
 
 import os.path
 import string
-import webbrowser
 
 import tkinter as tk
 from tkinter import ttk
@@ -18,32 +17,6 @@ import utils
 from base_text import BaseText
 
 
-class TextViewer(BaseText):
-    "Text viewer window."
-
-    def __init__(self, parent, main, filepath):
-        super().__init__(main, filepath)
-        self.setup_text(parent)
-        self.render_title(os.path.splitext(os.path.basename(filepath))[0])
-        self.render(self.ast)
-        self.move_cursor(self.frontmatter.get("cursor"))
-        self.status = constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED
-
-    def render_title(self, title):
-        self.text.insert(tk.INSERT, title, constants.H1)
-        self.text.insert(tk.INSERT, "\n\n")
-
-    def key_press(self, event):
-        "Stop modifying actions."
-        if event.char in constants.AFFECTS_CHARACTER_COUNT:
-            return "break"
-
-    def link_action(self, event):
-        link = self.get_link()
-        if link:
-            webbrowser.open_new_tab(link["url"])
-
-
 class TextEditor(BaseText):
     "Text editor window."
 
@@ -55,18 +28,17 @@ class TextEditor(BaseText):
         self.setup_text(self.toplevel)
         self.setup_info()
 
-        # Additional text bindings.
         self.text.bind("<<Modified>>", self.handle_modified)
         self.text.bind("<Button-3>", self.popup_menu)
 
         self.render(self.ast)
-        self.ignore_modified_event = True
-        self.text.edit_modified(False)
 
         self.set_status(self.frontmatter.get("status"))
         self.info_update()
         self.move_cursor(self.frontmatter.get("cursor"))
-        self.text.update()
+
+        self.ignore_modified_event = True
+        self.text.edit_modified(False)
 
     def setup_toplevel(self):
         self.toplevel = tk.Toplevel(self.main.root)
