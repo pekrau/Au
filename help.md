@@ -42,4 +42,3 @@ This is the official help text.
 | F2      | Debug tags and dump of current selection.   |
 | F3      | Debug current paste buffer.               |
 | F4      | Debug raw dump of entire text.            |
-| Dummy   | Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis ac aliquam eros, porttitor facilisis purus. Quisque volutpat cursus lorem at vulputate. Interdum et malesuada fames ac ante ipsum primis in faucibus. Nullam ullamcorper cursus accumsan. Vivamus id diam ipsum. Proin id nulla tristique, elementum diam id, auctor purus. Cras accumsan magna nec viverra pulvinar. |

@@ -158,9 +158,19 @@ class BaseText(RenderMixin):
         self.text_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.text.configure(yscrollcommand=self.text_scroll_y.set)
 
-        self.configure_text(self.text)
+        self.configure_text_tags(self.text)
+        self.configure_text_tag_bindings(self.text)
 
-    def configure_text(self, text):
+        self.text.bind("<Home>", self.move_cursor_home)
+        self.text.bind("<End>", self.move_cursor_end)
+        self.text.bind("<Key>", self.key_press)
+        self.text.bind("<F1>", self.debug_tags)
+        self.text.bind("<F2>", self.debug_selected)
+        self.text.bind("<F3>", self.debug_buffer_paste)
+        self.text.bind("<F4>", self.debug_dump)
+
+
+    def configure_text_tags(self, text):
         text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         text.tag_configure(constants.QUOTE,
@@ -170,28 +180,19 @@ class BaseText(RenderMixin):
                            spacing1=constants.QUOTE_SPACING1,
                            spacing2=constants.QUOTE_SPACING2,
                            font=constants.QUOTE_FONT)
-
         text.tag_configure(constants.TITLE, font=constants.TITLE_FONT)
         text.tag_configure(constants.H1, font=constants.H1_FONT)
         text.tag_configure(constants.H2, font=constants.H2_FONT)
         text.tag_configure(constants.H3, font=constants.H3_FONT)
         text.tag_configure(constants.H4, font=constants.H4_FONT)
-
         text.tag_configure(constants.LINK,
                            foreground=constants.LINK_COLOR,
                            underline=True)
+
+    def configure_text_tag_bindings(self, text):
         text.tag_bind(constants.LINK, "<Enter>", self.link_enter)
         text.tag_bind(constants.LINK, "<Leave>", self.link_leave)
         text.tag_bind(constants.LINK, "<Button-1>", self.link_action)
-
-
-        text.bind("<Home>", self.move_cursor_home)
-        text.bind("<End>", self.move_cursor_end)
-        text.bind("<Key>", self.key_press)
-        text.bind("<F1>", self.debug_tags)
-        text.bind("<F2>", self.debug_selected)
-        text.bind("<F3>", self.debug_buffer_paste)
-        text.bind("<F4>", self.debug_dump)
 
     @property
     def absfilepath(self):
@@ -356,7 +357,7 @@ class Table(RenderMixin):
                             spacing1=constants.TEXT_SPACING1,
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
-        self.master.configure_text(self.text)
+        self.master.configure_text_tags(self.text)
         self.text.grid(row=self.current_row, column=self.current_column,
                        sticky=(tk.W, tk.E, tk.N, tk.S))
         for child in ast["children"]:
