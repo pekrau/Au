@@ -16,15 +16,9 @@ class BaseTextViewer(BaseText):
     "Base text viewer window."
 
     def __init__(self, parent, main, filepath, title=None):
-        super().__init__(main, filepath)
+        super().__init__(main, filepath, title=title)
         self.setup_text(parent)
-        if title:
-            self.render_title(title)
         self.render(self.ast)
-
-    def render_title(self, title):
-        self.text.insert(tk.INSERT, title, constants.TITLE)
-        self.text.insert(tk.INSERT, "\n\n")
 
     def key_press(self, event):
         "Stop modifying actions."
@@ -45,6 +39,10 @@ class TextViewer(BaseTextViewer):
         self.move_cursor(self.frontmatter.get("cursor"))
         self.status = constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED
 
+        
 class HelpViewer(BaseTextViewer):
 
     TEXT_COLOR = "white"
+
+    def __str__(self):
+        return "Help"

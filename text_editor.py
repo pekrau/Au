@@ -29,22 +29,20 @@ class TextEditor(BaseText):
         self.setup_menubar()
         self.setup_text(self.toplevel)
         self.setup_info()
-
         self.text.bind("<<Modified>>", self.handle_modified)
         self.text.bind("<Button-3>", self.popup_menu)
-
-        self.render(self.ast)
-
         self.set_status(self.frontmatter.get("status"))
         self.info_update()
+        self.render(self.ast)
         self.move_cursor(self.frontmatter.get("cursor"))
-
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
+    def set_title(self):
+        self.toplevel.title(os.path.splitext(self.filepath)[0])
+
     def setup_toplevel(self):
         self.toplevel = tk.Toplevel(self.main.root)
-        self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.bind("<Control-s>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
@@ -504,7 +502,7 @@ class TextEditor(BaseText):
         self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
 
     def copy(self, event=None, parent=None):
-        "Make a copy of the text file."
+        "Make a copy of the current contents."
         dirpath, filename = os.path.split(self.filepath)
         initialdir = os.path.join(self.main.absdirpath, dirpath)
         name = tk_simpledialog.askstring(
@@ -528,7 +526,9 @@ class TextEditor(BaseText):
         self.main.open_text(filepath=filepath)
 
     def save(self, event=None):
-        "Save the text file."
+        """Save the current contents to the text file.
+        Get the main window to refresh the contents of the text view.
+        """
         if not self.is_modified:
             return
         self.frontmatter["status"] = repr(self.status)
@@ -536,14 +536,14 @@ class TextEditor(BaseText):
         self.frontmatter["cursor"] = self.text.index(tk.INSERT)
         self.main.move_file_to_archive(self.filepath)
         self.save_file(self.absfilepath)
+        self.main.text_rerender(self.filepath)
         self.menubar.configure(background=self.original_menubar_background)
         self.info_update()
-        self.main.update_treeview_entry(self.filepath, modified=False)
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
     def delete(self):
-        "Delete the text file."
+        "Delete the text file and this window."
         if not tk_messagebox.askokcancel(
                 parent=self.toplevel,
                 title="Delete text?",
@@ -564,12 +564,15 @@ class TextEditor(BaseText):
         self.toplevel.destroy()
 
     def save_file(self, filepath):
+        """Save the contents of the window as Markdown file.
+        Also used for making a copy of the file.
+        """
         with open(filepath, "w") as outfile:
             self.set_outfile(outfile)
             self.outfile.write("---\n")
             self.outfile.write(yaml.dump(self.frontmatter))
             self.outfile.write("---\n")
-            self.write()
+            self.markdown()
             self.set_outfile()
 
     @property
@@ -582,19 +585,19 @@ class TextEditor(BaseText):
         else:
             self.outfile_stack = [outfile]
 
-    def write(self):
+    def markdown(self):
         self.current_link_tag = None
-        self.write_line_indents = []
-        self.written_line_indent = False
-        self.write_skip_text = False
+        self.line_indents = []
+        self.line_indented = False
+        self.skip_text = False
         # Only used from this method.
         self.referred_footnotes = dict()
         # This does not need the cleaned dump.
         for item in self.text.dump("1.0", tk.END):
             try:
-                method = getattr(self, f"convert_{item[0]}")
+                method = getattr(self, f"markdown_{item[0]}")
             except AttributeError:
-                ic("Could not convert item", item)
+                ic("Could not markdown item", item)
             else:
                 method(item)
         footnotes = list(self.referred_footnotes.values())
@@ -611,99 +614,99 @@ class TextEditor(BaseText):
                 self.outfile.write("\n")
         del self.referred_footnotes
 
-    def write_line_indent(self, force=False):
-        if self.written_line_indent and not force:
+    def output_line_indent(self, force=False):
+        if self.line_indented and not force:
             return
-        self.outfile.write("".join(self.write_line_indents))
-        self.written_line_indent = True
+        self.outfile.write("".join(self.line_indents))
+        self.line_indented = True
 
-    def write_characters(self, characters):
+    def output_characters(self, characters):
         if not characters:
             return
         segments = characters.split("\n")
         if len(segments) == 1:
-            self.write_line_indent()
+            self.output_line_indent()
             self.outfile.write(segments[0])
         else:
             for segment in segments[:-1]:
-                self.write_line_indent()
+                self.output_line_indent()
                 self.outfile.write(segment)
                 self.outfile.write("\n")
-                self.written_line_indent = False
+                self.line_indented = False
             if segments[-1]:
-                self.write_line_indent()
+                self.output_line_indent()
                 self.outfile.write(segments[-1])
                 self.outfile.write("\n")
-                self.written_line_indent = False
+                self.line_indented = False
 
-    def convert_text(self, item):
-        if self.write_skip_text:
+    def markdown_text(self, item):
+        if self.skip_text:
             return
-        self.write_characters(item[1])
+        self.output_characters(item[1])
 
-    def convert_mark(self, item):
+    def markdown_mark(self, item):
         pass
 
-    def convert_tagon(self, item):
+    def markdown_tagon(self, item):
         tag = item[1]
         try:
-            method = getattr(self, f"convert_tagon_{tag}")
+            method = getattr(self, f"markdown_tagon_{tag}")
         except AttributeError:
             pass
         else:
             method(item)
 
-    def convert_tagoff(self, item):
+    def markdown_tagoff(self, item):
         try:
-            method = getattr(self, f"convert_tagoff_{item[1]}")
+            method = getattr(self, f"markdown_tagoff_{item[1]}")
         except AttributeError:
             pass
         else:
             method(item)
 
-    def convert_tagon_italic(self, item):
-        self.write_characters("*")
+    def markdown_tagon_italic(self, item):
+        self.output_characters("*")
 
-    def convert_tagoff_italic(self, item):
-        self.write_characters("*")
+    def markdown_tagoff_italic(self, item):
+        self.output_characters("*")
 
-    def convert_tagon_bold(self, item):
-        self.write_characters("**")
+    def markdown_tagon_bold(self, item):
+        self.output_characters("**")
 
-    def convert_tagoff_bold(self, item):
-        self.write_characters("**")
+    def markdown_tagoff_bold(self, item):
+        self.output_characters("**")
 
-    def convert_tagon_link(self, item):
+    def markdown_tagon_link(self, item):
         for tag in self.text.tag_names(item[2]):
             if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
-                self.write_characters("[")
+                self.output_characters("[")
                 return
 
-    def convert_tagoff_link(self, item):
+    def markdown_tagoff_link(self, item):
         link = self.get_link(self.current_link_tag)
         if link["title"]:
-            self.write_characters(f"""]({link['url']} "{link['title']}")""")
+            self.output_characters(f"""]({link['url']} "{link['title']}")""")
         else:
-            self.write_characters(f"]({link['url']})")
+            self.output_characters(f"]({link['url']})")
         self.current_link_tag = None
 
-    def convert_tagon_quote(self, item):
-        self.write_line_indents.append("> ")
+    def markdown_tagon_quote(self, item):
+        self.line_indents.append("> ")
 
-    def convert_tagoff_quote(self, item):
-        self.write_line_indents.pop()
+    def markdown_tagoff_quote(self, item):
+        self.line_indents.pop()
 
-    def convert_tagon_thematic_break(self, item):
-        self.write_skip_text = True
+    def markdown_tagon_thematic_break(self, item):
+        self.output_skip_text = True
 
-    def convert_tagoff_thematic_break(self, item):
-        self.write_characters("---")
-        self.write_line_indent(force=True)
+    def markdown_tagoff_thematic_break(self, item):
+        self.output_characters("---")
+        self.output_line_indent(force=True)
         self.outfile.write("\n")
-        self.write_skip_text = False
+        self.skip_text = False
 
-    def convert_tagon_footnote_ref(self, item):
+    def markdown_tagon_footnote_ref(self, item):
         for tag in self.text.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
                 old_label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
@@ -712,35 +715,35 @@ class TextEditor(BaseText):
                 footnote["new_label"] = new_label
                 self.referred_footnotes[old_label] = footnote
                 break
-        self.write_characters(f"[^{new_label}]")
-        self.write_skip_text = True
+        self.output_characters(f"[^{new_label}]")
+        self.skip_text = True
 
-    def convert_tagoff_footnote_ref(self, item):
+    def markdown_tagoff_footnote_ref(self, item):
         pass
 
-    def convert_tagon_footnote_def(self, item):
+    def markdown_tagon_footnote_def(self, item):
         for tag in self.text.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
                 old_label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
         footnote = self.referred_footnotes[old_label]
         footnote["outfile"] = io.StringIO()
         self.outfile_stack.append(footnote["outfile"])
-        self.write_skip_text = False
+        self.skip_text = False
 
-    def convert_tagoff_footnote_def(self, item):
+    def markdown_tagoff_footnote_def(self, item):
         self.outfile_stack.pop()
 
-    def convert_tagon_indexed(self, item):
-        self.write_characters("[#")
+    def markdown_tagon_indexed(self, item):
+        self.output_characters("[#")
 
-    def convert_tagoff_indexed(self, item):
-        self.write_characters("]")
+    def markdown_tagoff_indexed(self, item):
+        self.output_characters("]")
 
-    def convert_tagon_reference(self, item):
-        self.write_characters("[@")
+    def markdown_tagon_reference(self, item):
+        self.output_characters("[@")
 
-    def convert_tagoff_reference(self, item):
-        self.write_characters("]")
+    def markdown_tagoff_reference(self, item):
+        self.output_characters("]")
 
 
 class LinkEdit(tk_simpledialog.Dialog):

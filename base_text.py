@@ -124,17 +124,18 @@ class BaseText(RenderMixin):
 
     TEXT_COLOR = constants.TEXT_COLOR
 
-    def __init__(self, main, filepath):
+    def __init__(self, main, filepath, title=None):
         self.main = main
         self.filepath = filepath
-
+        self.title = title
         self.frontmatter, self.ast = utils.parse(self.absfilepath)
-
+        self.prev_line_not_blank = False
         # These lookups are local for each BaseText instance.
         self.links = dict()
         self.footnotes = dict()
 
-        self.prev_line_not_blank = False
+    def __str__(self):
+        return self.filepath
 
     def setup_text(self, parent):
         "Setup the text widget and its associates."
@@ -219,6 +220,20 @@ class BaseText(RenderMixin):
         text.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
         text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
         text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
+
+    def rerender(self):
+        self.frontmatter, self.ast = utils.parse(self.absfilepath)
+        self.links = dict()
+        self.footnotes = dict()
+        self.prev_line_not_blank = False
+        self.text.delete("1.0", tk.END)
+        self.render_title()
+        self.render(self.ast)
+
+    def render_title(self):
+        if self.title:
+            self.text.insert(tk.INSERT, self.title, constants.TITLE)
+            self.text.insert(tk.INSERT, "\n\n")
 
     @property
     def absfilepath(self):

@@ -25,8 +25,8 @@ VERSION = (0, 6, 2)
 class Main:
     """Main window containing three panes:
     1) The tree of sections and texts.
-    2) The notebooks containing tabs for all top-level texts.
-    3) The lookup notebook with references, indexed and help.
+    2) The notebook containing tabs for all top-level texts.
+    3) The notebook with references, indexed and help.
     """
 
     def __init__(self, absdirpath):
@@ -45,16 +45,14 @@ class Main:
         self.root.geometry(
             self.config["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
-        self.root.minsize(600, 400)
+        self.root.minsize(600, 600)
         self.au64 = tk.PhotoImage(data=constants.AU64)
         self.root.iconphoto(False, self.au64, self.au64)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
+        self.root.bind("<F12>", self.debug)
 
-        # All texts, with references to any open editor windows.
+        # All texts. Key: filepath; value: dict(viewer=, editor=)
         self.texts = dict()
-
-        # The paste buffer is global to all editors, to facilitate cut-and-paste.
-        self.paste_buffer = self.config.get("paste_buffer")
 
         self.setup_menubar()
 
@@ -67,22 +65,8 @@ class Main:
         
         self.setup_treeview()
         self.setup_texts_notebook()
-        self.setup_lookup_notebook()
-
-        for text in self.texts.values():
-            try:
-                text["viewer"].info_update()
-            except KeyError:
-                pass
-
-        for filepath in self.texts:
-            try:
-                config = self.config["texts"][filepath]
-            except KeyError:
-                pass
-            else:
-                if config.get("open"):
-                    self.open_texteditor(filepath=filepath)
+        self.setup_meta_notebook()
+        self.setup_config()
 
         self.root.lift()
 
@@ -98,34 +82,36 @@ class Main:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Save config",
-                                   command=self.save_config,
-                                   accelerator="Ctrl-S")
-        self.root.bind("<Control-s>", self.save_config)
-        self.menu_file.add_command(label="Save texts", command=self.save_texts)
-        self.menu_file.add_separator()
         self.menu_file.add_command(label="Write DOCX", command=self.write_docx)
         self.menu_file.add_command(label="Write PDF", command=self.write_pdf)
         self.menu_file.add_command(label="Write EPUB", command=self.write_epub)
+        self.menu_file.add_command(label="Write HTML", command=self.write_html)
         self.menu_file.add_separator()
-        self.menu_file.add_command(label="Quit", command=self.quit)
+        self.menu_file.add_command(label="Save",
+                                   command=self.save, 
+                                   accelerator="Ctrl-S")
+        self.root.bind("<Control-s>", self.save)
+        self.menu_file.add_command(label="Quit",
+                                   command=self.quit,
+                                   accelerator="Ctrl-Q")
+        self.root.bind("<Control-q>", self.quit)
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Rename section", command=self.rename_section)
-        self.menu_edit.add_command(label="Copy section", command=self.copy_section)
-        self.menu_edit.add_command(label="Create section", command=self.create_section)
-        self.menu_edit.add_command(label="Delete section", command=self.delete_section)
+        self.menu_edit.add_command(label="Rename section", command=self.section_rename)
+        self.menu_edit.add_command(label="Copy section", command=self.section_copy)
+        self.menu_edit.add_command(label="Create section", command=self.section_create)
+        self.menu_edit.add_command(label="Delete section", command=self.section_delete)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Open text editor",
                                    command=self.open_texteditor,
                                    accelerator="Ctrl-O")
-        self.menu_edit.add_command(label="Rename text", command=self.rename_text)
-        self.menu_edit.add_command(label="Copy text", command=self.copy_text)
+        self.menu_edit.add_command(label="Rename text", command=self.text_rename)
+        self.menu_edit.add_command(label="Copy text", command=self.text_copy)
         self.menu_edit.add_command(label="Create text",
-                                   command=self.create_text,
+                                   command=self.text_create,
                                    accelerator="Ctrl-N")
-        self.menu_edit.add_command(label="Delete text", command=self.delete_text)
+        self.menu_edit.add_command(label="Delete text", command=self.text_delete)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(label="Move item up",
                                    command=self.move_item_up,
@@ -141,9 +127,9 @@ class Main:
                                    accelerator="Ctrl-Right")
 
         self.section_menu = tk.Menu(self.menubar)
-        self.section_menu.add_command(label="Rename", command=self.rename_section)
-        self.section_menu.add_command(label="Copy", command=self.copy_section)
-        self.section_menu.add_command(label="Delete", command=self.delete_section)
+        self.section_menu.add_command(label="Rename", command=self.section_rename)
+        self.section_menu.add_command(label="Copy", command=self.section_copy)
+        self.section_menu.add_command(label="Delete", command=self.section_delete)
         self.section_menu.add_separator()
         self.section_menu.add_command(label="Move up", command=self.move_item_up)
         self.section_menu.add_command(label="Move down", command=self.move_item_down)
@@ -154,9 +140,9 @@ class Main:
 
         self.text_menu = tk.Menu(self.menubar)
         self.text_menu.add_command(label="Open", command=self.open_texteditor)
-        self.text_menu.add_command(label="Rename", command=self.rename_text)
-        self.text_menu.add_command(label="Copy", command=self.copy_text)
-        self.text_menu.add_command(label="Delete", command=self.delete_text)
+        self.text_menu.add_command(label="Rename", command=self.text_rename)
+        self.text_menu.add_command(label="Copy", command=self.text_copy)
+        self.text_menu.add_command(label="Delete", command=self.text_delete)
         self.text_menu.add_separator()
         self.text_menu.add_command(label="Move up", command=self.move_item_up)
         self.text_menu.add_command(label="Move down", command=self.move_item_down)
@@ -168,8 +154,9 @@ class Main:
     def setup_treeview(self):
         "Setup the treeview."
         self.treeview_frame = ttk.Frame(self.panedwindow)
-        self.panedwindow.add(self.treeview_frame)
-        self.panedwindow.paneconfigure(self.treeview_frame, minsize=400)
+        self.panedwindow.add(self.treeview_frame,
+                             width=constants.TREEVIEW_PANE_WIDTH,
+                             minsize=constants.PANE_MINSIZE)
 
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
@@ -202,7 +189,7 @@ class Main:
         self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
 
         self.treeview.bind("<Control-o>", self.open_texteditor)
-        self.treeview.bind("<Control-n>", self.create_text)
+        self.treeview.bind("<Control-n>", self.text_create)
         self.treeview.bind("<Control-Up>", self.move_item_up)
         self.treeview.bind("<Control-Down>", self.move_item_down)
         self.treeview.bind("<Control-Right>", self.move_item_into_section)
@@ -256,8 +243,9 @@ class Main:
     def setup_texts_notebook(self):
         "Create and initialize the texts notebook tabs."
         self.texts_notebook_frame = ttk.Frame(self.panedwindow)
-        self.panedwindow.add(self.texts_notebook_frame)
-        self.panedwindow.paneconfigure(self.texts_notebook_frame, minsize=400)
+        self.panedwindow.add(self.texts_notebook_frame,
+                             # width=constants.TEXTS_PANE_WIDTH,
+                             minsize=constants.PANE_MINSIZE)
 
         self.texts_notebook = ttk.Notebook(self.texts_notebook_frame)
         self.texts_notebook.pack(fill=tk.BOTH, expand=True)
@@ -274,28 +262,75 @@ class Main:
             viewer.text.bind("<Double-Button-1>", opener)
             viewer.text.bind("<Return>", opener)
 
-    def setup_lookup_notebook(self):
+    def setup_meta_notebook(self):
         "Create and initialize the reference, indexed and help notebook tabs."
-        self.lookup_notebook_frame = ttk.Frame(self.panedwindow)
-        self.panedwindow.add(self.lookup_notebook_frame)
-        self.panedwindow.paneconfigure(self.lookup_notebook_frame, minsize=200)
+        self.meta_notebook_frame = ttk.Frame(self.panedwindow)
+        self.panedwindow.add(self.meta_notebook_frame,
+                             width=constants.META_PANE_WIDTH,
+                             minsize=constants.PANE_MINSIZE)
 
-        self.lookup_notebook = ttk.Notebook(self.lookup_notebook_frame)
-        self.lookup_notebook.pack(fill=tk.BOTH, expand=True)
+        self.meta_notebook = ttk.Notebook(self.meta_notebook_frame)
+        self.meta_notebook.pack(fill=tk.BOTH, expand=True)
 
-        self.references_frame = ttk.Frame(self.lookup_notebook)
+         # key: widget name; value: instance.
+        self.meta_notebook_lookup = dict()
+
+        self.references_frame = ttk.Frame(self.meta_notebook)
         self.references_frame.pack(fill=tk.BOTH, expand=True)
-        self.lookup_notebook.add(self.references_frame, text="References")
+        self.meta_notebook.add(self.references_frame, text="References")
 
-        self.indexed_frame = ttk.Frame(self.lookup_notebook)
+        self.indexed_frame = ttk.Frame(self.meta_notebook)
         self.indexed_frame.pack(fill=tk.BOTH, expand=True)
-        self.lookup_notebook.add(self.indexed_frame, text="Indexed")
+        self.meta_notebook.add(self.indexed_frame, text="Indexed")
 
-        self.help_frame = ttk.Frame(self.lookup_notebook)
+        self.help_frame = ttk.Frame(self.meta_notebook)
         self.help_frame.pack(fill=tk.BOTH, expand=True)
-        self.lookup_notebook.add(self.help_frame, text="Help")
+        self.meta_notebook.add(self.help_frame, text="Help")
         filepath = os.path.join(os.path.dirname(__file__), constants.HELP_FILENAME)
         self.help_text = HelpViewer(self.help_frame, self, filepath)
+        self.meta_notebook_lookup[str(self.help_text)] = self.help_text
+
+    def setup_config(self):
+        "Set up windows and tabs according to config."
+        # The paste buffer is global to all editors, to facilitate cut-and-paste.
+        self.paste_buffer = self.config.get("paste_buffer") or list()
+
+        # Placement of paned window sashes.
+        try:
+            sash = self.config["main"]["sash"]
+        except KeyError:
+            pass
+        else:
+            self.panedwindow.update() # Has to be here for this to work.
+            self.panedwindow.sash("place", 0, sash[0], 1)
+            self.panedwindow.sash("place", 1, sash[1], 1)
+
+        # Active tab in notebooks.
+        try:
+            self.texts_notebook.select(self.config["main"]["texts"]["tab"])
+        except (tk.TclError, KeyError):
+            pass
+        try:
+            self.meta_notebook.select(self.config["main"]["meta"]["tab"])
+        except (tk.TclError, KeyError):
+            pass
+
+        # Set size and modification dates of texts.
+        for text in self.texts.values():
+            try:
+                text["viewer"].info_update()
+            except KeyError:
+                pass
+
+        # Re-open text editors.
+        for filepath in self.texts:
+            try:
+                config = self.config["texts"][filepath]
+            except KeyError:
+                pass
+            else:
+                if config.get("open"):
+                    self.open_texteditor(filepath=filepath)
 
     def add_treeview_entry(self, itempath, set_selection=False, index=None, open=False):
         dirpath, itemname = os.path.split(itempath)
@@ -366,7 +401,7 @@ class Main:
             if index < 0:
                 index = max_index
             self.treeview.move(iid, parent, index)
-        self.save_config()
+        self.save()
         return "break"
 
     def move_item_down(self, event=None):
@@ -383,7 +418,7 @@ class Main:
             if index > max_index:
                 index = 0
             self.treeview.move(iid, parent, index)
-        self.save_config()
+        self.save()
         return "break"
 
     def move_item_into_section(self, event=None):
@@ -458,7 +493,7 @@ class Main:
             else:
                 ic("No such old item", newabspath)
 
-            self.save_config()
+            self.save()
         finally:
             return "break"
 
@@ -522,11 +557,11 @@ class Main:
             else:
                 ic("No such old item", newabspath)
 
-            self.save_config()
+            self.save()
         finally:
             return "break"
 
-    def rename_section(self):
+    def section_rename(self):
         try:
             oldpath = self.treeview.selection()[0]
         except IndexError:
@@ -575,9 +610,9 @@ class Main:
 
         self.treeview.see(newpath)
         self.treeview.focus(newpath)
-        self.save_config()
+        self.save()
 
-    def copy_section(self):
+    def section_copy(self):
         try:
             oldpath = self.treeview.selection()[0]
         except IndexError:
@@ -621,9 +656,9 @@ class Main:
 
         self.treeview.see(newpath)
         self.treeview.focus(newpath)
-        self.save_config()
+        self.save()
 
-    def create_section(self, parent=None):
+    def section_create(self, parent=None):
         try:
             dirpath = self.treeview.selection()[0]
             absdirpath = os.path.join(self.absdirpath, dirpath)
@@ -656,9 +691,9 @@ class Main:
 
         os.makedirs(absdirpath)
         self.add_treeview_entry(dirpath, set_selection=True)
-        self.save_config()
+        self.save()
 
-    def delete_section(self):
+    def section_delete(self):
         selection = self.treeview.selection()
         if not selection:
             return
@@ -701,7 +736,7 @@ class Main:
         self.treeview.delete(dirpath)
         # Actually remove the directory and files.
         shutil.rmtree(absdirpath)
-        self.save_config()
+        self.save()
 
     def open_texteditor(self, event=None, filepath=None):
         if filepath is None:
@@ -717,8 +752,9 @@ class Main:
             ed.toplevel.lift()
         self.treeview.see(filepath)
         ed.text.focus_set()
+        return "break"
 
-    def rename_text(self, parent=None, oldpath=None):
+    def text_rename(self, parent=None, oldpath=None):
         if oldpath is None:
             try:
                 oldpath = self.treeview.selection()[0]
@@ -771,9 +807,9 @@ class Main:
         self.treeview.see(newpath)
         self.treeview.focus(newpath)
         os.rename(oldabspath, newabspath)
-        self.save_config()
+        self.save()
 
-    def create_text(self, event=None, parent=None):
+    def text_create(self, event=None, parent=None):
         try:
             dirpath = self.treeview.selection()[0]
             absdirpath = os.path.join(self.absdirpath, dirpath)
@@ -809,7 +845,7 @@ class Main:
         self.add_treeview_entry(filepath, set_selection=True)
         self.open_texteditor(filepath=filepath)
 
-    def copy_text(self):
+    def text_copy(self):
         try:
             filepath = self.treeview.selection()[0]
             absfilepath = os.path.join(self.absdirpath, filepath)
@@ -844,7 +880,7 @@ class Main:
         shutil.copy(absfilepath, newabsfilepath)
         self.add_treeview_entry(newfilepath)
 
-    def delete_text(self, filepath=None, force=False):
+    def text_delete(self, filepath=None, force=False):
         if filepath is None:
             try:
                 filepath = self.treeview.selection()[0]
@@ -867,7 +903,15 @@ class Main:
         self.treeview.delete(filepath)
         self.texts.pop(filepath) # XXX
         self.move_file_to_archive(filepath)
-        self.save_config()
+        self.save()
+
+    def text_rerender(self, filepath):
+        viewer = self.texts[filepath]["viewer"]
+        viewer.rerender()
+        pos = viewer.frontmatter["cursor"]
+        viewer.text.mark_set(tk.INSERT, pos)
+        viewer.text.see(pos)
+        self.update_treeview_entry(filepath, modified=False)
 
     def move_file_to_archive(self, filepath):
         """Move the text file to the archive.
@@ -895,33 +939,6 @@ class Main:
         elif os.path.isfile(abspath):
             self.text_menu.tk_popup(event.x_root, event.y_root)
 
-    def save_texts(self, event=None):
-        "Save contents of all open text editor windows, and the config."
-        for text in self.texts.values():
-            try:
-                text["editor"].save()
-            except KeyError:
-                pass
-
-    def save_config(self, event=None):
-        """Save the current config. 
-        The contents of the dictionary must first be updated.
-        Get current state from the respective widgets.
-        """
-        self.config["main"]["geometry"] = self.root.geometry()
-        self.config["paste_buffer"] = self.paste_buffer
-        # Get the order of the texts as shown in the treeview.
-        # This relies on the dictionary keeping the order of the items.
-        self.config["texts"] = dict()
-        for filepath in self.get_all_treeview_items():
-            self.config["texts"][filepath] = conf = dict()
-            if filepath.endswith(".md"):
-                conf["open"] = "editor" in self.texts[filepath]
-            else:
-                conf["open"] = bool(self.treeview.item(filepath, "open"))
-        with open(self.configpath, "w") as outfile:            
-            json.dump(self.config, outfile, indent=2)
-
     def write_docx(self):
         title = os.path.basename(self.absdirpath)
         absfilepath = os.path.join(self.absdirpath, title + ".docx")
@@ -937,6 +954,42 @@ class Main:
 
     def write_epub(self):
         raise NotImplementedError
+
+    def write_html(self):
+        raise NotImplementedError
+
+    def save(self, event=None):
+        """Save the current config. 
+        The contents of the 'config' dictionary must first be updated.
+        Get current state from the respective widgets.
+        """
+        self.config["main"]["geometry"] = self.root.geometry()
+        self.config["main"]["sash"] = [self.panedwindow.sash("coord", 0)[0],
+                                       self.panedwindow.sash("coord", 1)[0]]
+        self.config["main"]["texts"] = dict(tab=self.texts_notebook.index(self.texts_notebook.select()))
+        self.config["main"]["meta"] = dict(tab=self.meta_notebook.index(self.meta_notebook.select()))
+        self.config["paste_buffer"] = self.paste_buffer
+        # Get the order of the texts as shown in the treeview.
+        # This relies on the dictionary keeping the order of the items.
+        self.config["texts"] = dict()
+        for filepath in self.get_all_treeview_items():
+            self.config["texts"][filepath] = conf = dict()
+            if filepath.endswith(".md"):
+                try:
+                    editor = self.texts[filepath]["editor"]
+                    conf["open"] = True
+                    conf["cursor"] = editor.text.index(tk.INSERT)
+                except KeyError:
+                    conf["open"] = False
+                    try:
+                        viewer = self.texts[filepath]["viewer"]
+                        conf["cursor"] = viewer.text.index(tk.INSERT)
+                    except KeyError:
+                        pass
+            else:
+                conf["open"] = bool(self.treeview.item(filepath, "open"))
+        with open(self.configpath, "w") as outfile:            
+            json.dump(self.config, outfile, indent=2)
 
     def quit(self, event=None):
         for text in self.texts.values():
@@ -963,6 +1016,11 @@ class Main:
             result.append(path)
             result.extend(self.get_all_treeview_items(path))
         return result
+
+    def debug(self, event=None):
+        ic(self.texts_notebook.tabs(),
+           self.texts_notebook.select(),
+           self.meta_notebook.select())
 
     def mainloop(self):
         self.root.mainloop()
