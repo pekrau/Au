@@ -85,7 +85,8 @@ class RenderMixin:
 
     def render_thematic_break(self, ast):
         self.conditional_line_break(flag=True)
-        self.text.insert(tk.INSERT, "\n---\n", "thematic_break")
+        self.text.insert(tk.INSERT, "------------------------------------",
+                         (constants.THEMATIC_BREAK, ))
         self.conditional_line_break(flag=False)
 
     def render_footnote_ref(self, ast):
@@ -171,6 +172,11 @@ class BaseText(RenderMixin):
 
 
     def configure_text_tags(self, text):
+        text.tag_configure(constants.TITLE, font=constants.TITLE_FONT)
+        text.tag_configure(constants.H1, font=constants.H1_FONT)
+        text.tag_configure(constants.H2, font=constants.H2_FONT)
+        text.tag_configure(constants.H3, font=constants.H3_FONT)
+        text.tag_configure(constants.H4, font=constants.H4_FONT)
         text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         text.tag_configure(constants.QUOTE,
@@ -180,19 +186,39 @@ class BaseText(RenderMixin):
                            spacing1=constants.QUOTE_SPACING1,
                            spacing2=constants.QUOTE_SPACING2,
                            font=constants.QUOTE_FONT)
-        text.tag_configure(constants.TITLE, font=constants.TITLE_FONT)
-        text.tag_configure(constants.H1, font=constants.H1_FONT)
-        text.tag_configure(constants.H2, font=constants.H2_FONT)
-        text.tag_configure(constants.H3, font=constants.H3_FONT)
-        text.tag_configure(constants.H4, font=constants.H4_FONT)
+        text.tag_configure(constants.THEMATIC_BREAK,
+                           font=constants.FONT_BOLD,
+                           justify=tk.CENTER)
         text.tag_configure(constants.LINK,
                            foreground=constants.LINK_COLOR,
                            underline=True)
+        text.tag_configure(constants.INDEXED, underline=True)
+        text.tag_configure(constants.REFERENCE,
+                           foreground=constants.REFERENCE_COLOR,
+                           underline=True)
+        text.tag_configure(constants.FOOTNOTE_REF,
+                           foreground=constants.FOOTNOTE_REF_COLOR,
+                           underline=True)
+        text.tag_configure(constants.FOOTNOTE_DEF,
+                           background=constants.FOOTNOTE_DEF_COLOR,
+                           borderwidth=1,
+                           relief=tk.SOLID,
+                           lmargin1=constants.FOOTNOTE_MARGIN,
+                           lmargin2=constants.FOOTNOTE_MARGIN,
+                           rmargin=constants.FOOTNOTE_MARGIN)
 
     def configure_text_tag_bindings(self, text):
         text.tag_bind(constants.LINK, "<Enter>", self.link_enter)
         text.tag_bind(constants.LINK, "<Leave>", self.link_leave)
         text.tag_bind(constants.LINK, "<Button-1>", self.link_action)
+        text.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
+        text.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
+        text.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_view)
+        text.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
+        text.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
+        text.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
+        text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
+        text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
     @property
     def absfilepath(self):
@@ -336,7 +362,6 @@ class Table(RenderMixin):
         self.text = None
         self.current_row = -1
         self.delimiters = [len(d) for d in ast["delimiters"]]
-        ic(self.delimiters)
         for child in ast["children"]:
             self.render(child)
 
@@ -348,9 +373,11 @@ class Table(RenderMixin):
 
     def render_table_cell(self, ast):
         self.current_column += 1
+        width = max(6, self.delimiters[self.current_column])
+        height = max(1, self.len_raw_text(ast) / self.delimiters[self.current_column])
         self.text = tk.Text(self.frame,
-                            width=max(6, self.delimiters[self.current_column]),
-                            height=max(1, self.count_raw_text(ast) / self.delimiters[self.current_column]),
+                            width=width,
+                            height=height,
                             padx=constants.TEXT_PADX,
                             font=constants.FONT_NORMAL_FAMILY,
                             wrap=tk.WORD,
@@ -365,14 +392,11 @@ class Table(RenderMixin):
         if ast.get("header"):
             self.text.tag_add(constants.BOLD, "1.0", tk.INSERT)
 
-    def count_raw_text(self, ast):
+    def len_raw_text(self, ast):
         if ast["element"] == "raw_text":
             return len(ast["children"])
         else:
-            result = 0
-            for child in ast["children"]:
-                result += self.count_raw_text(child)
-            return result
+            return sum([self.len_raw_text(c) for c in ast["children"]])
 
     def render_link(self, ast):
         raise NotImplementedError

@@ -45,34 +45,6 @@ class TextViewer(BaseTextViewer):
         self.move_cursor(self.frontmatter.get("cursor"))
         self.status = constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED
 
-    def configure_text_tags(self, text):
-        super().configure_text_tags(text)
-        text.tag_configure(constants.INDEXED, underline=True)
-        text.tag_configure(constants.REFERENCE,
-                           foreground=constants.REFERENCE_COLOR,
-                           underline=True)
-        text.tag_configure(constants.FOOTNOTE_REF,
-                           foreground=constants.FOOTNOTE_REF_COLOR,
-                           underline=True)
-        text.tag_configure(constants.FOOTNOTE_DEF,
-                           background=constants.FOOTNOTE_DEF_COLOR,
-                           borderwidth=1,
-                           relief=tk.SOLID,
-                           lmargin1=constants.FOOTNOTE_MARGIN,
-                           lmargin2=constants.FOOTNOTE_MARGIN,
-                           rmargin=constants.FOOTNOTE_MARGIN)
-
-    def configure_text_tag_bindings(self, text):
-        super().configure_text_tag_bindings(text)
-        text.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
-        text.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
-        text.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_view)
-        text.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
-        text.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
-        text.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
-        text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
-        text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
-
 class HelpViewer(BaseTextViewer):
 
     TEXT_COLOR = "white"

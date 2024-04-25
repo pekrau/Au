@@ -53,6 +53,7 @@ STATUS_LOOKUP = dict([(s.name, s) for s in STATUSES])
 
 BOLD = "bold"
 ITALIC = "italic"
+THEMATIC_BREAK = "thematic_break"
 
 TEXT_PADX = 5
 TEXT_SPACING1 = 0
