@@ -19,7 +19,7 @@ import utils
 from text_viewer import TextViewer, HelpViewer
 from text_editor import TextEditor
 
-VERSION = (0, 6, 2)
+VERSION = (0, 6, 3)
 
 
 class Main:
@@ -242,13 +242,8 @@ class Main:
 
     def setup_texts_notebook(self):
         "Create and initialize the texts notebook tabs."
-        self.texts_notebook_frame = ttk.Frame(self.panedwindow)
-        self.panedwindow.add(self.texts_notebook_frame,
-                             # width=constants.TEXTS_PANE_WIDTH,
-                             minsize=constants.PANE_MINSIZE)
-
-        self.texts_notebook = ttk.Notebook(self.texts_notebook_frame)
-        self.texts_notebook.pack(fill=tk.BOTH, expand=True)
+        self.texts_notebook = ttk.Notebook(self.panedwindow)
+        self.panedwindow.add(self.texts_notebook, minsize=constants.PANE_MINSIZE)
 
         for filepath, text in self.texts.items():
             section, name = os.path.split(filepath)
@@ -258,36 +253,27 @@ class Main:
             viewer = TextViewer(self.texts_notebook, self, filepath, title=title)
             text["viewer"] = viewer
             self.texts_notebook.add(viewer.frame, text=name)
+            text["tab"] = self.texts_notebook.tabs()[-1]
             opener = functools.partial(self.open_texteditor, filepath=filepath)
             viewer.text.bind("<Double-Button-1>", opener)
             viewer.text.bind("<Return>", opener)
+            ic(text)
 
     def setup_meta_notebook(self):
         "Create and initialize the reference, indexed and help notebook tabs."
-        self.meta_notebook_frame = ttk.Frame(self.panedwindow)
-        self.panedwindow.add(self.meta_notebook_frame,
-                             width=constants.META_PANE_WIDTH,
-                             minsize=constants.PANE_MINSIZE)
-
-        self.meta_notebook = ttk.Notebook(self.meta_notebook_frame)
-        self.meta_notebook.pack(fill=tk.BOTH, expand=True)
+        self.meta_notebook = ttk.Notebook(self.panedwindow)
+        self.panedwindow.add(self.meta_notebook, minsize=constants.PANE_MINSIZE)
 
          # key: widget name; value: instance.
         self.meta_notebook_lookup = dict()
 
-        self.references_frame = ttk.Frame(self.meta_notebook)
-        self.references_frame.pack(fill=tk.BOTH, expand=True)
-        self.meta_notebook.add(self.references_frame, text="References")
+        self.meta_notebook.add(ttk.Frame(self.meta_notebook), text="References")
 
-        self.indexed_frame = ttk.Frame(self.meta_notebook)
-        self.indexed_frame.pack(fill=tk.BOTH, expand=True)
-        self.meta_notebook.add(self.indexed_frame, text="Indexed")
+        self.meta_notebook.add(ttk.Frame(self.meta_notebook), text="Indexed")
 
-        self.help_frame = ttk.Frame(self.meta_notebook)
-        self.help_frame.pack(fill=tk.BOTH, expand=True)
-        self.meta_notebook.add(self.help_frame, text="Help")
         filepath = os.path.join(os.path.dirname(__file__), constants.HELP_FILENAME)
-        self.help_text = HelpViewer(self.help_frame, self, filepath)
+        self.help_text = HelpViewer(self.meta_notebook, self, filepath)
+        self.meta_notebook.add(self.help_text.frame, text="Help")
         self.meta_notebook_lookup[str(self.help_text)] = self.help_text
 
     def setup_config(self):
@@ -901,7 +887,10 @@ class Main:
         else:
             ed.close(force=True)
         self.treeview.delete(filepath)
-        self.texts.pop(filepath) # XXX
+        text = self.texts.pop(filepath)
+        ic(self.texts_notebook.tabs())
+        self.texts_notebook.forget(text["tab"])
+        ic(self.texts_notebook.tabs())
         self.move_file_to_archive(filepath)
         self.save()
 

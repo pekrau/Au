@@ -18,6 +18,7 @@ class BaseTextViewer(BaseText):
     def __init__(self, parent, main, filepath, title=None):
         super().__init__(main, filepath, title=title)
         self.setup_text(parent)
+        self.render_title()
         self.render(self.ast)
 
     def key_press(self, event):
