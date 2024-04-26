@@ -87,7 +87,6 @@ class RenderMixin:
         self.conditional_line_break(flag=True)
         self.text.insert(tk.INSERT, "------------------------------------",
                          (constants.THEMATIC_BREAK, ))
-        self.conditional_line_break(flag=False)
 
     def render_footnote_ref(self, ast):
         label = ast["label"]
@@ -171,7 +170,6 @@ class BaseText(RenderMixin):
         self.text.bind("<F3>", self.debug_buffer_paste)
         self.text.bind("<F4>", self.debug_dump)
 
-
     def configure_text_tags(self, text):
         text.tag_configure(constants.TITLE, font=constants.TITLE_FONT)
         text.tag_configure(constants.H1, font=constants.H1_FONT)
@@ -231,9 +229,10 @@ class BaseText(RenderMixin):
         self.render(self.ast)
 
     def render_title(self):
-        if self.title:
-            self.text.insert(tk.INSERT, self.title, constants.TITLE)
-            self.text.insert(tk.INSERT, "\n\n")
+        if not self.title:
+            return
+        self.text.insert(tk.INSERT, self.title, constants.TITLE)
+        self.text.insert(tk.INSERT, "\n\n")
 
     @property
     def absfilepath(self):
@@ -264,18 +263,76 @@ class BaseText(RenderMixin):
     def key_press(self, event):
         raise NotImplementedError
 
-    def move_cursor(self, position=None):
+    def move_cursor(self, position):
         if position is None:
             self.move_cursor_home()
         else:
-            self.text.mark_set(tk.INSERT, position)
-            self.text.see(position)
+            self.text.mark_set(tk.INSERT, position + self.cursor_offset())
+            # XXX This does not work?
+            self.text.see(position + self.cursor_offset())
 
     def move_cursor_home(self, event=None):
         self.move_cursor("1.0")
 
     def move_cursor_end(self, event=None):
         self.move_cursor(tk.END)
+
+    def cursor_offset(self, sign="+"):
+        "Return the offset to convert the cursor position to the one to use."
+        if self.title:
+            return f"{sign}{len(self.title)+2}c"
+        else:
+            return ""
+
+    def cursor_normalized(self):
+        "Return the normalized cursor position."
+        return self.text.index(tk.INSERT + self.cursor_offset(sign="-"))
+
+    def get_selection(self, check_no_boundary=True, adjust=False):
+        """Raise ValueError if no current selection, or region boundary (if checked).
+        Optionally adjust region to have non-blank beginning and end.
+        """
+        try:
+            first = self.text.index(tk.SEL_FIRST)
+            last = self.text.index(tk.SEL_LAST)
+        except tk.TclError:
+            raise ValueError("no current selection")
+        if adjust:
+            if self.text.get(first) in string.whitespace:
+                original_first = first
+                for offset in range(1, 10):
+                    first = f"{original_first}+{offset}c"
+                    if self.text.get(first) not in string.whitespace:
+                        break
+            if self.text.get(last + "-1c") in string.whitespace:
+                original_last = last
+                for offset in range(1, 11):
+                    last = f"{original_last}-{offset}c"
+                    probe = f"{original_last}-{offset+1}c"
+                    if self.text.get(probe) not in string.whitespace:
+                        break
+        if check_no_boundary:
+            if self.selection_contains_boundary(first, last):
+                raise ValueError
+        return first, last
+
+    def selection_contains_boundary(self, first=None, last=None, show=True):
+        try:
+            if first is None or last is None:
+                first, last = self.get_selection()
+        except ValueError:
+            return False
+        first_tags = set(self.text.tag_names(first))
+        first_tags.discard("sel")
+        last_tags = set(self.text.tag_names(last))
+        last_tags.discard("sel")
+        result = first_tags != last_tags
+        if result and show:
+            tk_messagebox.showerror(
+                parent=self.toplevel,
+                title="Region boundary",
+                message="Selection contains a region boundary")
+        return result
 
     def get_link(self, tag=None):
         if tag is None:

@@ -249,6 +249,7 @@ class Main:
                 continue
             title = os.path.splitext(os.path.basename(filepath))[0]
             viewer = TextViewer(self.texts_notebook, self, filepath, title=title)
+            viewer.move_cursor(self.config["texts"][filepath].get("cursor"))
             text["viewer"] = viewer
             self.texts_notebook.add(viewer.frame, text=name)
             tabs = self.texts_notebook.tabs()
@@ -292,12 +293,21 @@ class Main:
 
         # Set active tab in notebooks.
         try:
-            self.texts_notebook.select(self.config["main"]["texts"]["tab_index"])
-        except (tk.TclError, KeyError):
-            pass
+            tab_index = self.config["main"]["texts"]["tab_index"]
+        except KeyError:
+            tab_index = 0
         try:
-            self.meta_notebook.select(self.config["main"]["meta"]["tab_index"])
-        except (tk.TclError, KeyError):
+            self.texts_notebook.select(tab_index)
+        except tk.TclError:
+            pass
+
+        try:
+            tab_index = self.config["main"]["meta"]["tab_index"]
+        except KeyError:
+            tab_index = 0
+        try:
+            self.meta_notebook.select(tab_index)
+        except tk.TclError:
             pass
 
         # Set size and modification dates of texts.
@@ -729,13 +739,15 @@ class Main:
                 filepath = self.treeview.selection()[0]
             except IndexError:
                 pass
+        text = self.texts[filepath]
         try:
-            ed = self.texts[filepath]["editor"]
+            ed = text["editor"]
         except KeyError:
-            ed = self.texts[filepath]["editor"] = TextEditor(self, filepath)
+            ed = text["editor"] = TextEditor(self, filepath)
         else:
             ed.toplevel.lift()
         self.treeview.see(filepath)
+        ed.move_cursor(self.config["texts"][filepath].get("cursor"))
         ed.text.update()
         ed.text.focus_set()
         return "break"
@@ -893,11 +905,7 @@ class Main:
         self.save()
 
     def text_rerender(self, filepath):
-        viewer = self.texts[filepath]["viewer"]
-        viewer.rerender()
-        pos = viewer.frontmatter["cursor"]
-        viewer.text.mark_set(tk.INSERT, pos)
-        viewer.text.see(pos)
+        self.texts[filepath]["viewer"].rerender()
         self.update_treeview_entry(filepath, modified=False)
 
     def move_file_to_archive(self, filepath):
@@ -912,7 +920,7 @@ class Main:
         archivepath = os.path.dirname(archivedfilepath)
         if not os.path.exists(archivepath):
             os.makedirs(archivepath)
-        # Move current file to archive.
+        # Move the given file to archive.
         os.rename(os.path.join(self.absdirpath, filepath), archivedfilepath)
 
     def popup_menu(self, event):
@@ -960,21 +968,22 @@ class Main:
         # This relies on the dictionary keeping the order of the items.
         self.config["texts"] = dict()
         for filepath in self.get_all_treeview_items():
-            self.config["texts"][filepath] = conf = dict()
             if filepath.endswith(".md"):
                 try:
                     editor = self.texts[filepath]["editor"]
-                    conf["open"] = True
-                    conf["cursor"] = editor.text.index(tk.INSERT)
+                    conf = dict(open=True,
+                                geometry=editor.toplevel.geometry(),
+                                cursor=editor.cursor_normalized(sign="-"))
                 except KeyError:
-                    conf["open"] = False
                     try:
                         viewer = self.texts[filepath]["viewer"]
-                        conf["cursor"] = viewer.text.index(tk.INSERT)
+                        conf = dict(open=False,
+                                    cursor=viewer.cursor_normalized())
                     except KeyError:
-                        pass
+                        conf = dict()
             else:
-                conf["open"] = bool(self.treeview.item(filepath, "open"))
+                conf = dict(open=bool(self.treeview.item(filepath, "open")))
+            self.config["texts"][filepath] = conf
         with open(self.configpath, "w") as outfile:            
             json.dump(self.config, outfile, indent=2)
 

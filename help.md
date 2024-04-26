@@ -6,14 +6,13 @@ This is the official help text.
 
 | Hotkey    | Action                                  |
 | --------- | --------------------------------------- |
-| Ctrl-H    | Bring up help text window. |
-| Ctrl-O    | Open text window. |
-| Ctrl-N    | Create a new text and open its window. |
-| Ctrl-S    | Save current configuration.  |
 | Up        | Select previous item in the tree.   |
 | Down      | Select next item in the tree.       |
 | Left      | Move down into the subtree.             |
 | Right     | Move up out of the subtree.             |
+| Ctrl-O    | Open text window. |
+| Ctrl-N    | Create a new text and open its window. |
+| Ctrl-S    | Save current configuration.  |
 | Ctrl-Up    | Move current item to the previous position. |
 | Ctrl-Down  | Move current item to the next position. |
 | Ctrl-Right | Move current item down into the subtree. |
@@ -24,6 +23,10 @@ This is the official help text.
 
 | Hotkey  | Action                                    |
 | ------- | ---------------------------------------------------- |
+| Home    | Move cursor to the beginning of the text. |
+| End     | Move cursor to the end of the text.       |
+| PgUp    | Move cursor one page up                   |
+| PgDn    | Move cursor one page down.                |
 | R-click | Bring up popup menu for available actions. |
 | Ctrl-S  | Save text.                                |
 | Ctrl-Q  | Close window.                             |
@@ -34,10 +37,6 @@ This is the official help text.
 | Ctrl-C  | Copy selected text into system paste buffer. |
 | Ctrl-X  | Copy selected text into system paste buffer and delete. |
 | Ctrl-V  | Insert text from system paste buffer.     |
-| Home    | Move cursor to the beginning of the text. |
-| End     | Move cursor to the end of the text.       |
-| PgUp    | Move cursor one page up                   |
-| PgDn    | Move cursor one page down.                |
 | F1      | Debug tags at current position.           |
 | F2      | Debug tags and dump of current selection.   |
 | F3      | Debug current paste buffer.               |

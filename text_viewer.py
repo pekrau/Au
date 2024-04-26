@@ -37,7 +37,6 @@ class TextViewer(BaseTextViewer):
 
     def __init__(self, parent, main, filepath, title=None):
         super().__init__(parent, main, filepath, title=title)
-        self.move_cursor(self.frontmatter.get("cursor"))
         self.status = constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED
 
         

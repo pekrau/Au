@@ -33,8 +33,8 @@ class TextEditor(BaseText):
         self.text.bind("<Button-3>", self.popup_menu)
         self.set_status(self.frontmatter.get("status"))
         self.info_update()
+        # NOTE: No call to 'render_title'.
         self.render(self.ast)
-        self.move_cursor(self.frontmatter.get("cursor"))
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
@@ -126,6 +126,10 @@ class TextEditor(BaseText):
         super().info_update()
         self.size_var.set(f"{self.character_count} characters")
 
+    def cursor_offset(self, sign=None):
+        "Return the offset to convert the cursor position to the one to use."
+        return ""
+
     def key_press(self, event):
         if event.char not in constants.AFFECTS_CHARACTER_COUNT:
             return
@@ -186,52 +190,6 @@ class TextEditor(BaseText):
         self.original_menubar_background = self.menubar.cget("background")
         self.menubar.configure(background=constants.MODIFIED_COLOR)
         self.main.update_treeview_entry(self.filepath, modified=True)
-
-    def get_selection(self, check_no_boundary=True, adjust=False):
-        """Raise ValueError if no current selection, or region boundary (if checked).
-        Optionally adjust region to have non-blank beginning and end.
-        """
-        try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
-        except tk.TclError:
-            raise ValueError("no current selection")
-        if adjust:
-            if self.text.get(first) in string.whitespace:
-                original_first = first
-                for offset in range(1, 10):
-                    first = f"{original_first}+{offset}c"
-                    if self.text.get(first) not in string.whitespace:
-                        break
-            if self.text.get(last + "-1c") in string.whitespace:
-                original_last = last
-                for offset in range(1, 11):
-                    last = f"{original_last}-{offset}c"
-                    probe = f"{original_last}-{offset+1}c"
-                    if self.text.get(probe) not in string.whitespace:
-                        break
-        if check_no_boundary:
-            if self.selection_contains_boundary(first, last):
-                raise ValueError
-        return first, last
-
-    def selection_contains_boundary(self, first=None, last=None, show=True):
-        try:
-            if first is None or last is None:
-                first, last = self.get_selection()
-        except ValueError:
-            return False
-        first_tags = set(self.text.tag_names(first))
-        first_tags.discard("sel")
-        last_tags = set(self.text.tag_names(last))
-        last_tags.discard("sel")
-        result = first_tags != last_tags
-        if result and show:
-            tk_messagebox.showerror(
-                parent=self.toplevel,
-                title="Region boundary",
-                message="Selection contains a region boundary")
-        return result
 
     def set_status(self, status=None):
         if status:
@@ -560,9 +518,6 @@ class TextEditor(BaseText):
         """
         if not self.is_modified:
             return
-        self.frontmatter["status"] = repr(self.status)
-        self.frontmatter["geometry"] = self.toplevel.geometry()
-        self.frontmatter["cursor"] = self.text.index(tk.INSERT)
         self.main.move_file_to_archive(self.filepath)
         self.save_file(self.absfilepath)
         self.main.text_rerender(self.filepath)
@@ -599,6 +554,7 @@ class TextEditor(BaseText):
         with open(filepath, "w") as outfile:
             self.set_outfile(outfile)
             self.outfile.write("---\n")
+            self.frontmatter["status"] = repr(self.status)
             self.outfile.write(yaml.dump(self.frontmatter))
             self.outfile.write("---\n")
             self.markdown()
