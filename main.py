@@ -68,8 +68,6 @@ class Main:
         self.setup_meta_notebook()
         self.setup_config()
 
-        self.root.lift()
-
     @property
     def configpath(self):
         return os.path.join(self.absdirpath, constants.CONFIG_FILENAME)
