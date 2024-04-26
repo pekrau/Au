@@ -267,9 +267,10 @@ class BaseText(RenderMixin):
         if position is None:
             self.move_cursor_home()
         else:
-            self.text.mark_set(tk.INSERT, position + self.cursor_offset())
+            position = self.text.index(position + self.cursor_offset())
+            self.text.mark_set(tk.INSERT, position)
             # XXX This does not work?
-            self.text.see(position + self.cursor_offset())
+            self.text.see(position)
 
     def move_cursor_home(self, event=None):
         self.move_cursor("1.0")
@@ -404,6 +405,7 @@ class BaseText(RenderMixin):
 
     def debug_tags(self, event=None):
         ic("--- tags ---", self.text.tag_names(tk.INSERT))
+        ic("--- current ---", self.text.index(tk.CURRENT))
 
     def debug_selected(self, event=None):
         try:

@@ -904,7 +904,9 @@ class Main:
         self.move_file_to_archive(filepath)
         self.save()
 
-    def text_rerender(self, filepath):
+    def text_rerender(self, filepath, cursor=None):
+        if cursor:
+            self.config["texts"][filepath]["cursor"] = cursor
         self.texts[filepath]["viewer"].rerender()
         self.update_treeview_entry(filepath, modified=False)
 

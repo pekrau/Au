@@ -361,7 +361,6 @@ class TextEditor(BaseText):
         current = self.text.index(tk.INSERT)
         tags = self.text.tag_names(current)
         if constants.FOOTNOTE_REF in tags or constants.FOOTNOTE_DEF in tags:
-            ic(tags)
             for tag in tags:
                 if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
                     label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
@@ -371,16 +370,13 @@ class TextEditor(BaseText):
                     break
             else:
                 return
-        ic(tags, label)
         tag = constants.FOOTNOTE_REF_PREFIX + label
         region = self.text.tag_nextrange(tag, "1.0")
-        ic(tag, region)
         self.text.tag_remove(constants.FOOTNOTE_REF, *region)
         self.text.tag_delete(tag)
         self.text.delete(*region)
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         region = self.text.tag_nextrange(tag, "1.0")
-        ic(tag, region)
         self.text.tag_remove(constants.FOOTNOTE_DEF, *region)
         self.text.tag_delete(tag)
         self.text.tag_add(tk.SEL, *region)
@@ -450,7 +446,6 @@ class TextEditor(BaseText):
             self.skip_text = True
         elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
             ref_tag = constants.FOOTNOTE_REF_PREFIX + entry[1][len(constants.FOOTNOTE_DEF_PREFIX):]
-            ic(entry, tags, ref_tag)
             tags[entry[1]] = dict(label=tags[ref_tag]["label"],
                                   first=self.text.index(tk.INSERT))
         else:
@@ -520,7 +515,7 @@ class TextEditor(BaseText):
             return
         self.main.move_file_to_archive(self.filepath)
         self.save_file(self.absfilepath)
-        self.main.text_rerender(self.filepath)
+        self.main.text_rerender(self.filepath, cursor=self.cursor_normalized())
         self.menubar.configure(background=self.original_menubar_background)
         self.info_update()
         self.ignore_modified_event = True
