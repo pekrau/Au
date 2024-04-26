@@ -19,7 +19,7 @@ import utils
 from text_viewer import TextViewer, HelpViewer
 from text_editor import TextEditor
 
-VERSION = (0, 6, 3)
+VERSION = (0, 6, 4)
 
 
 class Main:
@@ -41,7 +41,7 @@ class Main:
 
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk_font.families())
-        self.root.title(os.path.basename(dirpath))
+        self.root.title(os.path.basename(absdirpath))
         self.root.geometry(
             self.config["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
         self.root.option_add("*tearOff", tk.FALSE)
@@ -253,11 +253,12 @@ class Main:
             viewer = TextViewer(self.texts_notebook, self, filepath, title=title)
             text["viewer"] = viewer
             self.texts_notebook.add(viewer.frame, text=name)
-            text["tab"] = self.texts_notebook.tabs()[-1]
+            tabs = self.texts_notebook.tabs()
+            text["tab_id"] = tabs[-1]
+            text["tab_index"] = len(tabs) - 1
             opener = functools.partial(self.open_texteditor, filepath=filepath)
             viewer.text.bind("<Double-Button-1>", opener)
             viewer.text.bind("<Return>", opener)
-            ic(text)
 
     def setup_meta_notebook(self):
         "Create and initialize the reference, indexed and help notebook tabs."
@@ -291,13 +292,13 @@ class Main:
             self.panedwindow.sash("place", 0, sash[0], 1)
             self.panedwindow.sash("place", 1, sash[1], 1)
 
-        # Active tab in notebooks.
+        # Set active tab in notebooks.
         try:
-            self.texts_notebook.select(self.config["main"]["texts"]["tab"])
+            self.texts_notebook.select(self.config["main"]["texts"]["tab_index"])
         except (tk.TclError, KeyError):
             pass
         try:
-            self.meta_notebook.select(self.config["main"]["meta"]["tab"])
+            self.meta_notebook.select(self.config["main"]["meta"]["tab_index"])
         except (tk.TclError, KeyError):
             pass
 
@@ -737,6 +738,7 @@ class Main:
         else:
             ed.toplevel.lift()
         self.treeview.see(filepath)
+        ed.text.update()
         ed.text.focus_set()
         return "break"
 
@@ -888,9 +890,7 @@ class Main:
             ed.close(force=True)
         self.treeview.delete(filepath)
         text = self.texts.pop(filepath)
-        ic(self.texts_notebook.tabs())
-        self.texts_notebook.forget(text["tab"])
-        ic(self.texts_notebook.tabs())
+        self.texts_notebook.forget(text["tab_id"])
         self.move_file_to_archive(filepath)
         self.save()
 
@@ -955,8 +955,8 @@ class Main:
         self.config["main"]["geometry"] = self.root.geometry()
         self.config["main"]["sash"] = [self.panedwindow.sash("coord", 0)[0],
                                        self.panedwindow.sash("coord", 1)[0]]
-        self.config["main"]["texts"] = dict(tab=self.texts_notebook.index(self.texts_notebook.select()))
-        self.config["main"]["meta"] = dict(tab=self.meta_notebook.index(self.meta_notebook.select()))
+        self.config["main"]["texts"] = dict(tab_index=self.texts_notebook.index(self.texts_notebook.select()))
+        self.config["main"]["meta"] = dict(tab_index=self.meta_notebook.index(self.meta_notebook.select()))
         self.config["paste_buffer"] = self.paste_buffer
         # Get the order of the texts as shown in the treeview.
         # This relies on the dictionary keeping the order of the items.

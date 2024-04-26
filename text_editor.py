@@ -38,11 +38,9 @@ class TextEditor(BaseText):
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
-    def set_title(self):
-        self.toplevel.title(os.path.splitext(self.filepath)[0])
-
     def setup_toplevel(self):
         self.toplevel = tk.Toplevel(self.main.root)
+        self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.bind("<Control-s>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
@@ -384,19 +382,22 @@ class TextEditor(BaseText):
             first, last = self.get_selection()
         except ValueError:
             return
-        try:
-            label = str(max([int(label) for label in self.footnotes]) + 1)
-        except ValueError:
-            label = "1"
+        label = self.get_new_footnote_label()
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         self.text.tag_configure(tag, elide=True)
         self.text.tag_add(constants.FOOTNOTE_DEF, first, last)
         self.text.tag_add(tag, first, last)
-        self.text.insert(self.text.tag_nextrange(tag, "1.0")[0], "\n", tag)
+        self.text.insert(self.text.tag_nextrange(tag, "1.0")[0], "\n", (tag, ))
         tag = constants.FOOTNOTE_REF_PREFIX + label
         self.footnotes[label] = dict(label=label, tag=tag)
-        self.text.insert(first, f"^{label}", (constants.FOOTNOTE_REF, tag))
+        self.text.insert(first, f"^{label}", (constants.FOOTNOTE_REF, (tag, )))
         self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+
+    def get_new_footnote_label(self):
+        try:
+            return str(max([int(label) for label in self.footnotes]) + 1)
+        except ValueError:
+            return "1"
 
     def footnote_remove(self):
         current = self.text.index(tk.INSERT)
@@ -469,6 +470,7 @@ class TextEditor(BaseText):
 
     def undump(self, dump):
         tags = dict()
+        self.skip_text = False
         for entry in dump:
             try:
                 method = getattr(self, f"undump_{entry[0]}")
@@ -478,21 +480,48 @@ class TextEditor(BaseText):
                 method(entry, tags)
 
     def undump_text(self, entry, tags):
+        if self.skip_text:
+            return
         self.text.insert(tk.INSERT, entry[1])
 
     def undump_tagon(self, entry, tags):
-        tags[entry[1]] = self.text.index(tk.INSERT)
+        if entry[1].startswith(constants.FOOTNOTE_REF_PREFIX):
+            label = self.get_new_footnote_label()
+            tags[entry[1]] = dict(label=label,
+                                  first=self.text.index(tk.INSERT))
+            self.skip_text = True
+        elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
+            ref_tag = constants.FOOTNOTE_REF_PREFIX + entry[1][len(constants.FOOTNOTE_DEF_PREFIX):]
+            ic(entry, tags, ref_tag)
+            tags[entry[1]] = dict(label=tags[ref_tag]["label"],
+                                  first=self.text.index(tk.INSERT))
+        else:
+            tags[entry[1]] = dict(first=self.text.index(tk.INSERT))
 
     def undump_tagoff(self, entry, tags):
         try:
-            first = tags.pop(entry[1])
+            data = tags[entry[1]]
         except KeyError:
             ic("No tagon for", entry)
         else:
             if entry[1].startswith(constants.LINK_PREFIX):
-                self.link_create(entry[2], entry[3], first, self.text.index(tk.INSERT))
+                self.link_create(entry[2],
+                                 entry[3],
+                                 data["first"], 
+                                 self.text.index(tk.INSERT))
+            elif entry[1].startswith(constants.FOOTNOTE_REF_PREFIX):
+                label = data["label"]
+                tag = constants.FOOTNOTE_REF_PREFIX + label
+                self.text.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
+                self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+                self.skip_text = False
+                self.footnotes[label] = dict(label=label, tag=tag)
+            elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
+                tag = constants.FOOTNOTE_DEF_PREFIX + data["label"]
+                self.text.tag_configure(tag, elide=True)
+                self.text.tag_add(tag, data["first"], tk.INSERT)
             else:
-                self.text.tag_add(entry[1], first, self.text.index(tk.INSERT))
+                self.text.tag_add(entry[1], data["first"], self.text.index(tk.INSERT))
 
     def undump_mark(self, entry, tags):
         self.text.mark_set(entry[1], tk.INSERT)
