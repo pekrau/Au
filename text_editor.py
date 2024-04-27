@@ -76,38 +76,48 @@ class TextEditor(TextMixin, BaseTextContainer):
         self.menu_edit.add_command(label="Copy", command=self.buffer_copy)
         self.menu_edit.add_command(label="Cut", command=self.buffer_cut)
         self.menu_edit.add_command(label="Paste", command=self.buffer_paste)
-        self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add link", command=self.link_add)
-        self.menu_edit.add_command(label="Remove link", command=self.link_remove)
-        self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add footnote", command=self.footnote_add)
-        self.menu_edit.add_command(label="Remove footnote",
-                                   command=self.footnote_remove)
-        self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add indexed", command=self.indexed_add)
-        self.menu_edit.add_command(label="Remove indexed", command=self.indexed_remove)
-        self.menu_edit.add_separator()
-        self.menu_edit.add_command(label="Add reference", command=self.reference_add)
-        self.menu_edit.add_command(label="Remove reference",
-                                   command=self.reference_remove)
 
-        self.menu_format = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_format, label="Format")
-        self.menu_format.add_command(label="Bold", command=self.bold_add)
-        self.menu_format.add_command(label="Italic", command=self.italic_add)
-        self.menu_format.add_command(label="Quote", command=self.quote_add)
-        self.menu_format.add_separator()
-        self.menu_format.add_command(label="Remove bold", command=self.bold_remove)
-        self.menu_format.add_command(label="Remove italic", command=self.italic_remove)
-        self.menu_format.add_command(label="Remove quote", command=self.quote_remove)
+        self.menu_bold = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_bold, label="Bold")
+        self.menu_bold.add_command(label="Add", command=self.bold_add)
+        self.menu_bold.add_command(label="Remove", command=self.bold_remove)
+
+        self.menu_italic = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_italic, label="Italic")
+        self.menu_italic.add_command(label="Add", command=self.italic_add)
+        self.menu_italic.add_command(label="Remove", command=self.italic_remove)
+
+        self.menu_quote = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_quote, label="Quote")
+        self.menu_quote.add_command(label="Add", command=self.quote_add)
+        self.menu_quote.add_command(label="Remove", command=self.quote_remove)
 
         self.menu_status = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_status, label="Status")
-        self.status_var = tk.StringVar()
+        self.status_var = tk.StringVar() # Also referred to by 'info_setup'.
         for status in constants.STATUSES:
             self.menu_status.add_radiobutton(label=status,
                                              variable=self.status_var,
                                              command=self.set_status)
+        self.menu_link = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_link, label="Link")
+        self.menu_link.add_command(label="Add", command=self.link_add)
+        self.menu_link.add_command(label="Remove", command=self.link_remove)
+
+        self.menu_footnote = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_footnote, label="Footnote")
+        self.menu_footnote.add_command(label="Add", command=self.footnote_add)
+        self.menu_footnote.add_command(label="Remove", command=self.footnote_remove)
+
+        self.menu_indexed = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_indexed, label="Indexed")
+        self.menu_indexed.add_command(label="Add", command=self.indexed_add)
+        self.menu_indexed.add_command(label="Remove", command=self.indexed_remove)
+
+        self.menu_reference = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_reference, label="Reference")
+        self.menu_reference.add_command(label="Add", command=self.reference_add)
+        self.menu_reference.add_command(label="Remove", command=self.reference_remove)
 
     def text_bind_keys(self, text=None):
         super().text_bind_keys(text=text)
@@ -127,7 +137,7 @@ class TextEditor(TextMixin, BaseTextContainer):
 
         status_label = ttk.Label(self.info_frame)
         status_label.grid(row=0, column=1, padx=4, sticky=tk.E)
-        status_label["textvariable"] = self.status_var # Defined above for menu.
+        status_label["textvariable"] = self.status_var # Defined above in 'menu_status'.
         self.info_frame.columnconfigure(1, weight=1)
 
     @property
