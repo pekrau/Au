@@ -12,6 +12,7 @@ DEFAULT_TEXT_HEIGHT = 30
 CONFIG_FILENAME = "config.json"
 HELP_FILENAME = "help.md"
 ARCHIVE_DIRNAME = "au_archive"
+TODO_DIRNAME = "au_todo"
 REFERENCES_DIRNAME = "au_references"
 
 TEXT_COLOR = "linen"

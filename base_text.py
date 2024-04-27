@@ -107,10 +107,10 @@ class RenderMixin:
         self.text.tag_add(tag, first, tk.INSERT)
 
     def render_indexed(self, ast):
-        self.text.insert(tk.INSERT, ast["target"], constants.INDEXED)
+        self.text.insert(tk.INSERT, ast["target"], (constants.INDEXED, ))
 
     def render_reference(self, ast):
-        self.text.insert(tk.INSERT, f"{ast['target']}", constants.REFERENCE)
+        self.text.insert(tk.INSERT, f"{ast['target']}", (constants.REFERENCE, ))
 
     def conditional_line_break(self, flag=True):
         if self.prev_line_not_blank:
@@ -121,7 +121,7 @@ class RenderMixin:
 class BaseText(RenderMixin):
     "Text window base class with rendering methods and bindings."
 
-    TEXT_COLOR = constants.TEXT_COLOR
+    TEXT_COLOR = "white"
 
     def __init__(self, main, filepath, title=None):
         self.main = main
@@ -153,11 +153,11 @@ class BaseText(RenderMixin):
                             spacing3=constants.TEXT_SPACING3)
         self.text.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
 
-        self.text_scroll_y = ttk.Scrollbar(self.frame,
-                                           orient=tk.VERTICAL,
-                                           command=self.text.yview)
-        self.text_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.text.configure(yscrollcommand=self.text_scroll_y.set)
+        self.scroll_y = ttk.Scrollbar(self.frame,
+                                      orient=tk.VERTICAL,
+                                      command=self.text.yview)
+        self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.text.configure(yscrollcommand=self.scroll_y.set)
 
         self.configure_text_tags(self.text)
         self.configure_text_tag_bindings(self.text)
