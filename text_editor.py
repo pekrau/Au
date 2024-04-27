@@ -16,29 +16,15 @@ import yaml
 
 import constants
 import utils
-from base_text import BaseText
+from base_text import TextMixin, BaseTextContainer
 
 
-class TextEditor(BaseText):
+class TextEditor(TextMixin, BaseTextContainer):
     "Text editor window."
 
     def __init__(self, main, filepath):
         super().__init__(main, filepath)
 
-        self.setup_toplevel()
-        self.setup_menubar()
-        self.setup_text(self.toplevel)
-        self.setup_info()
-        self.text.bind("<<Modified>>", self.handle_modified)
-        self.text.bind("<Button-3>", self.popup_menu)
-        self.set_status(self.frontmatter.get("status"))
-        # NOTE: Do not call 'render_title'.
-        self.render(self.ast)
-        self.chars_var.set(f"{self.character_count} characters")
-        self.ignore_modified_event = True
-        self.text.edit_modified(False)
-
-    def setup_toplevel(self):
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(os.path.splitext(self.filepath)[0])
         self.toplevel.bind("<Control-s>", self.save)
@@ -48,7 +34,24 @@ class TextEditor(BaseText):
         if geometry:
             self.toplevel.geometry(geometry)
 
-    def setup_menubar(self):
+        self.menubar_setup()
+
+        self.text_setup(self.toplevel)
+        self.text_configure_tags()
+        self.text_configure_tag_bindings()
+        self.text_bind_keys()
+
+        self.set_status(self.frontmatter.get("status"))
+        # NOTE: Do not call 'render_title'.
+        self.render(self.ast)
+
+        self.info_setup()
+        self.chars_var.set(f"{self.character_count} characters")
+
+        self.ignore_modified_event = True
+        self.text.edit_modified(False)
+
+    def menubar_setup(self):
         self.menubar = tk.Menu(self.toplevel, background="gold")
         self.toplevel["menu"] = self.menubar
         self.menubar.add_command(label="Au",
@@ -106,7 +109,12 @@ class TextEditor(BaseText):
                                              variable=self.status_var,
                                              command=self.set_status)
 
-    def setup_info(self):
+    def text_bind_keys(self, text=None):
+        super().text_bind_keys(text=text)
+        self.text.bind("<<Modified>>", self.handle_modified)
+        self.text.bind("<Button-3>", self.popup_menu)
+
+    def info_setup(self):
         self.info_frame = ttk.Frame(self.frame, padding=2)
         self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
         self.frame.rowconfigure(1, minsize=22)

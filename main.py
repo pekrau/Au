@@ -23,8 +23,6 @@ from text_viewer import (TextViewer,
                          HelpViewer)
 from text_editor import TextEditor
 
-VERSION = (0, 7, 0)
-
 
 class Main:
     """Main window containing three panes:
@@ -58,7 +56,7 @@ class Main:
         # All texts. Key: filepath; value: dict(filepath, viewer, editor)
         self.texts = dict()
 
-        self.setup_menubar()
+        self.menubar_setup()
 
         # Must be 'tk.PanedWindow', since the 'paneconfigure' command is needed.
         self.panedwindow = tk.PanedWindow(self.root,
@@ -67,17 +65,17 @@ class Main:
                                           sashwidth=5)
         self.panedwindow.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        self.setup_treeview()
-        self.setup_texts_notebook()
-        self.setup_meta_notebook()
-        self.setup_config()
+        self.treeview_setup()
+        self.texts_notebook_setup()
+        self.notebook_meta_setup()
+        self.use_config()
         self.refresh_treeview_info()
 
     @property
     def configpath(self):
         return os.path.join(self.absdirpath, constants.CONFIG_FILENAME)
 
-    def setup_menubar(self):
+    def menubar_setup(self):
         self.menubar = tk.Menu(self.root, background="gold")
         self.root["menu"] = self.menubar
         assert constants.FONT_NORMAL_FAMILY in constants.FONT_FAMILIES
@@ -127,7 +125,7 @@ class Main:
         self.text_menu.add_command(label="Copy", command=self.text_copy)
         self.text_menu.add_command(label="Delete", command=self.text_delete)
 
-    def setup_treeview(self):
+    def treeview_setup(self):
         "Setup the treeview."
         self.treeview_frame = ttk.Frame(self.panedwindow)
         self.panedwindow.add(self.treeview_frame,
@@ -177,15 +175,18 @@ class Main:
 
         # Get directories and files that actually exist.
         pos = len(self.absdirpath) + 1
-        archivedirpath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
-        referencesdirpath = os.path.join(self.absdirpath, constants.REFERENCES_DIRNAME)
+        archive_dirpath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
+        todo_dirpath = os.path.join(self.absdirpath, constants.TODO_DIRNAME)
+        references_dirpath = os.path.join(self.absdirpath, constants.REFERENCES_DIRNAME)
         # The set of existing files needs to be ordered. Use dict.
         existing = dict()
         for absdirpath, dirnames, filenames in os.walk(self.absdirpath):
             # Skip special directories.
-            if absdirpath.startswith(archivedirpath):
+            if absdirpath.startswith(archive_dirpath):
                 continue
-            if absdirpath.startswith(referencesdirpath):
+            if absdirpath.startswith(references_dirpath):
+                continue
+            if absdirpath.startswith(todo_dirpath):
                 continue
             dirpath = absdirpath[pos:]
             if dirpath:
@@ -223,7 +224,7 @@ class Main:
             if first:
                 first = False
 
-    def setup_texts_notebook(self):
+    def texts_notebook_setup(self):
         "Create and initialize the texts notebook tabs."
         self.texts_notebook = ttk.Notebook(self.panedwindow)
         self.panedwindow.add(self.texts_notebook, minsize=constants.PANE_MINSIZE)
@@ -248,8 +249,8 @@ class Main:
             viewer.text.bind("<Double-Button-1>", opener)
             viewer.text.bind("<Return>", opener)
 
-    def setup_meta_notebook(self):
-        "Create and initialize the reference, indexed and help notebook tabs."
+    def notebook_meta_setup(self):
+        "Create and initialize the meta content notebook tabs."
         self.meta_notebook = ttk.Notebook(self.panedwindow)
         self.panedwindow.add(self.meta_notebook, minsize=constants.PANE_MINSIZE)
 
@@ -277,7 +278,7 @@ class Main:
         tabs = self.meta_notebook.tabs()
         self.meta_notebook_lookup[tabs[-1]] = self.help
 
-    def setup_config(self):
+    def use_config(self):
         "Set up windows and tabs according to config."
         # The paste buffer is global to all editors, to facilitate cut-and-paste.
         self.paste_buffer = self.config.get("paste_buffer") or list()

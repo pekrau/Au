@@ -9,15 +9,18 @@ from tkinter import ttk
 
 import constants
 import utils
-from base_text import BaseText
+from base_text import BaseTextContainer, TextMixin
 
 
-class BaseTextViewer(BaseText):
+class BaseTextViewer(TextMixin, BaseTextContainer):
     "Base text viewer window."
 
     def __init__(self, parent, main, filepath, title=None):
         super().__init__(main, filepath, title=title)
-        self.setup_text(parent)
+        self.text_setup(parent)
+        self.text_configure_tags()
+        self.text_configure_tag_bindings()
+        self.text_bind_keys()
         self.render_title()
         self.render(self.ast)
 
@@ -33,7 +36,7 @@ class BaseTextViewer(BaseText):
 
 
 class TextViewer(BaseTextViewer):
-    "Text viewer window."
+    "Text viewer of Markdown contents."
 
     TEXT_COLOR = constants.TEXT_COLOR
 
@@ -42,67 +45,42 @@ class TextViewer(BaseTextViewer):
         self.status = constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED
 
         
-class ReferencesViewer:
+class MetaViewer(TextMixin):
+    "Base class for meta contents viewers."
 
     def __init__(self, parent, main):
         self.main = main
-        self.frame = ttk.Frame(parent)
-        self.frame.pack(fill=tk.BOTH, expand=True)
-        self.frame.rowconfigure(0, weight=1)
-        self.frame.columnconfigure(0, weight=1)
+        self.text_setup(parent)
+        self.text_configure_tags()
 
-        self.references_frame = ttk.Frame(self.frame)
-        # self.scroll_y = ttk.Scrollbar(self.frame,
-        #                               orient=tk.VERTICAL,
-        #                               command=self.references_frame.yview)
-        # self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        # self.references_frame.configure(yscrollcommand=self.scroll_y.set)
+
+class ReferencesViewer(MetaViewer):
+    "Viewer of the references list."
 
     def __str__(self):
         return "References"
 
 
-class IndexedViewer:
-
-    def __init__(self, parent, main):
-        self.main = main
-        self.frame = ttk.Frame(parent)
-        self.frame.pack(fill=tk.BOTH, expand=True)
-        self.frame.rowconfigure(0, weight=1)
-        self.frame.columnconfigure(0, weight=1)
-
-        self.indexed_frame = ttk.Frame(self.frame)
-        # self.scroll_y = ttk.Scrollbar(self.frame,
-        #                               orient=tk.VERTICAL,
-        #                               command=self.indexed_frame.yview)
-        # self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        # self.indexed_frame.configure(yscrollcommand=self.scroll_y.set)
+class IndexedViewer(MetaViewer):
+    "Viewer of the list of indexed terms."
 
     def __str__(self):
         return "Indexed"
 
 
-class TodoViewer:
-
-    def __init__(self, parent, main):
-        self.main = main
-        self.frame = ttk.Frame(parent)
-        self.frame.pack(fill=tk.BOTH, expand=True)
-        self.frame.rowconfigure(0, weight=1)
-        self.frame.columnconfigure(0, weight=1)
-
-        self.indexed_frame = ttk.Frame(self.frame)
-        # self.scroll_y = ttk.Scrollbar(self.frame,
-        #                               orient=tk.VERTICAL,
-        #                               command=self.indexed_frame.yview)
-        # self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        # self.indexed_frame.configure(yscrollcommand=self.scroll_y.set)
+class TodoViewer(MetaViewer):
+    "Viewer of the to-do list."
 
     def __str__(self):
         return "To do"
 
 
 class HelpViewer(BaseTextViewer):
+    "Viewer of Markdown contents of the help file."
+
+    def __init__(self, parent, main, filepath):
+        super().__init__(parent, main, filepath,
+                         title="Au " + ".".join([str(n) for n in constants.VERSION]))
 
     def __str__(self):
         return "Help"

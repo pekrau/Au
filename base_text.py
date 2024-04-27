@@ -9,134 +9,15 @@ from tkinter import ttk
 
 import constants
 import utils
+from render import RenderMixin
 
 
-class RenderMixin:
-    "Mixin class containing rendering methods."
-
-    def render(self, ast):
-        try:
-            method = getattr(self, f"render_{ast['element']}")
-        except AttributeError:
-            ic("Could not handle ast", ast)
-        else:
-            method(ast)
-
-    def render_document(self, ast):
-        self.prev_line_not_blank = False
-        for child in ast["children"]:
-            self.render(child)
-
-    def render_heading(self, ast):
-        self.conditional_line_break()
-        first = self.text.index(tk.INSERT)
-        h = constants.H.get(ast["level"], constants.H4)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add(h, first, tk.INSERT)
-        self.conditional_line_break()
-
-    def render_paragraph(self, ast):
-        self.conditional_line_break(flag=False)
-        for child in ast["children"]:
-            self.render(child)
-
-    def render_emphasis(self, ast):
-        first = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add(constants.ITALIC, first, tk.INSERT)
-
-    def render_strong_emphasis(self, ast):
-        first = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add(constants.BOLD, first, tk.INSERT)
-
-    def render_raw_text(self, ast):
-        children = ast["children"]
-        if type(children) == str:
-            if children[-1] == "\n":
-                children[-1] = " "
-            self.text.insert(tk.INSERT, children)
-        elif type(children) == list:
-            for child in ast["children"]:
-                self.render(child)
-
-    def render_line_break(self, ast):
-        self.text.insert(tk.INSERT, " ")
-
-    def render_blank_line(self, ast):
-        self.text.insert(tk.INSERT, "\n")
-        self.prev_line_not_blank = True
-
-    def render_link(self, ast):
-        first = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.link_create(ast["dest"], ast["title"], first, self.text.index(tk.INSERT))
-
-    def render_quote(self, ast):
-        self.conditional_line_break(flag=False)
-        first = self.text.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add("quote", first, tk.INSERT)
-
-    def render_thematic_break(self, ast):
-        self.conditional_line_break(flag=True)
-        self.text.insert(tk.INSERT, "------------------------------------",
-                         (constants.THEMATIC_BREAK, ))
-
-    def render_footnote_ref(self, ast):
-        label = ast["label"]
-        tag = constants.FOOTNOTE_REF_PREFIX + label
-        self.footnotes[label] = dict(label=label, tag=tag)
-        self.text.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
-        self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
-
-    def render_footnote_def(self, ast):
-        tag = self.footnotes[ast["label"]]["tag"]
-        first = self.text.tag_nextrange(tag, "1.0")[1]
-        self.text.mark_set(tk.INSERT, first)
-        for child in ast["children"]:
-            self.render(child)
-        self.text.tag_add(constants.FOOTNOTE_DEF, first + "+1c", tk.INSERT)
-        tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
-        self.text.tag_configure(tag, elide=True)
-        self.text.tag_add(tag, first, tk.INSERT)
-
-    def render_indexed(self, ast):
-        self.text.insert(tk.INSERT, ast["target"], (constants.INDEXED, ))
-
-    def render_reference(self, ast):
-        self.text.insert(tk.INSERT, f"{ast['target']}", (constants.REFERENCE, ))
-
-    def conditional_line_break(self, flag=True):
-        if self.prev_line_not_blank:
-            self.text.insert(tk.INSERT, "\n")
-            self.prev_line_not_blank = flag
-
-
-class BaseText(RenderMixin):
-    "Text window base class with rendering methods and bindings."
+class TextMixin:
+    "Mixin class setting up and configuring attribute 'text'; instance of tk.Text."
 
     TEXT_COLOR = "white"
 
-    def __init__(self, main, filepath, title=None):
-        self.main = main
-        self.filepath = filepath
-        self.title = title
-        self.frontmatter, self.ast = utils.parse(self.absfilepath)
-        self.prev_line_not_blank = False
-        # These lookups are local for each BaseText instance.
-        self.links = dict()
-        self.footnotes = dict()
-
-    def __str__(self):
-        return self.filepath
-
-    def setup_text(self, parent):
+    def text_setup(self, parent):
         "Setup the text widget and its associates."
         self.frame = ttk.Frame(parent)
         self.frame.pack(fill=tk.BOTH, expand=True)
@@ -159,18 +40,10 @@ class BaseText(RenderMixin):
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.text.configure(yscrollcommand=self.scroll_y.set)
 
-        self.configure_text_tags(self.text)
-        self.configure_text_tag_bindings(self.text)
-
-        self.text.bind("<Home>", self.move_cursor_home)
-        self.text.bind("<End>", self.move_cursor_end)
-        self.text.bind("<Key>", self.key_press)
-        self.text.bind("<F1>", self.debug_tags)
-        self.text.bind("<F2>", self.debug_selected)
-        self.text.bind("<F3>", self.debug_buffer_paste)
-        self.text.bind("<F4>", self.debug_dump)
-
-    def configure_text_tags(self, text):
+    def text_configure_tags(self, text=None):
+        "Configure the tags used in the 'tk.Text' instance."
+        if text is None:
+            text = self.text
         text.tag_configure(constants.TITLE,
                            font=constants.TITLE_FONT,
                            lmargin1=constants.TITLE_LEFT_MARGIN,
@@ -221,7 +94,10 @@ class BaseText(RenderMixin):
                            lmargin2=constants.FOOTNOTE_MARGIN,
                            rmargin=constants.FOOTNOTE_MARGIN)
 
-    def configure_text_tag_bindings(self, text):
+    def text_configure_tag_bindings(self, text=None):
+        "Configure the tag bindings used in the 'tk.Text' instance."
+        if text is None:
+            text = self.text
         text.tag_bind(constants.LINK, "<Enter>", self.link_enter)
         text.tag_bind(constants.LINK, "<Leave>", self.link_leave)
         text.tag_bind(constants.LINK, "<Button-1>", self.link_action)
@@ -233,6 +109,35 @@ class BaseText(RenderMixin):
         text.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
         text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
         text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
+
+    def text_bind_keys(self, text=None):
+        "Configure the key bindings used in the 'tk.Text' instance."
+        if text is None:
+            text = self.text
+        text.bind("<Home>", self.move_cursor_home)
+        text.bind("<End>", self.move_cursor_end)
+        text.bind("<Key>", self.key_press)
+        text.bind("<F1>", self.debug_tags)
+        text.bind("<F2>", self.debug_selected)
+        text.bind("<F3>", self.debug_buffer_paste)
+        text.bind("<F4>", self.debug_dump)
+
+
+class BaseTextContainer(RenderMixin):
+    "Text container base class with Markdown rendering methods and bindings."
+
+    def __init__(self, main, filepath, title=None):
+        self.main = main
+        self.filepath = filepath
+        self.title = title
+        self.frontmatter, self.ast = utils.parse(self.absfilepath)
+        self.prev_line_not_blank = False
+        # These lookups are local for each BaseTextContainer instance.
+        self.links = dict()
+        self.footnotes = dict()
+
+    def __str__(self):
+        return self.filepath
 
     def rerender(self):
         self.frontmatter, self.ast = utils.parse(self.absfilepath)
@@ -470,7 +375,7 @@ class Table(RenderMixin):
                             spacing1=constants.TEXT_SPACING1,
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
-        self.master.configure_text_tags(self.text)
+        self.master.text_configure_tags(self.text)
         self.text.grid(row=self.current_row, column=self.current_column,
                        sticky=(tk.W, tk.E, tk.N, tk.S))
         for child in ast["children"]:
