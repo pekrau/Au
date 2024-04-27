@@ -19,7 +19,7 @@ import utils
 from text_viewer import TextViewer, HelpViewer
 from text_editor import TextEditor
 
-VERSION = (0, 6, 4)
+VERSION = (0, 6, 5)
 
 
 class Main:
@@ -67,6 +67,7 @@ class Main:
         self.setup_texts_notebook()
         self.setup_meta_notebook()
         self.setup_config()
+        self.refresh_treeview_info()
 
     @property
     def configpath(self):
@@ -159,20 +160,20 @@ class Main:
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
         self.treeview = ttk.Treeview(self.treeview_frame,
-                                     columns=("status", "size", "age"),
+                                     columns=("status", "chars", "age"),
                                      selectmode="browse")
         self.treeview.tag_configure("section", background=constants.SECTION_COLOR)
         self.treeview.tag_configure("modified", background=constants.MODIFIED_COLOR)
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
         self.treeview.heading("#0", text="Text")
         self.treeview.heading("status", text="Status")
-        self.treeview.heading("size", text="Size")
+        self.treeview.heading("chars", text="Chars")
         self.treeview.heading("age", text="Age")
         self.treeview.column("status",
                              anchor=tk.E,
                              minwidth=3*constants.FONT_NORMAL_SIZE,
                              width=6*constants.FONT_NORMAL_SIZE)
-        self.treeview.column("size",
+        self.treeview.column("chars",
                              anchor=tk.E,
                              minwidth=3*constants.FONT_NORMAL_SIZE,
                              width=6*constants.FONT_NORMAL_SIZE)
@@ -310,13 +311,6 @@ class Main:
         except tk.TclError:
             pass
 
-        # Set size and modification dates of texts.
-        for text in self.texts.values():
-            try:
-                text["viewer"].info_update()
-            except KeyError:
-                pass
-
         # Re-open text editors.
         for filepath in self.texts:
             try:
@@ -366,20 +360,31 @@ class Main:
                 ed.toplevel.title(os.path.splitext(newpath)[0])
             self.add_treeview_entry(newpath)
 
-    def update_treeview_entry(self, filepath,
-                              modified=None, status=None, size=None, age=None):
-        if modified is not None:
-            tags = set(self.treeview.item(filepath, "tags"))
-            if modified:
-                tags.add("modified")
-            else:
-                tags.discard("modified")
-            self.treeview.item(filepath, tags=tuple(tags))
-        if status is not None:
-            self.treeview.set(filepath, "status", str(status))
-        if size is not None:
-            self.treeview.set(filepath, "size", size)
-        if age is not None:
+    def refresh_treeview_info(self):
+        "Refresh status, chars and age of text entries."
+        for filepath in self.texts:
+            self.set_treeview_info(filepath)
+
+    def set_treeview_info(self, filepath):
+        text = self.texts[filepath]
+        try:
+            modified = text["editor"].is_modified
+        except KeyError:
+            modified = False
+        tags = set(self.treeview.item(filepath, "tags"))
+        if modified:
+            tags.add("modified")
+        else:
+            tags.discard("modified")
+        self.treeview.item(filepath, tags=tuple(tags))
+        try:
+            viewer = text["viewer"]
+        except KeyError:
+            pass
+        else:
+            self.treeview.set(filepath, "status", str(viewer.status))
+            self.treeview.set(filepath, "chars", viewer.character_count)
+            age = viewer.age
             self.treeview.set(filepath, "age", f"{age[0]} {age[1]}")
 
     def move_item_up(self, event=None):
@@ -908,7 +913,6 @@ class Main:
         if cursor:
             self.config["texts"][filepath]["cursor"] = cursor
         self.texts[filepath]["viewer"].rerender()
-        self.update_treeview_entry(filepath, modified=False)
 
     def move_file_to_archive(self, filepath):
         """Move the text file to the archive.

@@ -32,9 +32,9 @@ class TextEditor(BaseText):
         self.text.bind("<<Modified>>", self.handle_modified)
         self.text.bind("<Button-3>", self.popup_menu)
         self.set_status(self.frontmatter.get("status"))
-        self.info_update()
-        # NOTE: No call to 'render_title'.
+        # NOTE: Do not call 'render_title'.
         self.render(self.ast)
+        self.chars_var.set(f"{self.character_count} characters")
         self.ignore_modified_event = True
         self.text.edit_modified(False)
 
@@ -111,20 +111,20 @@ class TextEditor(BaseText):
         self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
         self.frame.rowconfigure(1, minsize=22)
 
-        self.size_var = tk.StringVar()
-        size_label = ttk.Label(self.info_frame)
-        size_label.grid(row=0, column=0, padx=4, sticky=tk.W)
+        self.chars_var = tk.StringVar()
+        chars_label = ttk.Label(self.info_frame)
+        chars_label.grid(row=0, column=0, padx=4, sticky=tk.W)
         self.info_frame.columnconfigure(0, weight=1)
-        size_label["textvariable"] = self.size_var
+        chars_label["textvariable"] = self.chars_var
 
         status_label = ttk.Label(self.info_frame)
         status_label.grid(row=0, column=1, padx=4, sticky=tk.E)
         status_label["textvariable"] = self.status_var # Defined above for menu.
         self.info_frame.columnconfigure(1, weight=1)
 
-    def info_update(self):
-        super().info_update()
-        self.size_var.set(f"{self.character_count} characters")
+    @property
+    def character_count(self):
+        return len(self.text.get("1.0", tk.END))
 
     def cursor_offset(self, sign=None):
         "Return the offset to convert the cursor position to the one to use."
@@ -141,7 +141,7 @@ class TextEditor(BaseText):
         # Do not allow modifying keys from encroaching on a reference.
         if constants.REFERENCE in tags:
             return "break"
-        self.size_var.set(f"{self.character_count} characters")
+        self.chars_var.set(f"{self.character_count} characters")
 
     def popup_menu(self, event):
         menu = tk.Menu(self.text)
@@ -189,7 +189,7 @@ class TextEditor(BaseText):
             return
         self.original_menubar_background = self.menubar.cget("background")
         self.menubar.configure(background=constants.MODIFIED_COLOR)
-        self.main.update_treeview_entry(self.filepath, modified=True)
+        self.main.set_treeview_info(self.filepath)
 
     def set_status(self, status=None):
         if status:
@@ -482,6 +482,7 @@ class TextEditor(BaseText):
     def rename(self):
         "Rename the text file."
         self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
+        self.main.refresh_treeview_info()
 
     def copy(self, event=None, parent=None):
         "Make a copy of the current contents."
@@ -506,6 +507,7 @@ class TextEditor(BaseText):
         self.save_file(absfilepath)
         self.main.add_treeview_entry(filepath)
         self.main.open_text(filepath=filepath)
+        self.main.refresh_treeview_info()
 
     def save(self, event=None):
         """Save the current contents to the text file.
@@ -515,11 +517,11 @@ class TextEditor(BaseText):
             return
         self.main.move_file_to_archive(self.filepath)
         self.save_file(self.absfilepath)
-        self.main.text_rerender(self.filepath, cursor=self.cursor_normalized())
         self.menubar.configure(background=self.original_menubar_background)
-        self.info_update()
         self.ignore_modified_event = True
         self.text.edit_modified(False)
+        self.main.text_rerender(self.filepath, cursor=self.cursor_normalized())
+        self.main.set_treeview_info(self.filepath)
 
     def delete(self):
         "Delete the text file and this window."
@@ -538,7 +540,7 @@ class TextEditor(BaseText):
                     title="Close?",
                     message="Modifications will not be saved. Really close?"):
                 return
-        self.main.update_treeview_entry(self.filepath, modified=False)
+        self.main.set_treeview_info(self.filepath)
         self.main.texts[self.filepath].pop("editor")
         self.toplevel.destroy()
 

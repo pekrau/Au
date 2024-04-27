@@ -171,11 +171,26 @@ class BaseText(RenderMixin):
         self.text.bind("<F4>", self.debug_dump)
 
     def configure_text_tags(self, text):
-        text.tag_configure(constants.TITLE, font=constants.TITLE_FONT)
-        text.tag_configure(constants.H1, font=constants.H1_FONT)
-        text.tag_configure(constants.H2, font=constants.H2_FONT)
-        text.tag_configure(constants.H3, font=constants.H3_FONT)
-        text.tag_configure(constants.H4, font=constants.H4_FONT)
+        text.tag_configure(constants.TITLE,
+                           font=constants.TITLE_FONT,
+                           lmargin1=constants.TITLE_LEFT_MARGIN,
+                           lmargin2=constants.TITLE_LEFT_MARGIN)
+        text.tag_configure(constants.H1,
+                           font=constants.H1_FONT,
+                           lmargin1=constants.H_LEFT_MARGIN,
+                           lmargin2=constants.H_LEFT_MARGIN)
+        text.tag_configure(constants.H2,
+                           font=constants.H2_FONT,
+                           lmargin1=constants.H_LEFT_MARGIN,
+                           lmargin2=constants.H_LEFT_MARGIN)
+        text.tag_configure(constants.H3,
+                           font=constants.H3_FONT,
+                           lmargin1=constants.H_LEFT_MARGIN,
+                           lmargin2=constants.H_LEFT_MARGIN)
+        text.tag_configure(constants.H4,
+                           font=constants.H4_FONT,
+                           lmargin1=constants.H_LEFT_MARGIN,
+                           lmargin2=constants.H_LEFT_MARGIN)
         text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         text.tag_configure(constants.QUOTE,
@@ -252,13 +267,10 @@ class BaseText(RenderMixin):
 
     @property
     def character_count(self):
-        return len(self.text.get("1.0", tk.END))
-
-    def info_update(self):
-        self.main.update_treeview_entry(self.filepath,
-                                        status=str(self.status),
-                                        size=str(self.character_count),
-                                        age=self.age)
+        result = len(self.text.get("1.0", tk.END))
+        if self.title:
+            result -= len(self.title) + 2
+        return result
 
     def key_press(self, event):
         raise NotImplementedError
