@@ -16,11 +16,8 @@ from tkinter import font as tk_font
 import constants
 import docx_interface
 import utils
-from text_viewer import (TextViewer,
-                         TodoViewer,
-                         ReferencesViewer,
-                         IndexedViewer,
-                         HelpViewer)
+from text_viewer import TextViewer
+from meta_viewers import ReferencesViewer, IndexedViewer, TodoViewer, HelpViewer
 from text_editor import TextEditor
 
 
@@ -257,11 +254,6 @@ class Main:
          # key: widget name; value: instance
         self.meta_notebook_lookup = dict()
 
-        self.todo = TodoViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.todo.frame, text="To do")
-        tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.todo
-
         self.references = ReferencesViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.references.frame, text="References")
         tabs = self.meta_notebook.tabs()
@@ -271,6 +263,11 @@ class Main:
         self.meta_notebook.add(self.indexed.frame, text="Indexed")
         tabs = self.meta_notebook.tabs()
         self.meta_notebook_lookup[tabs[-1]] = self.indexed
+
+        self.todo = TodoViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.todo.frame, text="To do")
+        tabs = self.meta_notebook.tabs()
+        self.meta_notebook_lookup[tabs[-1]] = self.todo
 
         filepath = os.path.join(os.path.dirname(__file__), constants.HELP_FILENAME)
         self.help = HelpViewer(self.meta_notebook, self, filepath)

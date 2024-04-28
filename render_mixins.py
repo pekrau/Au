@@ -1,4 +1,4 @@
-"Mixin class containing methods to render Marko AST to tk.Text instance."
+"Mixin classes containing methods to render Marko AST to tk.Text instance."
 
 from icecream import ic
 
@@ -7,8 +7,8 @@ import tkinter as tk
 import constants
 
 
-class RenderMixin:
-    """Mixin class containing methods to render Marko AST to tk.Text instance.
+class BaseRenderMixin:
+    """Mixin class containing basic methods to render Marko AST to tk.Text instance.
     It assumes the presence of an attribute 'text'; instance of tk.Text.
     """
 
@@ -86,6 +86,23 @@ class RenderMixin:
         self.text.insert(tk.INSERT, "------------------------------------",
                          (constants.THEMATIC_BREAK, ))
 
+    def render_reference(self, ast):
+        self.text.insert(tk.INSERT, f"{ast['target']}", (constants.REFERENCE, ))
+
+    def render_indexed(self, ast):
+        self.text.insert(tk.INSERT, ast["target"], (constants.INDEXED, ))
+
+    def conditional_line_break(self, flag=True):
+        if self.prev_line_not_blank:
+            self.text.insert(tk.INSERT, "\n")
+            self.prev_line_not_blank = flag
+
+
+class FootnoteRenderMixin:
+    """Mixin class containing  methods to render footnote Marko AST to tk.Text instance.
+    It assumes the presence of an attribute 'text'; instance of tk.Text.
+    """
+
     def render_footnote_ref(self, ast):
         label = ast["label"]
         tag = constants.FOOTNOTE_REF_PREFIX + label
@@ -103,14 +120,3 @@ class RenderMixin:
         tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
         self.text.tag_configure(tag, elide=True)
         self.text.tag_add(tag, first, tk.INSERT)
-
-    def render_indexed(self, ast):
-        self.text.insert(tk.INSERT, ast["target"], (constants.INDEXED, ))
-
-    def render_reference(self, ast):
-        self.text.insert(tk.INSERT, f"{ast['target']}", (constants.REFERENCE, ))
-
-    def conditional_line_break(self, flag=True):
-        if self.prev_line_not_blank:
-            self.text.insert(tk.INSERT, "\n")
-            self.prev_line_not_blank = flag

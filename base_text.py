@@ -9,7 +9,7 @@ from tkinter import ttk
 
 import constants
 import utils
-from render import RenderMixin
+from render_mixins import BaseRenderMixin
 
 
 class TextMixin:
@@ -83,16 +83,6 @@ class TextMixin:
         text.tag_configure(constants.REFERENCE,
                            foreground=constants.REFERENCE_COLOR,
                            underline=True)
-        text.tag_configure(constants.FOOTNOTE_REF,
-                           foreground=constants.FOOTNOTE_REF_COLOR,
-                           underline=True)
-        text.tag_configure(constants.FOOTNOTE_DEF,
-                           background=constants.FOOTNOTE_DEF_COLOR,
-                           borderwidth=1,
-                           relief=tk.SOLID,
-                           lmargin1=constants.FOOTNOTE_MARGIN,
-                           lmargin2=constants.FOOTNOTE_MARGIN,
-                           rmargin=constants.FOOTNOTE_MARGIN)
 
     def text_configure_tag_bindings(self, text=None):
         "Configure the tag bindings used in the 'tk.Text' instance."
@@ -107,8 +97,6 @@ class TextMixin:
         text.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
         text.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
         text.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
-        text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
-        text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
     def text_bind_keys(self, text=None):
         "Configure the key bindings used in the 'tk.Text' instance."
@@ -123,7 +111,7 @@ class TextMixin:
         text.bind("<F4>", self.debug_dump)
 
 
-class BaseTextContainer(RenderMixin):
+class BaseTextContainer(BaseRenderMixin):
     "Text container base class with Markdown rendering methods and bindings."
 
     def __init__(self, main, filepath, title=None):
@@ -132,17 +120,14 @@ class BaseTextContainer(RenderMixin):
         self.title = title
         self.frontmatter, self.ast = utils.parse(self.absfilepath)
         self.prev_line_not_blank = False
-        # These lookups are local for each BaseTextContainer instance.
-        self.links = dict()
-        self.footnotes = dict()
+        self.links = dict()     # Lookup local for the instance.
 
     def __str__(self):
         return self.filepath
 
     def rerender(self):
-        self.frontmatter, self.ast = utils.parse(self.absfilepath)
         self.links = dict()
-        self.footnotes = dict()
+        self.frontmatter, self.ast = utils.parse(self.absfilepath)
         self.prev_line_not_blank = False
         self.text.delete("1.0", tk.END)
         self.render_title()
@@ -299,24 +284,6 @@ class BaseTextContainer(RenderMixin):
     def link_leave(self, event):
         self.text.configure(cursor="")
 
-    def footnote_enter(self, event=None):
-        self.text.configure(cursor="hand2")
-
-    def footnote_leave(self, event=None):
-        self.text.configure(cursor="")
-
-    def footnote_toggle(self, event=None):
-        for tag in self.text.tag_names(tk.CURRENT):
-            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
-                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
-                break
-        else:
-            return
-        tag = constants.FOOTNOTE_DEF_PREFIX + label
-        elided = bool(int(self.text.tag_cget(tag, "elide")))
-        self.text.tag_configure(tag, elide=not elided)
-
-
     def render_table(self, ast):
         self.table = Table(self, ast)
 
@@ -342,7 +309,7 @@ class BaseTextContainer(RenderMixin):
         ic("--- dump ---", dump)
 
 
-class Table(RenderMixin):
+class Table(BaseRenderMixin):
     "Table requires its own class for rendering."
 
     def __init__(self, master, ast):

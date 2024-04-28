@@ -1,4 +1,4 @@
-"Text viewer window classes."
+"Text viewer window."
 
 from icecream import ic
 
@@ -9,6 +9,7 @@ from tkinter import ttk
 
 import constants
 import utils
+from render_mixins import FootnoteRenderMixin
 from base_text import BaseTextContainer, TextMixin
 
 
@@ -35,52 +36,55 @@ class BaseTextViewer(TextMixin, BaseTextContainer):
             webbrowser.open_new_tab(link["url"])
 
 
-class TextViewer(BaseTextViewer):
+class TextViewer(FootnoteRenderMixin, BaseTextViewer):
     "Text viewer of Markdown contents."
 
     TEXT_COLOR = constants.TEXT_COLOR
 
     def __init__(self, parent, main, filepath, title=None):
+        self.footnotes = dict()     # Lookup local for the instance.
         super().__init__(parent, main, filepath, title=title)
         self.status = constants.Status.lookup(self.frontmatter.get("status")) or constants.STARTED
 
-        
-class MetaViewer(TextMixin):
-    "Base class for meta contents viewers."
+    def text_configure_tags(self, text=None):
+        if text is None:
+            text = self.text
+        super().text_configure_tags(text=text)
+        text.tag_configure(constants.FOOTNOTE_REF,
+                           foreground=constants.FOOTNOTE_REF_COLOR,
+                           underline=True)
+        text.tag_configure(constants.FOOTNOTE_DEF,
+                           background=constants.FOOTNOTE_DEF_COLOR,
+                           borderwidth=1,
+                           relief=tk.SOLID,
+                           lmargin1=constants.FOOTNOTE_MARGIN,
+                           lmargin2=constants.FOOTNOTE_MARGIN,
+                           rmargin=constants.FOOTNOTE_MARGIN)
 
-    def __init__(self, parent, main):
-        self.main = main
-        self.text_setup(parent)
-        self.text_configure_tags()
+    def text_configure_tag_bindings(self, text=None):
+        if text is None:
+            text = self.text
+        super().text_configure_tag_bindings(text=text)
+        text.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
+        text.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
+    def rerender(self):
+        self.footnotes = dict()
+        super().rerender()
 
-class ReferencesViewer(MetaViewer):
-    "Viewer of the references list."
+    def footnote_enter(self, event=None):
+        self.text.configure(cursor="hand2")
 
-    def __str__(self):
-        return "References"
+    def footnote_leave(self, event=None):
+        self.text.configure(cursor="")
 
-
-class IndexedViewer(MetaViewer):
-    "Viewer of the list of indexed terms."
-
-    def __str__(self):
-        return "Indexed"
-
-
-class TodoViewer(MetaViewer):
-    "Viewer of the to-do list."
-
-    def __str__(self):
-        return "To do"
-
-
-class HelpViewer(BaseTextViewer):
-    "Viewer of Markdown contents of the help file."
-
-    def __init__(self, parent, main, filepath):
-        super().__init__(parent, main, filepath,
-                         title="Au " + ".".join([str(n) for n in constants.VERSION]))
-
-    def __str__(self):
-        return "Help"
+    def footnote_toggle(self, event=None):
+        for tag in self.text.tag_names(tk.CURRENT):
+            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
+                break
+        else:
+            return
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
+        elided = bool(int(self.text.tag_cget(tag, "elide")))
+        self.text.tag_configure(tag, elide=not elided)

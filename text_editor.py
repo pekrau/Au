@@ -16,14 +16,19 @@ import yaml
 
 import constants
 import utils
-from base_text import TextMixin, BaseTextContainer
+from text_viewer import TextViewer
 
 
-class TextEditor(TextMixin, BaseTextContainer):
+class TextEditor(TextViewer):
     "Text editor window."
 
     def __init__(self, main, filepath):
-        super().__init__(main, filepath)
+        self.main = main
+        self.filepath = filepath
+        self.frontmatter, self.ast = utils.parse(self.absfilepath)
+        self.prev_line_not_blank = False
+        self.links = dict()         # Lookup local for the instance.
+        self.footnotes = dict()     # Lookup local for the instance.
 
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(os.path.splitext(self.filepath)[0])
@@ -104,11 +109,6 @@ class TextEditor(TextMixin, BaseTextContainer):
         self.menu_link.add_command(label="Add", command=self.link_add)
         self.menu_link.add_command(label="Remove", command=self.link_remove)
 
-        self.menu_footnote = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_footnote, label="Footnote")
-        self.menu_footnote.add_command(label="Add", command=self.footnote_add)
-        self.menu_footnote.add_command(label="Remove", command=self.footnote_remove)
-
         self.menu_indexed = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_indexed, label="Indexed")
         self.menu_indexed.add_command(label="Add", command=self.indexed_add)
@@ -118,6 +118,11 @@ class TextEditor(TextMixin, BaseTextContainer):
         self.menubar.add_cascade(menu=self.menu_reference, label="Reference")
         self.menu_reference.add_command(label="Add", command=self.reference_add)
         self.menu_reference.add_command(label="Remove", command=self.reference_remove)
+
+        self.menu_footnote = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_footnote, label="Footnote")
+        self.menu_footnote.add_command(label="Add", command=self.footnote_add)
+        self.menu_footnote.add_command(label="Remove", command=self.footnote_remove)
 
     def text_bind_keys(self, text=None):
         super().text_bind_keys(text=text)
@@ -153,11 +158,11 @@ class TextEditor(TextMixin, BaseTextContainer):
             return
         pos = self.text.index(tk.INSERT)
         tags = self.text.tag_names(pos)
-        # Do not allow modifying keys from encroaching on a footnote reference.
-        if constants.FOOTNOTE_REF in tags:
-            return "break"
         # Do not allow modifying keys from encroaching on a reference.
         if constants.REFERENCE in tags:
+            return "break"
+        # Do not allow modifying keys from encroaching on a footnote reference.
+        if constants.FOOTNOTE_REF in tags:
             return "break"
         self.chars_var.set(f"{self.character_count} characters")
 
