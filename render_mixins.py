@@ -9,7 +9,10 @@ import constants
 
 class BaseRenderMixin:
     """Mixin class containing basic methods to render Marko AST to tk.Text instance.
-    It assumes the presence of an attribute 'text'; instance of tk.Text.
+    It assumes:
+    - An attribute '.text'; instance of tk.Text.
+    - An attribute '.indexed'; a dict containing indexed terms.
+    - An attribute '.referenced'; a dict containing references.
     """
 
     def render(self, ast):
@@ -81,15 +84,20 @@ class BaseRenderMixin:
             self.render(child)
         self.text.tag_add("quote", first, tk.INSERT)
 
+    def render_literal(self, ast):
+        self.text.insert(tk.INSERT, ast["children"])
+
     def render_thematic_break(self, ast):
         self.conditional_line_break(flag=True)
         self.text.insert(tk.INSERT, "------------------------------------",
                          (constants.THEMATIC_BREAK, ))
 
     def render_reference(self, ast):
+        self.references.setdefault(ast["target"], set()).add(self.text.index(tk.INSERT))
         self.text.insert(tk.INSERT, f"{ast['target']}", (constants.REFERENCE, ))
 
     def render_indexed(self, ast):
+        self.indexed.setdefault(ast["target"], set()).add(self.text.index(tk.INSERT))
         self.text.insert(tk.INSERT, ast["target"], (constants.INDEXED, ))
 
     def conditional_line_break(self, flag=True):

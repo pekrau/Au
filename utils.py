@@ -4,7 +4,7 @@ from icecream import ic
 
 import collections
 import datetime
-import os.path
+import os
 import re
 import time
 
@@ -104,6 +104,17 @@ def get_size(absfilepath):
             return f"{size:3.1f} {unit}B"
         size /= 1024.0
     return f"{size:.1f} YB"    
+
+def check_invalid_characters(name):
+    """Raise ValueError if name contains any invalid characters;
+    those with special meaning in file system.
+    """
+    invalids = [os.extsep, os.sep]
+    if os.altsep:
+        invalids.append(os.altsep)
+    for invalid in invalids:
+        if invalid in name:
+            raise ValueError(f"The name may not contain the character '{invalid}'.")
 
 def split_all(filepath):
     "Return list of all components of the given filepath."

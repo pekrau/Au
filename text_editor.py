@@ -519,7 +519,7 @@ class TextEditor(TextViewer):
         if not name:
             return
         name = os.path.splitext(name)[0]
-        filepath = os.path.join(dirpath, name + ".md")
+        filepath = os.path.join(dirpath, name + constants.MARKDOWN_EXT)
         absfilepath = os.path.normpath(os.path.join(self.main.absdirpath, filepath))
         if not absfilepath.startswith(self.main.absdirpath):
             tk_messagebox.showerror(

@@ -117,27 +117,26 @@ class BaseTextContainer(BaseRenderMixin):
     def __init__(self, main, filepath, title=None):
         self.main = main
         self.filepath = filepath
-        self.title = title
+        self.title = title or str(self)
         self.frontmatter, self.ast = utils.parse(self.absfilepath)
         self.prev_line_not_blank = False
         self.links = dict()     # Lookup local for the instance.
+        self.indexed = dict()
+        self.references = dict()
 
     def __str__(self):
-        return self.filepath
+        "The full name of the text; filepath excluding extension."
+        return os.path.splitext(self.filepath)[0]
 
-    def rerender(self):
-        self.links = dict()
-        self.frontmatter, self.ast = utils.parse(self.absfilepath)
-        self.prev_line_not_blank = False
-        self.text.delete("1.0", tk.END)
-        self.render_title()
-        self.render(self.ast)
+    @property
+    def section(self):
+        "The section of the text; empty string if at top level."
+        return os.path.dirname(self.filepath)
 
-    def render_title(self):
-        if not self.title:
-            return
-        self.text.insert(tk.INSERT, self.title, constants.TITLE)
-        self.text.insert(tk.INSERT, "\n\n")
+    @property
+    def name(self):
+        "The short name of the text."
+        return os.path.splitext(os.path.basename(self.filepath))[0]
 
     @property
     def absfilepath(self):
@@ -161,6 +160,20 @@ class BaseTextContainer(BaseRenderMixin):
         if self.title:
             result -= len(self.title) + 2
         return result
+
+    def rerender(self):
+        self.links = dict()
+        self.frontmatter, self.ast = utils.parse(self.absfilepath)
+        self.prev_line_not_blank = False
+        self.text.delete("1.0", tk.END)
+        self.render_title()
+        self.render(self.ast)
+
+    def render_title(self):
+        if not self.title:
+            return
+        self.text.insert(tk.INSERT, self.title, constants.TITLE)
+        self.text.insert(tk.INSERT, "\n\n")
 
     def key_press(self, event):
         raise NotImplementedError

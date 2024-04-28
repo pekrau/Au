@@ -1,5 +1,7 @@
 "Meta content text viewers."
 
+from icecream import ic
+
 import tkinter as tk
 
 import constants
@@ -20,46 +22,49 @@ class MetaViewer(TextMixin):
 
 
 class ReferencesViewer(MetaViewer):
-    "Viewer of the references list."
+    "View of the references list."
 
     def __str__(self):
         return "References"
 
 
 class IndexedViewer(MetaViewer):
-    "Viewer of the list of indexed terms."
+    "View of the list of indexed terms."
 
     def __init__(self, parent, main):
         super().__init__(parent, main)
-        self.indexed = {}       # Key: term; value: dict(textfilepath, position)
 
     def __str__(self):
         return "Indexed"
 
-    def add(self, term, text, position):
-        textrefs = self.indexed.setdefault(term, dict())
-        textrefs.setdefault(text.filepath, set()).add(position)
-
-    def clear(self, text):
-        "Remove all indexed terms that refer to the given text."
-        for textref in self.indexed.values():
-            textref.pop(text.filepath, None)
-
     def render(self):
         self.text.delete("1.0", tk.END)
-        for term, textrefs in sorted(self.indexed.items()):
-            self.text.insert(tk.INSERT, term + "\n")
+        indexed = dict()
+        for filepath, text in self.main.texts.items():
+            try:
+                viewer = text["viewer"]
+            except KeyError:
+                pass
+            else:
+                for term, positions in viewer.indexed.items():
+                    indexed.setdefault(term, dict())[filepath] = positions
+        for term, textrefs in sorted(indexed.items()):
+            self.text.insert(tk.INSERT, term + "\n", (constants.BOLD, ))
+            for filepath, positions in sorted(textrefs.items()):
+                self.text.insert(tk.INSERT, f"  {filepath}  ")
+                self.text.insert(tk.INSERT, ", ".join([str(p) for p in positions]))
+                self.text.insert(tk.INSERT, "\n")
 
 
 class TodoViewer(MetaViewer):
-    "Viewer of the to-do list."
+    "View of the to-do list."
 
     def __str__(self):
         return "To do"
 
 
 class HelpViewer(BaseTextViewer):
-    "Viewer of Markdown contents of the help file."
+    "View of the help file Markdown contents."
 
     def __init__(self, parent, main, filepath):
         super().__init__(parent, main, filepath,

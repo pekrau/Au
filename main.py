@@ -117,7 +117,7 @@ class Main:
 
         self.text_menu = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.text_menu, label="Text")
-        self.text_menu.add_command(label="Open", command=self.open_texteditor)
+        self.text_menu.add_command(label="Edit", command=self.open_texteditor)
         self.text_menu.add_command(label="Rename", command=self.text_rename)
         self.text_menu.add_command(label="Copy", command=self.text_copy)
         self.text_menu.add_command(label="Delete", command=self.text_delete)
@@ -159,7 +159,7 @@ class Main:
         self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
 
-        self.treeview.bind("<Control-o>", self.open_texteditor)
+        self.treeview.bind("<Control-e>", self.open_texteditor)
         self.treeview.bind("<Control-n>", self.text_create)
         self.treeview.bind("<Control-Up>", self.move_item_up)
         self.treeview.bind("<Control-Down>", self.move_item_down)
@@ -168,6 +168,8 @@ class Main:
 
         self.treeview.bind("<Button-3>", self.popup_menu)
         self.treeview.bind("<Return>", self.view_text_tab)
+        self.treeview.bind("<<TreeviewOpen>>", self.treeview_open)
+        self.treeview.bind("<<TreeviewClose>>", self.treeview_close)
         self.treeview.focus_set()
 
         # Get directories and files that actually exist.
@@ -191,19 +193,19 @@ class Main:
             for filename in filenames:
                 if filename.endswith(constants.CONFIG_FILENAME): continue
                 if filename.endswith(constants.HELP_FILENAME): continue
-                if not filename.endswith(".md"): continue
+                if not filename.endswith(constants.MARKDOWN_EXT): continue
                 existing[os.path.join(dirpath, filename)] = None
 
         # Use data from config for existing files and directories.
         # Items in config but missing in existing will be ignored.
         items = dict()
-        for filepath, data in self.config["texts"].items():
+        for filepath, item in self.config["items"].items():
             try:
                 existing.pop(filepath)
             except KeyError:
                 pass
             else:
-                items[filepath] = data
+                items[filepath] = item
 
         # Add files and directories not present in config.
         for filepath in existing:
@@ -211,15 +213,34 @@ class Main:
 
         # Initalize the texts lookup.
         for filepath in items:
-            if filepath.endswith(".md"):
+            if filepath.endswith(constants.MARKDOWN_EXT):
                 self.texts[filepath] = dict(filepath=filepath)
 
         # Set up the treeview display.
         first = True
         for path, data in items.items():
-            self.add_treeview_entry(path, set_selection=first, open=data.get("open", False))
-            if first:
-                first = False
+            self.add_treeview_entry(path, 
+                                    set_selection=first,
+                                    open=data.get("open", False))
+            first = False
+
+    def treeview_open(self, event=None):
+        self.treeview_open_section(self.treeview.focus())
+
+    def treeview_open_section(self, section):
+        filepaths = [f for f in self.texts if os.path.dirname(f) == section]
+        for filepath in filepaths:
+            self.texts_notebook.add(self.texts[filepath]["tab_id"])
+        for subsection in self.treeview.get_children(section):
+            if self.treeview.item(subsection, "open"):
+                self.treeview_open_section(subsection)
+
+    def treeview_close(self, event=None, section=None):
+        if section is None:
+            section = self.treeview.focus()
+        for filepath, text in self.texts.items():
+            if filepath.startswith(section):
+                self.texts_notebook.hide(text["tab_id"])
 
     def texts_notebook_setup(self):
         "Create and initialize the texts notebook tabs."
@@ -230,14 +251,13 @@ class Main:
         self.texts_notebook_lookup = dict()
 
         for filepath, text in self.texts.items():
-            section, name = os.path.split(filepath)
-            if section:
-                continue
-            title = os.path.splitext(os.path.basename(filepath))[0]
-            viewer = TextViewer(self.texts_notebook, self, filepath, title=title)
-            viewer.move_cursor(self.config["texts"][filepath].get("cursor"))
+            # section, name = os.path.split(filepath)
+            # if section:
+            #     continue
+            viewer = TextViewer(self.texts_notebook, self, filepath)
+            viewer.move_cursor(self.config["items"][filepath].get("cursor"))
             text["viewer"] = viewer
-            self.texts_notebook.add(viewer.frame, text=name)
+            self.texts_notebook.add(viewer.frame, text=viewer.name)
             tabs = self.texts_notebook.tabs()
             text["tab_id"] = tabs[-1]
             text["tab_index"] = len(tabs) - 1
@@ -263,6 +283,7 @@ class Main:
         self.meta_notebook.add(self.indexed.frame, text="Indexed")
         tabs = self.meta_notebook.tabs()
         self.meta_notebook_lookup[tabs[-1]] = self.indexed
+        self.indexed.render()
 
         self.todo = TodoViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.todo.frame, text="To do")
@@ -290,6 +311,13 @@ class Main:
             self.panedwindow.sash("place", 0, sash[0], 1)
             self.panedwindow.sash("place", 1, sash[1], 1)
 
+        # Hide sections in texts notebook to agree with treeview.
+        for filepath, item in self.config["items"].items():
+            if filepath.endswith(constants.MARKDOWN_EXT):
+                continue
+            if not item.get("open"):
+                self.treeview_close(section=filepath)
+
         # Set active tab in notebooks.
         tab = self.config["main"]["texts"].get("tab")
         self.treeview.selection_set(tab)
@@ -315,18 +343,18 @@ class Main:
         # Re-open text editors.
         for filepath in self.texts:
             try:
-                config = self.config["texts"][filepath]
+                config = self.config["items"][filepath]
             except KeyError:
                 pass
             else:
-                if config.get("open"):
+                if config.get("editor"):
                     self.open_texteditor(filepath=filepath)
 
     def add_treeview_entry(self, itempath, set_selection=False, index=None, open=False):
         dirpath, itemname = os.path.split(itempath)
-        name, ext = os.path.splitext(itemname)
         absitempath = os.path.join(self.absdirpath, itempath)
-        if ext == ".md":
+        name, ext = os.path.splitext(itemname)
+        if ext == constants.MARKDOWN_EXT:
             self.treeview.insert(dirpath,
                                  index or tk.END,
                                  iid=itempath,
@@ -591,13 +619,12 @@ class Main:
             return
         if newname == oldname:
             return
-        if os.path.splitext(newname)[1]:
-            tk_messagebox.showerror(title="Error",
-                                    message="New name may not contain an extension.")
-            return
-        if os.path.split(newname)[0]:
-            tk_messagebox.showerror(title="Error",
-                                    message="New name may not contain a directory.")
+        try:
+            utils.check_invalid_characters(newname)
+        except ValueError as error:
+            tk_messagebox.showerror(
+                title="Error",
+                message=str(error))
             return
         newpath = os.path.join(dirpath, newname)
         newabspath = os.path.join(self.absdirpath, newpath)
@@ -764,7 +791,7 @@ class Main:
         else:
             ed.toplevel.lift()
         self.treeview.see(filepath)
-        ed.move_cursor(self.config["texts"][filepath].get("cursor"))
+        ed.move_cursor(self.config["items"][filepath].get("cursor"))
         ed.text.update()
         # ed.text.focus_set()
         return "break"
@@ -777,7 +804,7 @@ class Main:
                 return
         section, oldname = os.path.split(oldpath)
         oldname, ext = os.path.splitext(oldname)
-        if ext != ".md":
+        if ext != constants.MARKDOWN_EXT:
             tk_messagebox.showerror(parent=parent or self.root,
                                     title="Not a text",
                                     message="Selected item is not a text.")
@@ -792,14 +819,15 @@ class Main:
             return
         if newname == oldname:
             return
-        newname = os.path.splitext(newname)[0]
-        if os.path.split(newname)[0]:
-            tk_messagebox.showerror(parent=parent or self.root,
-                                    title="Bad name",
-                                    message="New name may not contain a directory.")
+        try:
+            utils.check_invalid_characters(newname)
+        except ValueError as error:
+            tk_messagebox.showerror(
+                title="Error",
+                message=str(error))
             return
         newpath = os.path.join(section, newname)
-        newpath += ".md"
+        newpath += constants.MARKDOWN_EXT
         newabspath = os.path.join(self.absdirpath, newpath)
         if os.path.exists(newabspath):
             tk_messagebox.showerror(parent=parent or self.root,
@@ -840,7 +868,7 @@ class Main:
         if not name:
             return
         name = os.path.splitext(name)[0]
-        filepath = os.path.join(dirpath, name + ".md")
+        filepath = os.path.join(dirpath, name + constants.MARKDOWN_EXT)
         absfilepath = os.path.normpath(os.path.join(self.absdirpath, filepath))
         if not absfilepath.startswith(self.absdirpath):
             tk_messagebox.showerror(
@@ -901,7 +929,7 @@ class Main:
                 filepath = self.treeview.selection()[0]
             except IndexError:
                 return
-        if not filepath.endswith(".md"):
+        if not filepath.endswith(constants.MARKDOWN_EXT):
             return
         if not os.path.isfile(os.path.join(self.absdirpath, filepath)):
             return
@@ -924,7 +952,7 @@ class Main:
 
     def text_rerender(self, filepath, cursor=None):
         if cursor:
-            self.config["texts"][filepath]["cursor"] = cursor
+            self.config["items"][filepath]["cursor"] = cursor
         self.texts[filepath]["viewer"].rerender()
 
     def move_file_to_archive(self, filepath):
@@ -985,26 +1013,22 @@ class Main:
         self.config["main"]["meta"] = dict(
             tab=str(self.meta_notebook_lookup[self.meta_notebook.select()]))
         self.config["paste_buffer"] = self.paste_buffer
-        # Get the order of the texts as shown in the treeview.
+        # Get the order of the sections and texts as shown in the treeview.
         # This relies on the dictionary keeping the order of the items.
-        self.config["texts"] = dict()
+        self.config["items"] = dict()
         for filepath in self.get_all_treeview_items():
-            if filepath.endswith(".md"):
+            if filepath.endswith(constants.MARKDOWN_EXT):
                 try:
                     editor = self.texts[filepath]["editor"]
-                    conf = dict(open=True,
+                    conf = dict(editor=True,
                                 geometry=editor.toplevel.geometry(),
                                 cursor=editor.cursor_normalized(sign="-"))
                 except KeyError:
-                    try:
-                        viewer = self.texts[filepath]["viewer"]
-                        conf = dict(open=False,
-                                    cursor=viewer.cursor_normalized())
-                    except KeyError:
-                        conf = dict()
+                    viewer = self.texts[filepath]["viewer"]
+                    conf = dict(cursor=viewer.cursor_normalized())
             else:
                 conf = dict(open=bool(self.treeview.item(filepath, "open")))
-            self.config["texts"][filepath] = conf
+            self.config["items"][filepath] = conf
         with open(self.configpath, "w") as outfile:            
             json.dump(self.config, outfile, indent=2)
 
