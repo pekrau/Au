@@ -15,8 +15,10 @@ class MetaViewer(TextMixin):
 
     def __init__(self, parent, main):
         self.main = main
-        self.text_setup(parent)
+        self.text_create(parent)
         self.text_configure_tags()
+
+    def set_title(self):
         self.text.insert(tk.INSERT, str(self), constants.TITLE)
         self.text.insert(tk.INSERT, "\n\n")
 
@@ -26,6 +28,10 @@ class ReferencesViewer(MetaViewer):
 
     def __str__(self):
         return "References"
+
+    def render(self):
+        self.text.delete("1.0", tk.END)
+        self.set_title()
 
 
 class IndexedViewer(MetaViewer):
@@ -39,6 +45,7 @@ class IndexedViewer(MetaViewer):
 
     def render(self):
         self.text.delete("1.0", tk.END)
+        self.set_title()
         indexed = dict()
         for filepath, text in self.main.texts.items():
             try:
@@ -61,6 +68,10 @@ class TodoViewer(MetaViewer):
 
     def __str__(self):
         return "To do"
+
+    def render(self):
+        self.text.delete("1.0", tk.END)
+        self.set_title()
 
 
 class HelpViewer(BaseTextViewer):

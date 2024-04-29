@@ -18,7 +18,7 @@ class BaseTextViewer(TextMixin, BaseTextContainer):
 
     def __init__(self, parent, main, filepath, title=None):
         super().__init__(main, filepath, title=title)
-        self.text_setup(parent)
+        self.text_create(parent)
         self.text_configure_tags()
         self.text_configure_tag_bindings()
         self.text_bind_keys()

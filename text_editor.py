@@ -23,12 +23,7 @@ class TextEditor(TextViewer):
     "Text editor window."
 
     def __init__(self, main, filepath):
-        self.main = main
-        self.filepath = filepath
-        self.frontmatter, self.ast = utils.parse(self.absfilepath)
-        self.prev_line_not_blank = False
-        self.links = dict()         # Lookup local for the instance.
-        self.footnotes = dict()     # Lookup local for the instance.
+        super().__init__(main.root, main, filepath)
 
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(os.path.splitext(self.filepath)[0])
@@ -41,7 +36,7 @@ class TextEditor(TextViewer):
 
         self.menubar_setup()
 
-        self.text_setup(self.toplevel)
+        self.text_create(self.toplevel)
         self.text_configure_tags()
         self.text_configure_tag_bindings()
         self.text_bind_keys()
@@ -51,7 +46,6 @@ class TextEditor(TextViewer):
         self.render(self.ast)
 
         self.info_setup()
-        self.chars_var.set(f"{self.character_count} characters")
 
         self.ignore_modified_event = True
         self.text.edit_modified(False)
@@ -139,6 +133,7 @@ class TextEditor(TextViewer):
         chars_label.grid(row=0, column=0, padx=4, sticky=tk.W)
         self.info_frame.columnconfigure(0, weight=1)
         chars_label["textvariable"] = self.chars_var
+        self.chars_var.set(f"{self.character_count} characters")
 
         status_label = ttk.Label(self.info_frame)
         status_label.grid(row=0, column=1, padx=4, sticky=tk.E)

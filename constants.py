@@ -1,6 +1,7 @@
 "Constants."
 
 import functools
+import os
 import string
 
 VERSION = (0, 7, 2)
@@ -14,8 +15,11 @@ DEFAULT_TEXT_HEIGHT = 30
 CONFIG_FILENAME = "config.json"
 HELP_FILENAME = "help.md"
 ARCHIVE_DIRNAME = "au_archive"
+assert os.extsep not in ARCHIVE_DIRNAME # Code relies on this!
 TODO_DIRNAME = "au_todo"
+assert os.extsep not in TODO_DIRNAME
 REFERENCES_DIRNAME = "au_references"
+assert os.extsep not in REFERENCES_DIRNAME
 
 MARKDOWN_EXT = ".md"
 

@@ -17,8 +17,8 @@ class TextMixin:
 
     TEXT_COLOR = "white"
 
-    def text_setup(self, parent):
-        "Setup the text widget and its associates."
+    def text_create(self, parent):
+        "Create the text widget and its associates."
         self.frame = ttk.Frame(parent)
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.frame.rowconfigure(0, weight=1)
@@ -120,9 +120,9 @@ class BaseTextContainer(BaseRenderMixin):
         self.title = title or str(self)
         self.frontmatter, self.ast = utils.parse(self.absfilepath)
         self.prev_line_not_blank = False
-        self.links = dict()     # Lookup local for the instance.
-        self.indexed = dict()
-        self.references = dict()
+        self.links = dict()       # Lookup local for the instance.
+        self.indexed = dict()     # Lookup local for the instance.
+        self.references = dict()  # Lookup local for the instance.
 
     def __str__(self):
         "The full name of the text; filepath excluding extension."
