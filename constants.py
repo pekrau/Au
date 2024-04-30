@@ -27,7 +27,7 @@ TEXT_COLOR = "linen"
 MODIFIED_COLOR = "lightpink"
 SECTION_COLOR = "gainsboro"
 
-TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+TIME_ISO_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 @functools.total_ordering
 class Status:

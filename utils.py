@@ -65,8 +65,8 @@ def parse(filepath):
     return Parsed(frontmatter, parser.convert(content))
 
 def get_now():
-    "Get formatted string for the current local time."
-    return time.strftime(constants.TIME_FORMAT, time.localtime())
+    "Get ISO formatted string for the current local time."
+    return time.strftime(constants.TIME_ISO_FORMAT, time.localtime())
 
 def get_age(filepath):
     "Get the age of the file, as a tuple (value, unit)."
