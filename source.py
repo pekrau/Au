@@ -212,6 +212,16 @@ class Item:
             unit = "secs"
         return (f"{value:.0f}", unit)
 
+    @property
+    def shown(self):
+        "Are all parent sections open?"
+        parent = self.parent
+        while parent is not self.source:
+            if not parent.open:
+                return False
+            parent = parent.parent
+        return True
+
     def read(self):
         raise NotImplementedError
         
@@ -319,6 +329,7 @@ class Section(Item):
 
     def __init__(self, source, parent, name):
         self.items = []
+        self.open = False
         super().__init__(source, parent, name)
 
     @property
@@ -358,10 +369,12 @@ class Section(Item):
     def get_config(self):
         return dict(type="section",
                     name=self.name,
+                    open=self.open,
                     items=[i.get_config() for i in self.items])
 
     def apply_config(self, config):
         assert config["type"] == "section"
+        self.open = bool(config.get("open"))
         original = dict([(i.name, i) for i in self.items])
         self.items = []
         for ordered in config["items"]:
@@ -442,7 +455,6 @@ class Text(Item):
 
     def apply_config(self, config):
         assert config["type"] == "text"
-        pass
 
     def copy(self, newname):
         newabspath = super().copy(newname)

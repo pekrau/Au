@@ -91,12 +91,14 @@ class Main:
     def config_save(self):
         "Save the current config. Get current state from the respective widgets."
         ic("config_save")
-        config = dict(main = dict(geometry=self.root.geometry()))
+        config = dict(main=dict(geometry=self.root.geometry(),
+                                selected=self.treeview.focus(),
+                                sash=[self.panedwindow.sash("coord", 0)[0]]))
+        #       self.panedwindow.sash("coord", 1)[0]],
+        # meta=dict(
+        #     selected=str(self.meta_notebook_lookup[self.meta_notebook.select()])))
+
         config.update(self.source.get_config())
-            # sash=[self.panedwindow.sash("coord", 0)[0],
-            #       self.panedwindow.sash("coord", 1)[0]],
-            # meta=dict(
-            #     selected=str(self.meta_notebook_lookup[self.meta_notebook.select()]))))
 
         # Save the current cut-and-paste buffer.
         config["paste"] = self.paste_buffer
@@ -166,7 +168,7 @@ class Main:
         self.treeview.tag_configure("section", background=constants.SECTION_COLOR)
         self.treeview.tag_configure("modified", background=constants.MODIFIED_COLOR)
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.treeview.heading("#0", text="Text")
+        self.treeview.heading("#0", text="Item")
         self.treeview.heading("status", text="Status")
         self.treeview.heading("chars", text="Chars")
         self.treeview.heading("age", text="Age")
@@ -188,15 +190,15 @@ class Main:
         self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
 
-        self.treeview.bind("<Control-e>", self.open_texteditor)
-        self.treeview.bind("<Control-n>", self.text_create)
-        self.treeview.bind("<Control-Up>", self.move_item_up)
-        self.treeview.bind("<Control-Down>", self.move_item_down)
-        self.treeview.bind("<Control-Right>", self.move_item_into_section)
-        self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
+        # self.treeview.bind("<Control-e>", self.open_texteditor)
+        # self.treeview.bind("<Control-n>", self.text_create)
+        # self.treeview.bind("<Control-Up>", self.move_item_up)
+        # self.treeview.bind("<Control-Down>", self.move_item_down)
+        # self.treeview.bind("<Control-Right>", self.move_item_into_section)
+        # self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
 
-        self.treeview.bind("<Button-3>", self.popup_menu)
-        self.treeview.bind("<Return>", self.view_text_tab)
+        # self.treeview.bind("<Button-3>", self.popup_menu)
+        self.treeview.bind("<<TreeviewSelect>>", self.treeview_selected)
         self.treeview.bind("<<TreeviewOpen>>", self.treeview_open)
         self.treeview.bind("<<TreeviewClose>>", self.treeview_close)
         self.treeview.focus_set()
@@ -207,51 +209,50 @@ class Main:
         for item in self.source.all_items:
             self.add_treeview_entry(item)
 
-    def add_treeview_entry(self, item, set_selection=False, index=None, open=False):
-        tag = constants.SECTION_PREFIX + item.fullname
+    def add_treeview_entry(self, item, index=None):
         if item.is_text:
+            tag = constants.ITEM_PREFIX + item.fullname
             self.treeview.insert(item.parentpath,
                                  index or tk.END,
                                  iid=item.fullname,
                                  text=item.name,
                                  tags=(tag, ))
             self.treeview.tag_bind(tag,
-                                   "<Button-1>",
-                                   functools.partial(self.view_text_tab,
-                                                     filepath=item.fullname))
-            self.treeview.tag_bind(tag,
                                    "<Double-Button-1>",
                                    functools.partial(self.open_texteditor,
-                                                     filepath=item.fullname))
-        else:
+                                                     fullname=item.fullname))
+        elif item.is_section:
             self.treeview.insert(item.parentpath,
                                  index or tk.END,
                                  iid=item.fullname,
                                  text=item.name,
-                                 open=open,
-                                 tags=(constants.SECTION, tag))
-        if set_selection:
-            self.treeview.see(item.fullname)
-            self.treeview.selection_set(item.fullname)
+                                 open=item.open,
+                                 tags=(constants.SECTION, ))
 
-    def treeview_open(self, event=None, fullname=None):
-        pass
-        # if fullname is None:
-        #     fullname = self.treeview.focus()
-        # filepaths = [f for f in self.texts if os.path.dirname(f) == fullname]
-        # for filepath in filepaths:
-        #     self.texts_notebook.add(self.texts[filepath]["tabid"])
-        # for subsection in self.treeview.get_children(section):
-        #     if self.treeview.item(subsection, "open"):
-        #         self.treeview_open(section=subsection)
+    def treeview_selected(self, event=None):
+        "Synchronize text tab with selected in the treeview."
+        item = self.source.lookup[self.treeview.focus()]
+        if item.is_text:
+            self.texts_notebook.select(item.tabid)
 
-    def treeview_close(self, event=None, section=None):
-        pass
-        # if section is None:
-        #     section = self.treeview.focus()
-        # for filepath, text in self.texts.items():
-        #     if filepath.startswith(section):
-        #         self.texts_notebook.hide(text["tabid"])
+    def treeview_open(self, event=None):
+        fullname = self.treeview.focus()
+        item = self.source[fullname]
+        assert item.is_section
+        item.open = True
+        for item in item.all_items:
+            if item.is_text:
+                self.texts_notebook.add(item.tabid)
+            elif item.is_section:
+                item.open = True
+
+    def treeview_close(self, event=None):
+        fullname = self.treeview.focus()
+        item = self.source[fullname]
+        assert item.is_section
+        item.open = False
+        for text in item.all_texts:
+            self.texts_notebook.hide(text.tabid)
 
     def texts_notebook_create(self):
         "Create the texts notebook."
@@ -259,6 +260,14 @@ class Main:
         self.panedwindow.add(self.texts_notebook, minsize=constants.PANE_MINSIZE)
          # Key: tabid; value: instance
         self.texts_notebook_lookup = dict()
+        self.texts_notebook.bind("<<NotebookTabChanged>>",
+                                 self.texts_notebook_tab_changed)
+
+    def texts_notebook_tab_changed(self, event=None):
+        "Synchronize tab change with selected in treeview."
+        text = self.texts_notebook_lookup[self.texts_notebook.select()]
+        self.treeview.selection_set(text.fullname)
+        self.treeview.focus(text.fullname)
 
     def texts_notebook_render(self):
         "Render tabs for the texts notebook; first delete any existing tabs."
@@ -266,12 +275,13 @@ class Main:
             self.texts_notebook.forget(self.texts_notebook_lookup.popitem()[0])
         for text in self.source.all_texts:
             viewer = Viewer(self.texts_notebook, self, text)
+            text.viewer = viewer
             # try:
             #     viewer.move_cursor(self.config["items"][filepath].get("cursor"))
             # except KeyError:
             #     pass
-            text.viewer = viewer
-            self.texts_notebook.add(viewer.frame, text=viewer.name)
+            self.texts_notebook.add(viewer.frame, text=viewer.name,
+                                    state=text.shown and tk.NORMAL or tk.HIDDEN)
             tabs = self.texts_notebook.tabs()
             text.tabid = tabs[-1]
             text.tabindex = len(tabs) - 1
@@ -279,16 +289,6 @@ class Main:
             # opener = functools.partial(self.open_texteditor, filepath=filepath)
             # viewer.text.bind("<Double-Button-1>", opener)
             # viewer.text.bind("<Return>", opener)
-
-    def texts_notebook_set_selected(self, filepath):
-        pass
-        # for tabid, text in self.texts_notebook_lookup.items():
-        #     if text["filepath"] == filepath:
-        #         try:
-        #             self.texts_notebook.select(tabid)
-        #         except tk.TclError:
-        #             pass
-        #         break
 
     # def meta_notebook_create(self):
     #     "Create the meta content notebook."
@@ -338,23 +338,16 @@ class Main:
         else:
             self.panedwindow.update() # Has to be here for this to work.
             self.panedwindow.sash("place", 0, sash[0], 1)
-            self.panedwindow.sash("place", 1, sash[1], 1)
+            # self.panedwindow.sash("place", 1, sash[1], 1)
 
-        # # Hide sections in texts notebook to agree with treeview.
-        # for filepath, item in self.config["items"].items():
-        #     if filepath.endswith(constants.MARKDOWN_EXT):
-        #         continue
-        #     if not item.get("open"):
-        #         self.treeview_close(section=filepath)
-
-        # # Set selected tab in notebooks.
-        # selected = self.config["main"]["texts"].get("selected")
-        # # Skip if it has been renamed.
-        # if selected in self.texts:
-        #     self.treeview.selection_set(selected)
-        #     self.treeview.focus(selected)
-        #     self.treeview.see(selected)
-        #     self.texts_notebook_set_selected(selected)
+        # Set selected text tab in notebook.
+        try:
+            text = self.source[self.config["main"]["selected"]]
+        except KeyError:
+            pass
+        else:
+            self.treeview.selection_set(text.fullname)
+            self.treeview.focus(text.fullname)
 
         # selected = self.config["main"]["meta"].get("selected")
         # for tabid, viewer in self.meta_notebook_lookup.items():
@@ -380,38 +373,39 @@ class Main:
         #             break
         #     except KeyError:
         #         pass
+        self.config_save()
         self.root.destroy()
 
     def render(self):
         "Re-render the contents of all three panels."
         self.treeview_render()
         self.texts_notebook_render()
-        self.treeview_update_info()
+        # self.treeview_update_info()
         # self.meta_notebook_render()
         self.config_apply()
 
-    def treeview_update_info(self):
-        "Update status, chars and age of text entries."
-        for text in self.source.all_texts:
-            self.set_treeview_info(text)
+    # def treeview_update_info(self):
+    #     "Update status, chars and age of text entries."
+    #     for text in self.source.all_texts:
+    #         self.set_treeview_info(text)
 
-    def set_treeview_info(self, text):
-        try:
-            modified = text.editor.is_modified
-        except AttributeError:
-            modified = False
-        # XXX
-        # tags = set(self.treeview.item(text.fullname), "tags")
-        tags = set()
-        if modified:
-            tags.add("modified")
-        else:
-            tags.discard("modified")
-        self.treeview.item(text.fullname, tags=tuple(tags))
-        self.treeview.set(text.fullname, "status", str(text.status))
-        self.treeview.set(text.fullname, "chars", text.viewer.character_count)
-        age, unit = text.age
-        self.treeview.set(text.fullname, "age", f"{age} {unit}")
+    # def set_treeview_info(self, text):
+    #     try:
+    #         modified = text.editor.is_modified
+    #     except AttributeError:
+    #         modified = False
+    #     # XXX
+    #     # tags = set(self.treeview.item(text.fullname), "tags")
+    #     tags = set()
+    #     if modified:
+    #         tags.add("modified")
+    #     else:
+    #         tags.discard("modified")
+    #     self.treeview.item(text.fullname, tags=tuple(tags))
+    #     self.treeview.set(text.fullname, "status", str(text.status))
+    #     self.treeview.set(text.fullname, "chars", text.viewer.character_count)
+    #     age, unit = text.age
+    #     self.treeview.set(text.fullname, "age", f"{age} {unit}")
 
     def treeview_rename_children(self, newdirpath, olddirpath, children):
         pass
@@ -426,15 +420,6 @@ class Main:
         #         editor.filepath = newpath
         #         editor.toplevel.title(os.path.splitext(newpath)[0])
         #     self.add_treeview_entry(newpath)
-
-    def view_text_tab(self, event=None, filepath=None):
-        pass
-        # if filepath is None:
-        #     filepath = self.treeview.focus()
-        # try:
-        #     self.texts_notebook.select(self.texts[filepath]["tabid"])
-        # except KeyError:
-        #     pass
 
     def move_item_up(self, event=None):
         "Move the currently selected item up within its level of the treeview."
@@ -671,7 +656,7 @@ class Main:
         # # # This removes all children entries in the treeview.
         # # self.treeview.delete(oldpath)
 
-        # # self.add_treeview_entry(newpath, index=oldindex, open=oldopen)
+        # # self.add_treeview_entry(newpath, index=oldindex)
         # # self.treeview_rename_children(newpath, oldpath, children)
         # # self.treeview.selection_set(newpath)
         # # self.treeview.see(newpath)
@@ -802,8 +787,8 @@ class Main:
         # self.config_save()
         # self.render()
 
-    def open_texteditor(self, event=None, filepath=None):
-        pass
+    def open_texteditor(self, event=None, fullname=None):
+        ic("open_texteditor", event, fullname)
         # if filepath is None:
         #     try:
         #         filepath = self.treeview.selection()[0]
