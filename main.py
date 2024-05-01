@@ -126,6 +126,8 @@ class Main:
         self.menu_edit.add_command(label="Rename", command=self.rename)
         self.menu_edit.add_command(label="Copy", command=self.copy)
         self.menu_edit.add_command(label="Delete", command=self.delete)
+        # XXX Create text
+        # XXX Create section
 
         self.menu_move = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_move, label="Rearrange")
@@ -504,6 +506,7 @@ class Main:
         return "break"
 
     def rename(self):
+        "Rename the currently selected item."
         try:
             fullname = self.treeview.selection()[0]
         except IndexError:
@@ -539,127 +542,64 @@ class Main:
         self.config_save()
 
     def copy(self):
+        "Make a copy of the currently selected item."
+        try:
+            fullname = self.treeview.selection()[0]
+        except IndexError:
+            return
+        item = self.source.lookup[fullname]
+        newname = f"Copy of {item.name}"
+        for i in range(2, 10):
+            try:
+                newitem = item.copy(newname)
+            except ValueError:
+                newname = f"Copy {i} of {item.name}"
+            else:
+                break
+        else:
+            tk_messagebox.showerror(
+                title="Error",
+                message="Could not generate a unique name for the copy.")
+            return
+        self.treeview_render()        # XXX Optimize!
+        self.treeview.update()
+        self.texts_notebook_render()  # XXX Optimize!
+        self.texts_notebook.update()
+        self.treeview.selection_set(newitem.fullname)
+        self.treeview.focus(newitem.fullname)
+        self.config_save()
+
+    def create_text(self, parent=None):
         pass
-        # try:
-        #     oldpath = self.treeview.selection()[0]
-        # except IndexError:
-        #     return
-        # oldabspath = os.path.join(self.absdirpath, oldpath)
-        # if not os.path.isdir(oldabspath):
-        #     return
-        # dirpath, oldname = os.path.split(oldpath)
-        # newname = tk_simpledialog.askstring(
-        #     parent=self.root,
-        #     title="Name",
-        #     prompt="Give the name for the section copy:",
-        #     initialvalue=f"Copy of {oldname}")
-        # if not newname:
-        #     return
-        # if os.path.splitext(newname)[1]:
-        #     tk_messagebox.showerror(title="Error",
-        #                             message="New name may not contain an extension.")
-        #     return
-        # if os.path.split(newname)[0]:
-        #     tk_messagebox.showerror(title="Error",
-        #                             message="New name may not contain a directory.")
-        #     return
-        # newpath = os.path.join(dirpath, newname)
-        # newabspath = os.path.join(self.absdirpath, newpath)
-        # if os.path.exists(newabspath):
-        #     tk_messagebox.showerror(title="Exists",
-        #                             message="The name is already in use.")
-        #     return
 
-        # # Make copy on disk.
-        # shutil.copytree(oldabspath, newabspath)
-
-        # # oldindex = self.treeview.index(oldpath)
-        # # self.add_treeview_entry(newpath, index=oldindex+1)
-        # # for dirpath, dirnames, filenames in os.walk(newabspath):
-        # #     for dirname in dirnames:
-        # #         self.add_treeview_entry(os.path.join(newpath, dirname))
-        # #     for filename in filenames:
-        # #         self.add_treeview_entry(os.path.join(newpath, filename))
-
-        # # self.treeview.see(newpath)
-        # # self.treeview.focus(newpath)
-
-        # self.config_save()
-        # self.render()
-
-    def create(self, parent=None):
+    def create_section(self, parent=None):
         pass
-        # try:
-        #     dirpath = self.treeview.selection()[0]
-        #     absdirpath = os.path.join(self.absdirpath, dirpath)
-        # except IndexError:
-        #     absdirpath = self.absdirpath
-        # if os.path.isfile(absdirpath):
-        #     absdirpath = os.path.split(absdirpath)[0]
-        #     dirpath = absdirpath[len(self.absdirpath)+1:]
-        # name = tk_simpledialog.askstring(
-        #     parent=parent or self.root,
-        #     title="New section",
-        #     prompt=f"Give name of new section within section '{dirpath}':")
-        # if not name:
-        #     return
-        # name = os.path.splitext(name)[0]
-        # dirpath = os.path.join(dirpath, name)
-        # absdirpath = os.path.normpath(os.path.join(self.absdirpath, dirpath))
-        # if not absdirpath.startswith(self.absdirpath):
-        #     tk_messagebox.showerror(
-        #         parent=self.root,
-        #         title="Wrong directory",
-        #         message=f"Must be within '{self.absdirpath}'")
-        #     return
-        # if os.path.exists(absdirpath):
-        #     tk_messagebox.showerror(
-        #         parent=self.root,
-        #         title="Name exists",
-        #         message=f"The section '{dirpath}' already exists.")
-        #     return
-
-        # os.makedirs(absdirpath)
-        # # self.add_treeview_entry(dirpath, set_selection=True)
-        # self.config_save()
-        # self.render()
 
     def delete(self):
-        pass
-        # selection = self.treeview.selection()
-        # if not selection:
-        #     return
-        # dirpath = selection[0]
-        # if not dirpath:
-        #     return
-        # absdirpath = os.path.join(self.absdirpath, dirpath)
-        # if not os.path.isdir(absdirpath):
-        #     return
-        # if not tk_messagebox.askokcancel(
-        #         title="Delete section?",
-        #         message=f"Really delete section '{dirpath}' and all its contents?"):
-        #     return
-        # section = list(os.walk(absdirpath))
-        # archivepath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
-        # if not os.path.exists(archivepath):
-        #     os.makedirs(archivepath)
-        # for sectiondir, dirnames, filenames in section:
-        #     subdirpath = sectiondir[len(self.absdirpath)+1:]
-        #     # Archive the files.
-        #     archivedirpath = os.path.join(archivepath, sectiondir)
-        #     if not os.path.exists(archivedirpath):
-        #         os.mkdir(archivedirpath)
-        #     for filename in filenames:
-        #         os.rename(os.path.join(sectiondir, filename),
-        #                   f"{archivedirpath}/{filename} {utils.get_now()}")
-        # # Actually remove the directory and files.
-        # shutil.rmtree(absdirpath)
-
-        # # # Remove the entry in the main window.
-        # # self.treeview.delete(dirpath)
-
-        # self.config_save()
-        # self.render()
+        try:
+            fullname = self.treeview.selection()[0]
+        except IndexError:
+            return
+        item = self.source.lookup[fullname]
+        if item.is_text:
+            if not tk_messagebox.askokcancel(
+                    title="Delete text?",
+                    message=f"Really delete text '{item.fullname}'?"):
+                return
+        elif item.is_section:
+            if not tk_messagebox.askokcancel(
+                    title="Delete section?",
+                    message=f"Really delete section '{item.fullname}' and all its contents?"):
+                return
+        item.delete()
+        if item.is_text:
+            self.treeview.delete(fullname)
+            self.texts_notebook.forget(item.tabid)
+        else:
+            self.treeview_render()        # XXX Optimize!
+            self.treeview.update()
+            self.texts_notebook_render()  # XXX Optimize!
+            self.texts_notebook.update()
 
     def open_texteditor(self, event=None, fullname=None):
         ic("open_texteditor", event, fullname)

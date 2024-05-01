@@ -342,6 +342,7 @@ class Item:
         self.replace_in_lookup(oldfullnames)
 
     def copy(self, newname):
+        "Common code for section and text copy operations."
         if newname == self.name:
             raise ValueError("Cannot copy to the same name.")
         if not newname:
@@ -431,6 +432,7 @@ class Section(Item):
         self.parent.items.append(new)
         for item in new.all_items:
             self.source.lookup[item.fullname] = item
+        return new
 
     def delete(self):
         shutil.rmtree(self.abspath)
@@ -499,6 +501,7 @@ class Text(Item):
         new = Text(self.source, self.parent, newname + constants.MARKDOWN_EXT)
         self.parent.items.append(new)
         self.source.lookup[new.fullname] = new
+        return new
 
     def delete(self):
         os.remove(self.abspath)
