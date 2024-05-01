@@ -16,10 +16,9 @@ from render_mixins import BaseRenderMixin
 class BaseViewer(BaseRenderMixin):
     "Viewer base class with Markdown rendering methods and bindings."
 
-    def __init__(self, parent, main, text, title=None):
+    def __init__(self, parent, main, text):
         self.main = main
         self.text = text
-        self.title = title or str(self)
         self.prev_line_not_blank = False
         self.links = dict()       # Lookup local for the instance.
         self.indexed = dict()     # Lookup local for the instance.
@@ -55,10 +54,7 @@ class BaseViewer(BaseRenderMixin):
 
     @property
     def character_count(self):
-        result = len(self.view.get("1.0", tk.END))
-        if self.title:
-            result -= len(self.title) + 2
-        return result
+        return len(self.view.get("1.0", tk.END)) - (len(str(self)) + 2)
 
     TEXT_COLOR = "white"
 
@@ -164,9 +160,7 @@ class BaseViewer(BaseRenderMixin):
         self.render(self.text.ast)
 
     def render_title(self):
-        if not self.title:
-            return
-        self.view.insert(tk.INSERT, self.title, constants.TITLE)
+        self.view.insert(tk.INSERT, str(self), constants.TITLE)
         self.view.insert(tk.INSERT, "\n\n")
 
     def key_press(self, event):
@@ -191,10 +185,7 @@ class BaseViewer(BaseRenderMixin):
 
     def cursor_offset(self, sign="+"):
         "Return the offset to convert the cursor position to the one to use."
-        if self.title:
-            return f"{sign}{len(self.title)+2}c"
-        else:
-            return ""
+        return f"{sign}{len(str(self))+2}c"
 
     def cursor_normalized(self):
         "Return the normalized cursor position."

@@ -1,16 +1,16 @@
 # Hotkeys
 
-## Table of contents window
+## Items pane
 
-| Hotkey    | Action                                  |
-| --------- | --------------------------------------- |
-| Up        | Select previous item in the tree.   |
-| Down      | Select next item in the tree.       |
-| Left      | Move down into the subtree.             |
-| Right     | Move up out of the subtree.             |
-| Ctrl-O    | Open text window. |
-| Ctrl-N    | Create a new text and open its window. |
-| Ctrl-S    | Save current configuration.  |
+| Hotkey     | Action                                  |
+| ---------- | --------------------------------------- |
+| Up         | Select previous item in the tree.   |
+| Down       | Select next item in the tree.       |
+| Left       | Move down into the subtree.             |
+| Right      | Move up out of the subtree.             |
+| Ctrl-O     | Open text window. |
+| Ctrl-N     | Create a new text and open its window. |
+| Ctrl-Q     | Close application.                       |
 | Ctrl-Up    | Move current item to the previous position. |
 | Ctrl-Down  | Move current item to the next position. |
 | Ctrl-Right | Move current item down into the subtree. |
@@ -18,7 +18,7 @@
 
 
 
-## Text editor window
+## Editor
 
 | Hotkey  | Action                                    |
 | ------- | ---------------------------------------------------- |

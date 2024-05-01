@@ -121,8 +121,14 @@ class Main:
                                    accelerator="Ctrl-Q")
         self.root.bind("<Control-q>", self.quit)
 
+        self.menu_edit = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        self.menu_edit.add_command(label="Rename", command=self.rename)
+        self.menu_edit.add_command(label="Copy", command=self.copy)
+        self.menu_edit.add_command(label="Delete", command=self.delete)
+
         self.menu_move = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_move, label="Move item")
+        self.menubar.add_cascade(menu=self.menu_move, label="Rearrange")
         self.menu_move.add_command(label="Up",
                                       command=self.move_item_up,
                                       accelerator="Ctrl-Up")
@@ -135,19 +141,6 @@ class Main:
         self.menu_move.add_command(label="Out of section",
                                       command=self.move_item_out_of_section,
                                       accelerator="Ctrl-Right")
-
-        # self.section_menu = tk.Menu(self.menubar)
-        # self.menubar.add_cascade(menu=self.section_menu, label="Section")
-        # self.section_menu.add_command(label="Rename", command=self.section_rename)
-        # self.section_menu.add_command(label="Copy", command=self.section_copy)
-        # self.section_menu.add_command(label="Delete", command=self.section_delete)
-
-        # self.text_menu = tk.Menu(self.menubar)
-        # self.menubar.add_cascade(menu=self.text_menu, label="Text")
-        # self.text_menu.add_command(label="Edit", command=self.open_texteditor)
-        # self.text_menu.add_command(label="Rename", command=self.text_rename)
-        # self.text_menu.add_command(label="Copy", command=self.text_copy)
-        # self.text_menu.add_command(label="Delete", command=self.text_delete)
 
         self.menu_compile = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_compile, label="Compile")
@@ -510,59 +503,42 @@ class Main:
         self.config_save()
         return "break"
 
-    def section_rename(self):
-        pass
-        # try:
-        #     oldpath = self.treeview.selection()[0]
-        # except IndexError:
-        #     return
+    def rename(self):
+        try:
+            fullname = self.treeview.selection()[0]
+        except IndexError:
+            return
+        item = self.source.lookup[fullname]
+        newname = tk_simpledialog.askstring(
+            parent=self.root,
+            title="New name",
+            prompt="Give the new name for the item",
+            initialvalue=item.name)
+        if newname == item.name:
+            return
+        try:
+            item.rename(newname)
+        except ValueError as error:
+            tk_messagebox.showerror(
+                title="Error",
+                message=str(error))
+            return
+        if item.is_text:
+            index = self.treeview.index(fullname)
+            self.treeview.delete(fullname)
+            self.add_treeview_entry(item, index=index)
+            self.texts_notebook.tab(item.tabid, text=item.name)
+            item.viewer.rerender()
+        elif item.is_section:
+            self.treeview_render()        # XXX Optimize!
+            self.treeview.update()
+            self.texts_notebook_render()  # XXX Optimize!
+            self.texts_notebook.update()
+        self.treeview.selection_set(item.fullname)
+        self.treeview.focus(item.fullname)
+        self.config_save()
 
-        # oldabspath = os.path.join(self.absdirpath, oldpath)
-        # if not os.path.isdir(oldabspath):
-        #     return
-        # dirpath, oldname = os.path.split(oldpath)
-        # newname = tk_simpledialog.askstring(
-        #     parent=self.root,
-        #     title="New name",
-        #     prompt="Give the new name for the section:",
-        #     initialvalue=oldname)
-        # if not newname:
-        #     return
-        # if newname == oldname:
-        #     return
-        # try:
-        #     utils.check_invalid_characters(newname)
-        # except ValueError as error:
-        #     tk_messagebox.showerror(
-        #         title="Error",
-        #         message=str(error))
-        #     return
-        # newpath = os.path.join(dirpath, newname)
-        # newabspath = os.path.join(self.absdirpath, newpath)
-        # if os.path.exists(newabspath):
-        #     tk_messagebox.showerror(title="Exists",
-        #                             message="The name is already in use.")
-        #     return
-
-        # # Rename the actual directory.
-        # os.rename(oldabspath, newabspath)
-
-        # # oldindex = self.treeview.index(oldpath)
-        # # oldopen = self.treeview.item(oldpath, "open")
-        # # children = self.get_all_treeview_items(oldpath)
-
-        # # # This removes all children entries in the treeview.
-        # # self.treeview.delete(oldpath)
-
-        # # self.add_treeview_entry(newpath, index=oldindex)
-        # # self.treeview_rename_children(newpath, oldpath, children)
-        # # self.treeview.selection_set(newpath)
-        # # self.treeview.see(newpath)
-        # # self.treeview.focus(newpath)
-        # self.config_save()
-        # self.render()
-
-    def section_copy(self):
+    def copy(self):
         pass
         # try:
         #     oldpath = self.treeview.selection()[0]
@@ -611,7 +587,7 @@ class Main:
         # self.config_save()
         # self.render()
 
-    def section_create(self, parent=None):
+    def create(self, parent=None):
         pass
         # try:
         #     dirpath = self.treeview.selection()[0]
@@ -648,7 +624,7 @@ class Main:
         # self.config_save()
         # self.render()
 
-    def section_delete(self):
+    def delete(self):
         pass
         # selection = self.treeview.selection()
         # if not selection:
@@ -705,182 +681,50 @@ class Main:
         # # ed.text.focus_set()
         # return "break"
 
-    def text_rename(self, parent=None, oldpath=None):
-        pass
-        # if oldpath is None:
-        #     try:
-        #         oldpath = self.treeview.selection()[0]
-        #     except IndexError:
-        #         return
-
-        # section, oldname = os.path.split(oldpath)
-        # oldname, ext = os.path.splitext(oldname)
-        # if ext != constants.MARKDOWN_EXT:
-        #     tk_messagebox.showerror(parent=parent or self.root,
-        #                             title="Not a text",
-        #                             message="Selected item is not a text.")
-        #     return
-        # oldabspath = os.path.join(self.absdirpath, oldpath)
-        # newname = tk_simpledialog.askstring(
-        #     parent=parent or self.root,
-        #     title="New name",
-        #     prompt="Give the new name for the text:",
-        #     initialvalue=oldname)
-        # if not newname:
-        #     return
-        # if newname == oldname:
-        #     return
-        # try:
-        #     utils.check_invalid_characters(newname)
-        # except ValueError as error:
-        #     tk_messagebox.showerror(
-        #         title="Error",
-        #         message=str(error))
-        #     return
-
-        # newpath = os.path.join(section, newname)
-        # newpath += constants.MARKDOWN_EXT
-        # newabspath = os.path.join(self.absdirpath, newpath)
-        # if os.path.exists(newabspath):
-        #     tk_messagebox.showerror(parent=parent or self.root,
-        #                             title="Exists",
-        #                             message="The name is already in use.")
-        #     return
-
-        # # Keep order in texts dict.
-        # items = []
-        # for filepath, text in self.texts.items():
-        #     if filepath == oldpath:
-        #         items.append((newpath, text))
-        #     else:
-        #         items.append((filepath, text))
-        # self.texts = dict(items)
-
-        # os.rename(oldabspath, newabspath)
-
-        # # oldindex = self.treeview.index(oldpath)
-        # # oldselection = self.treeview.selection() == oldpath
-        # # self.treeview.delete(oldpath)
-        # # self.add_treeview_entry(newpath, set_selection=oldselection, index=oldindex)
-        # # self.treeview.selection_set(newpath)
-        # # self.treeview.see(newpath)
-        # # self.treeview.focus(newpath)
-        # self.config_save()
-        # self.render()
-
-    def text_create(self, event=None, parent=None):
-        pass
-        # try:
-        #     dirpath = self.treeview.selection()[0]
-        #     absdirpath = os.path.join(self.absdirpath, dirpath)
-        # except IndexError:
-        #     absdirpath = self.absdirpath
-        # if os.path.isfile(absdirpath):
-        #     absdirpath = os.path.split(absdirpath)[0]
-        #     dirpath = absdirpath[len(self.absdirpath)+1:]
-        # name = tk_simpledialog.askstring(
-        #     parent=parent or self.root,
-        #     title="New text",
-        #     prompt=f"Give name of new text within section '{dirpath}':")
-        # if not name:
-        #     return
-        # name = os.path.splitext(name)[0]
-        # filepath = os.path.join(dirpath, name + constants.MARKDOWN_EXT)
-        # absfilepath = os.path.normpath(os.path.join(self.absdirpath, filepath))
-        # if not absfilepath.startswith(self.absdirpath):
-        #     tk_messagebox.showerror(
-        #         parent=self.root,
-        #         title="Wrong directory",
-        #         message=f"Must be within '{self.absdirpath}'")
-        #     return
-        # if os.path.exists(absfilepath):
-        #     tk_messagebox.showerror(
-        #         parent=self.root,
-        #         title="Name exists",
-        #         message=f"The text '{filepath}' already exists.")
-        #     return
+    # def text_create(self, event=None, parent=None):
+    #     pass
+    #     try:
+    #         dirpath = self.treeview.selection()[0]
+    #         absdirpath = os.path.join(self.absdirpath, dirpath)
+    #     except IndexError:
+    #         absdirpath = self.absdirpath
+    #     if os.path.isfile(absdirpath):
+    #         absdirpath = os.path.split(absdirpath)[0]
+    #         dirpath = absdirpath[len(self.absdirpath)+1:]
+    #     name = tk_simpledialog.askstring(
+    #         parent=parent or self.root,
+    #         title="New text",
+    #         prompt=f"Give name of new text within section '{dirpath}':")
+    #     if not name:
+    #         return
+    #     name = os.path.splitext(name)[0]
+    #     filepath = os.path.join(dirpath, name + constants.MARKDOWN_EXT)
+    #     absfilepath = os.path.normpath(os.path.join(self.absdirpath, filepath))
+    #     if not absfilepath.startswith(self.absdirpath):
+    #         tk_messagebox.showerror(
+    #             parent=self.root,
+    #             title="Wrong directory",
+    #             message=f"Must be within '{self.absdirpath}'")
+    #         return
+    #     if os.path.exists(absfilepath):
+    #         tk_messagebox.showerror(
+    #             parent=self.root,
+    #             title="Name exists",
+    #             message=f"The text '{filepath}' already exists.")
+    #         return
             
-        # with open(absfilepath, "w") as outfile:
-        #     pass                # Empty file.
+    #     with open(absfilepath, "w") as outfile:
+    #         pass                # Empty file.
 
-        # self.config_save()
-        # self.render()
-        # self.open_texteditor(filepath=filepath)
+    #     self.config_save()
+    #     self.render()
+    #     self.open_texteditor(filepath=filepath)
 
-    def text_copy(self):
-        pass
-        # try:
-        #     filepath = self.treeview.selection()[0]
-        #     absfilepath = os.path.join(self.absdirpath, filepath)
-        # except IndexError:
-        #     return
-
-        # dirpath, filename = os.path.split(filepath)
-        # if not os.path.isfile(absfilepath):
-        #     tk_messagebox.showerror(
-        #         parent=self.root,
-        #         title="Not text",
-        #         message=f"The selected item '{filepath}' is not a text.")
-        #     return
-
-        # dirpath, filename = os.path.split(filepath)
-        # newfilename = f"Copy of {filename}"
-        # newfilepath = os.path.join(dirpath, newfilename)
-        # newabsfilepath = os.path.join(self.absdirpath, newfilepath)
-        # if os.path.exists(newabsfilepath):
-        #     counter = 1
-        #     while counter < 100:
-        #         counter += 1
-        #         newfilename = f"Copy {counter} of {filename}"
-        #         newfilepath = os.path.join(dirpath, newfilename)
-        #         newabsfilepath = os.path.join(self.absdirpath, newfilepath)
-        #         if not os.path.exists(newabsfilepath):
-        #             break
-        #         else:
-        #             tk_messagebox.showerror(
-        #                 parent=self.root,
-        #                 title="Name exists",
-        #                 message=f"Could not generate a unique name.")
-        #             return
-        # shutil.copy(absfilepath, newabsfilepath)
-
-        # self.config_save()
-        # self.render()
-
-    def text_delete(self, filepath=None, force=False):
-        pass
-        # if filepath is None:
-        #     try:
-        #         filepath = self.treeview.selection()[0]
-        #     except IndexError:
-        #         return
-        # if not filepath.endswith(constants.MARKDOWN_EXT):
-        #     return
-        # if not os.path.isfile(os.path.join(self.absdirpath, filepath)):
-        #     return
-        # if not force and not tk_messagebox.askokcancel(
-        #         title="Delete text?",
-        #         message=f"Really delete text '{filepath}'?"):
-        #     return
-        # try:
-        #     ed = self.texts[filepath]["editor"]
-        # except KeyError:
-        #     pass
-        # else:
-        #     ed.close(force=True)
-        # self.treeview.delete(filepath)
-        # text = self.texts.pop(filepath)
-        # self.texts_notebook.forget(text["tabid"])
-        # self.texts_notebook_lookup.pop(text["tabid"])
-
-        # self.config_save()
-        # self.render()
-
-    def text_rerender(self, filepath, cursor=None):
-        pass
-        # if cursor:
-        #     self.config["items"][filepath]["cursor"] = cursor
-        # self.texts[filepath]["viewer"].rerender()
+    # def text_rerender(self, filepath, cursor=None):
+    #     pass
+    #     if cursor:
+    #         self.config["items"][filepath]["cursor"] = cursor
+    #     self.texts[filepath]["viewer"].rerender()
 
     def popup_menu(self, event):
         path = self.treeview.identify_row(event.y)

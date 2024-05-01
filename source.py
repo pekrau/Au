@@ -221,16 +221,16 @@ class Item:
         age = now - modified
         if age.days >= 365.25:
             value = age.days / 365.25
-            unit = "years"
+            unit = "yrs"
         elif age.days >= 30.5:
             value = age.days / 30.5
-            unit = "mnths"
+            unit = "mths"
         elif age.days >= 1:
             value = age.days + age.seconds / 86400.0
             unit = "days"
         elif age.seconds >= 3600.0:
             value = age.seconds / 3600.0
-            unit = "hours"
+            unit = "hrs"
         elif age.seconds >= 60.0:
             value = age.seconds / 60.0
             unit= "mins"
@@ -259,7 +259,7 @@ class Item:
         raise NotImplementedError
 
     def rename(self, newname):
-        """Rename the file or directory on disk.
+        """Rename the item.
         Raise ValueError if any problem.
         """
         if newname == self.name:

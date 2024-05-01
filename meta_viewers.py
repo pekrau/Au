@@ -18,10 +18,6 @@ class MetaViewer(BaseViewer):
         self.text_create(parent)
         self.text_configure_tags()
 
-    def set_title(self):
-        self.text.insert(tk.INSERT, str(self), constants.TITLE)
-        self.text.insert(tk.INSERT, "\n\n")
-
 
 class ReferencesViewer(MetaViewer):
     "View of the references list."
@@ -31,7 +27,7 @@ class ReferencesViewer(MetaViewer):
 
     def render(self):
         self.text.delete("1.0", tk.END)
-        self.set_title()
+        self.render_title()
 
 
 # class IndexedViewer(MetaViewer):
@@ -78,8 +74,12 @@ class HelpViewer(BaseViewer):
     "View of the help file Markdown contents."
 
     def __init__(self, parent, main):
-        super().__init__(parent, main, main.help["hotkeys"],
-                         title="Au " + ".".join([str(n) for n in constants.VERSION]))
+        super().__init__(parent, main, main.help["hotkeys"])
 
     def __str__(self):
         return "Help"
+
+    def render_title(self):
+        title = "Au " + ".".join([str(n) for n in constants.VERSION])
+        self.view.insert(tk.INSERT, title, constants.TITLE)
+        self.view.insert(tk.INSERT, "\n\n")

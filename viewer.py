@@ -15,9 +15,9 @@ class Viewer(FootnoteRenderMixin, BaseViewer):
 
     TEXT_COLOR = constants.TEXT_COLOR
 
-    def __init__(self, parent, main, text, title=None):
+    def __init__(self, parent, main, text):
         self.footnotes = dict()     # Lookup local for the instance.
-        super().__init__(parent, main, text, title=title)
+        super().__init__(parent, main, text)
         self.status = constants.Status.lookup(self.text.frontmatter.get("status")) or constants.STARTED
 
     def view_configure_tags(self, view=None):
