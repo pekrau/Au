@@ -7,7 +7,7 @@ import tkinter as tk
 import constants
 import utils
 from base_text import TextMixin
-from text_viewer import BaseTextViewer
+from viewer import BaseViewer
 
 
 class MetaViewer(TextMixin):
@@ -74,7 +74,7 @@ class TodoViewer(MetaViewer):
         self.set_title()
 
 
-class HelpViewer(BaseTextViewer):
+class HelpViewer(BaseViewer):
     "View of the help file Markdown contents."
 
     def __init__(self, parent, main, filepath):

@@ -25,6 +25,9 @@ MARKDOWN_EXT = ".md"
 
 TEXT_COLOR = "linen"
 MODIFIED_COLOR = "lightpink"
+
+SECTION = "section"
+SECTION_PREFIX = "section-"
 SECTION_COLOR = "gainsboro"
 
 TIME_ISO_FORMAT = "%Y-%m-%d %H:%M:%S"

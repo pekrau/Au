@@ -1,4 +1,4 @@
-"Text editor window class."
+"Editor window for Markdown text file."
 
 from icecream import ic
 
@@ -16,11 +16,11 @@ import yaml
 
 import constants
 import utils
-from text_viewer import TextViewer
+from viewer import Viewer
 
 
-class TextEditor(TextViewer):
-    "Text editor window."
+class Editor(Viewer):
+    "Editor window for Markdown text file."
 
     def __init__(self, main, filepath):
         super().__init__(main.root, main, filepath)

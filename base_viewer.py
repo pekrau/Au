@@ -1,4 +1,4 @@
-"Base text window with rendering methods and bindings."
+"Base viewer with rendering methods and bindings."
 
 from icecream import ic
 
@@ -12,19 +12,19 @@ import utils
 from render_mixins import BaseRenderMixin
 
 
-class TextMixin:
-    "Mixin class setting up and configuring attribute 'text'; instance of tk.Text."
+class ViewMixin:
+    "Mixin class setting up and configuring attribute 'view'; instance of tk.Text."
 
     TEXT_COLOR = "white"
 
-    def text_create(self, parent):
-        "Create the text widget and its associates."
+    def view_create(self, parent):
+        "Create the view tk.Text widget and its associates."
         self.frame = ttk.Frame(parent)
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.frame.rowconfigure(0, weight=1)
         self.frame.columnconfigure(0, weight=1)
 
-        self.text = tk.Text(self.frame,
+        self.view = tk.Text(self.frame,
                             background=self.TEXT_COLOR,
                             padx=constants.TEXT_PADX,
                             font=constants.FONT_NORMAL_FAMILY,
@@ -32,93 +32,92 @@ class TextMixin:
                             spacing1=constants.TEXT_SPACING1,
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
-        self.text.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
 
         self.scroll_y = ttk.Scrollbar(self.frame,
                                       orient=tk.VERTICAL,
-                                      command=self.text.yview)
+                                      command=self.view.yview)
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.text.configure(yscrollcommand=self.scroll_y.set)
+        self.view.configure(yscrollcommand=self.scroll_y.set)
 
-    def text_configure_tags(self, text=None):
+    def view_configure_tags(self, view=None):
         "Configure the tags used in the 'tk.Text' instance."
-        if text is None:
-            text = self.text
-        text.tag_configure(constants.TITLE,
+        if view is None:
+            view = self.view
+        view.tag_configure(constants.TITLE,
                            font=constants.TITLE_FONT,
                            lmargin1=constants.TITLE_LEFT_MARGIN,
                            lmargin2=constants.TITLE_LEFT_MARGIN)
-        text.tag_configure(constants.H1,
+        view.tag_configure(constants.H1,
                            font=constants.H1_FONT,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
-        text.tag_configure(constants.H2,
+        view.tag_configure(constants.H2,
                            font=constants.H2_FONT,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
-        text.tag_configure(constants.H3,
+        view.tag_configure(constants.H3,
                            font=constants.H3_FONT,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
-        text.tag_configure(constants.H4,
+        view.tag_configure(constants.H4,
                            font=constants.H4_FONT,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
-        text.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
-        text.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
-        text.tag_configure(constants.QUOTE,
+        view.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
+        view.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
+        view.tag_configure(constants.QUOTE,
                            lmargin1=constants.QUOTE_LEFT_INDENT,
                            lmargin2=constants.QUOTE_LEFT_INDENT,
                            rmargin=constants.QUOTE_RIGHT_INDENT,
                            spacing1=constants.QUOTE_SPACING1,
                            spacing2=constants.QUOTE_SPACING2,
                            font=constants.QUOTE_FONT)
-        text.tag_configure(constants.THEMATIC_BREAK,
+        view.tag_configure(constants.THEMATIC_BREAK,
                            font=constants.FONT_BOLD,
                            justify=tk.CENTER)
-        text.tag_configure(constants.LINK,
+        view.tag_configure(constants.LINK,
                            foreground=constants.LINK_COLOR,
                            underline=True)
-        text.tag_configure(constants.INDEXED, underline=True)
-        text.tag_configure(constants.REFERENCE,
+        view.tag_configure(constants.INDEXED, underline=True)
+        view.tag_configure(constants.REFERENCE,
                            foreground=constants.REFERENCE_COLOR,
                            underline=True)
 
-    def text_configure_tag_bindings(self, text=None):
+    def view_configure_tag_bindings(self, view=None):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        if text is None:
-            text = self.text
-        text.tag_bind(constants.LINK, "<Enter>", self.link_enter)
-        text.tag_bind(constants.LINK, "<Leave>", self.link_leave)
-        text.tag_bind(constants.LINK, "<Button-1>", self.link_action)
-        text.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
-        text.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
-        text.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_view)
-        text.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
-        text.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
-        text.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
+        if view is None:
+            view = self.view
+        view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
+        view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
+        view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
+        view.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
+        view.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
+        view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_view)
+        view.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
+        view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
+        view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
 
-    def text_bind_keys(self, text=None):
+    def view_bind_keys(self, view=None):
         "Configure the key bindings used in the 'tk.Text' instance."
-        if text is None:
-            text = self.text
-        text.bind("<Home>", self.move_cursor_home)
-        text.bind("<End>", self.move_cursor_end)
-        text.bind("<Key>", self.key_press)
-        text.bind("<F1>", self.debug_tags)
-        text.bind("<F2>", self.debug_selected)
-        text.bind("<F3>", self.debug_buffer_paste)
-        text.bind("<F4>", self.debug_dump)
+        if view is None:
+            view = self.view
+        view.bind("<Home>", self.move_cursor_home)
+        view.bind("<End>", self.move_cursor_end)
+        view.bind("<Key>", self.key_press)
+        view.bind("<F1>", self.debug_tags)
+        view.bind("<F2>", self.debug_selected)
+        view.bind("<F3>", self.debug_buffer_paste)
+        view.bind("<F4>", self.debug_dump)
 
 
-class BaseTextContainer(BaseRenderMixin):
-    "Text container base class with Markdown rendering methods and bindings."
+class BaseViewContainer(BaseRenderMixin):
+    "Viewer container base class with Markdown rendering methods and bindings."
 
-    def __init__(self, main, filepath, title=None):
+    def __init__(self, main, text, title=None):
         self.main = main
-        self.filepath = filepath
+        self.text = text
         self.title = title or str(self)
-        self.frontmatter, self.ast = utils.parse(self.absfilepath)
         self.prev_line_not_blank = False
         self.links = dict()       # Lookup local for the instance.
         self.indexed = dict()     # Lookup local for the instance.
@@ -126,29 +125,29 @@ class BaseTextContainer(BaseRenderMixin):
 
     def __str__(self):
         "The full name of the text; filepath excluding extension."
-        return os.path.splitext(self.filepath)[0]
+        return self.text.fullname
 
     @property
     def section(self):
         "The section of the text; empty string if at top level."
-        return os.path.dirname(self.filepath)
+        return self.text.parentpath
 
     @property
     def name(self):
         "The short name of the text."
-        return os.path.splitext(os.path.basename(self.filepath))[0]
+        return self.text.name
 
     @property
     def absfilepath(self):
-        return os.path.join(self.main.absdirpath, self.filepath)
+        return self.text.abspath
 
-    @property
-    def timestamp(self):
-        return utils.get_timestamp(self.absfilepath)
+    # @property
+    # def timestamp(self):
+    #     return utils.get_timestamp(self.absfilepath)
 
-    @property
-    def age(self):
-        return utils.get_age(self.absfilepath)
+    # @property
+    # def age(self):
+    #     return utils.get_age(self.absfilepath)
 
     @property
     def is_modified(self):
@@ -156,24 +155,24 @@ class BaseTextContainer(BaseRenderMixin):
 
     @property
     def character_count(self):
-        result = len(self.text.get("1.0", tk.END))
+        result = len(self.view.get("1.0", tk.END))
         if self.title:
             result -= len(self.title) + 2
         return result
 
     def rerender(self):
         self.links = dict()
-        self.frontmatter, self.ast = utils.parse(self.absfilepath)
+        self.text.read()
         self.prev_line_not_blank = False
-        self.text.delete("1.0", tk.END)
+        self.view.delete("1.0", tk.END)
         self.render_title()
-        self.render(self.ast)
+        self.render(self.text.ast)
 
     def render_title(self):
         if not self.title:
             return
-        self.text.insert(tk.INSERT, self.title, constants.TITLE)
-        self.text.insert(tk.INSERT, "\n\n")
+        self.view.insert(tk.INSERT, self.title, constants.TITLE)
+        self.view.insert(tk.INSERT, "\n\n")
 
     def key_press(self, event):
         raise NotImplementedError
@@ -182,10 +181,10 @@ class BaseTextContainer(BaseRenderMixin):
         if position is None:
             self.move_cursor_home()
         else:
-            position = self.text.index(position + self.cursor_offset())
-            self.text.mark_set(tk.INSERT, position)
+            position = self.view.index(position + self.cursor_offset())
+            self.view.mark_set(tk.INSERT, position)
             # XXX This does not work?
-            self.text.see(position)
+            self.view.see(position)
 
     def move_cursor_home(self, event=None):
         self.move_cursor("1.0")
@@ -202,30 +201,30 @@ class BaseTextContainer(BaseRenderMixin):
 
     def cursor_normalized(self):
         "Return the normalized cursor position."
-        return self.text.index(tk.INSERT + self.cursor_offset(sign="-"))
+        return self.view.index(tk.INSERT + self.cursor_offset(sign="-"))
 
     def get_selection(self, check_no_boundary=True, adjust=False):
         """Raise ValueError if no current selection, or region boundary (if checked).
         Optionally adjust region to have non-blank beginning and end.
         """
         try:
-            first = self.text.index(tk.SEL_FIRST)
-            last = self.text.index(tk.SEL_LAST)
+            first = self.view.index(tk.SEL_FIRST)
+            last = self.view.index(tk.SEL_LAST)
         except tk.TclError:
             raise ValueError("no current selection")
         if adjust:
-            if self.text.get(first) in string.whitespace:
+            if self.view.get(first) in string.whitespace:
                 original_first = first
                 for offset in range(1, 10):
                     first = f"{original_first}+{offset}c"
-                    if self.text.get(first) not in string.whitespace:
+                    if self.view.get(first) not in string.whitespace:
                         break
-            if self.text.get(last + "-1c") in string.whitespace:
+            if self.view.get(last + "-1c") in string.whitespace:
                 original_last = last
                 for offset in range(1, 11):
                     last = f"{original_last}-{offset}c"
                     probe = f"{original_last}-{offset+1}c"
-                    if self.text.get(probe) not in string.whitespace:
+                    if self.view.get(probe) not in string.whitespace:
                         break
         if check_no_boundary:
             if self.selection_contains_boundary(first, last):
@@ -238,9 +237,9 @@ class BaseTextContainer(BaseRenderMixin):
                 first, last = self.get_selection()
         except ValueError:
             return False
-        first_tags = set(self.text.tag_names(first))
+        first_tags = set(self.view.tag_names(first))
         first_tags.discard("sel")
-        last_tags = set(self.text.tag_names(last))
+        last_tags = set(self.view.tag_names(last))
         last_tags.discard("sel")
         result = first_tags != last_tags
         if result and show:
@@ -252,7 +251,7 @@ class BaseTextContainer(BaseRenderMixin):
 
     def get_link(self, tag=None):
         if tag is None:
-            for tag in self.text.tag_names(tk.CURRENT):
+            for tag in self.view.tag_names(tk.CURRENT):
                 if tag.startswith(constants.LINK_PREFIX):
                     break
             else:
@@ -264,45 +263,45 @@ class BaseTextContainer(BaseRenderMixin):
         # The link count must remain strictly increasing.
         tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
         self.links[tag] = dict(tag=tag, url=url, title=title)
-        self.text.tag_add(constants.LINK, first, last)
-        self.text.tag_add(tag, first, last)
+        self.view.tag_add(constants.LINK, first, last)
+        self.view.tag_add(tag, first, last)
 
     def link_enter(self, event):
         link = self.get_link()
         if not link:
             return
-        self.text.configure(cursor="hand2")
+        self.view.configure(cursor="hand2")
 
     def link_action(self, event):
         raise NotImplementedError
 
     def reference_enter(self, event):
-        self.text.configure(cursor="hand2")
+        self.view.configure(cursor="hand2")
 
     def reference_leave(self, event):
-        self.text.configure(cursor="")
+        self.view.configure(cursor="")
 
     def reference_view(self, event):
         raise NotImplementedError
 
     def indexed_enter(self, event):
-        self.text.configure(cursor="hand2")
+        self.view.configure(cursor="hand2")
 
     def indexed_leave(self, event):
-        self.text.configure(cursor="")
+        self.view.configure(cursor="")
 
     def indexed_view(self, event):
         raise NotImplementedError
 
     def link_leave(self, event):
-        self.text.configure(cursor="")
+        self.view.configure(cursor="")
 
     def render_table(self, ast):
         self.table = Table(self, ast)
 
     def debug_tags(self, event=None):
-        ic("--- tags ---", self.text.tag_names(tk.INSERT))
-        ic("--- current ---", self.text.index(tk.CURRENT))
+        ic("--- tags ---", self.view.tag_names(tk.INSERT))
+        ic("--- current ---", self.view.index(tk.CURRENT))
 
     def debug_selected(self, event=None):
         try:
@@ -310,15 +309,15 @@ class BaseTextContainer(BaseRenderMixin):
         except ValueError:
             return
         ic("--- selected ---",
-           self.text.tag_names(first),
-           self.text.tag_names(last),
-           self.text.dump(first, last))
+           self.view.tag_names(first),
+           self.view.tag_names(last),
+           self.view.dump(first, last))
 
     def debug_buffer_paste(self, event=None):
         ic("--- paste buffer ---",  self.main.paste_buffer)
 
     def debug_dump(self, event=None):
-        dump = self.text.dump("1.0", tk.END)
+        dump = self.view.dump("1.0", tk.END)
         ic("--- dump ---", dump)
 
 
@@ -327,10 +326,10 @@ class Table(BaseRenderMixin):
 
     def __init__(self, master, ast):
         self.master = master
-        self.frame = ttk.Frame(self.master.text)
-        self.master.text.window_create(tk.INSERT, window=self.frame)
+        self.frame = ttk.Frame(self.master.view)
+        self.master.view.window_create(tk.INSERT, window=self.frame)
         self.prev_line_not_blank = False
-        self.text = None
+        self.view = None
         self.current_row = -1
         self.delimiters = [len(d) for d in ast["delimiters"]]
         for child in ast["children"]:
@@ -346,7 +345,7 @@ class Table(BaseRenderMixin):
         self.current_column += 1
         width = max(6, self.delimiters[self.current_column])
         height = max(1, self.len_raw_text(ast) / self.delimiters[self.current_column])
-        self.text = tk.Text(self.frame,
+        self.view = tk.Text(self.frame,
                             width=width,
                             height=height,
                             padx=constants.TEXT_PADX,
@@ -355,13 +354,13 @@ class Table(BaseRenderMixin):
                             spacing1=constants.TEXT_SPACING1,
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
-        self.master.text_configure_tags(self.text)
-        self.text.grid(row=self.current_row, column=self.current_column,
+        self.master.text_configure_tags(self.view)
+        self.view.grid(row=self.current_row, column=self.current_column,
                        sticky=(tk.W, tk.E, tk.N, tk.S))
         for child in ast["children"]:
             self.render(child)
         if ast.get("header"):
-            self.text.tag_add(constants.BOLD, "1.0", tk.INSERT)
+            self.view.tag_add(constants.BOLD, "1.0", tk.INSERT)
 
     def len_raw_text(self, ast):
         if ast["element"] == "raw_text":

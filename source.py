@@ -2,6 +2,7 @@
 
 from icecream import ic
 
+import datetime
 import os
 import re
 import shutil
@@ -86,7 +87,9 @@ class Source:
                     items=[i.get_config() for i in self.items])
 
     def apply_config(self, config):
-        assert config["type"] == "source"
+        if not config.get("type") == "source":
+            return
+
         original = dict([(i.name, i) for i in self.items])
         self.items = []
         for ordered in config["items"]:
@@ -144,12 +147,49 @@ class Item:
         else:
             return os.path.join(self.parent.fullname, self.name)
 
+    @property
+    def is_text(self):
+        raise NotImplementedError
+
+    @property
+    def parentpath(self):
+        if isinstance(self.parent, Source):
+            return ""
+        else:
+            return self.parent.fullname
+
     def filename(self, newname=None):
         raise NotImplementedError
 
     @property
     def abspath(self):
         return os.path.join(self.parent.abspath, self.filename())
+
+    @property
+    def age(self):
+        "Get the age of the file, as a tuple (value, unit)."
+        now = datetime.datetime.today()
+        modified = datetime.datetime.fromtimestamp(os.path.getmtime(self.abspath))
+        age = now - modified
+        if age.days >= 365.25:
+            value = age.days / 365.25
+            unit = "years"
+        elif age.days >= 30.5:
+            value = age.days / 30.5
+            unit = "mnths"
+        elif age.days >= 1:
+            value = age.days + age.seconds / 86400.0
+            unit = "days"
+        elif age.seconds >= 3600.0:
+            value = age.seconds / 3600.0
+            unit = "hours"
+        elif age.seconds >= 60.0:
+            value = age.seconds / 60.0
+            unit= "mins"
+        else:
+            value = age.seconds + age.microseconds / 1000000.0
+            unit = "secs"
+        return (f"{value:.0f}", unit)
 
     def read(self):
         raise NotImplementedError
@@ -260,11 +300,9 @@ class Section(Item):
         self.items = []
         super().__init__(source, parent, name)
 
-    def filename(self, newname=None):
-        if newname:
-            return newname
-        else:
-            return self.name
+    @property
+    def is_text(self):
+        return False
 
     @property
     def all_items(self):
@@ -279,6 +317,12 @@ class Section(Item):
         for item in self.items:
             result.extend(item.all_texts)
         return result
+
+    def filename(self, newname=None):
+        if newname:
+            return newname
+        else:
+            return self.name
 
     def read(self):
         for itemname in sorted(os.listdir(self.abspath)):
@@ -340,12 +384,20 @@ class Text(Item):
         super().__init__(source, parent, name)
 
     @property
+    def is_text(self):
+        return True
+
+    @property
     def all_items(self):
         return [self]
 
     @property
     def all_texts(self):
         return [self]
+
+    @property
+    def status(self):
+        return self.frontmatter.get("status")
 
     def filename(self, newname=None):
         if newname:
@@ -460,3 +512,5 @@ if __name__ == "__main__":
     ic(source.get_config())
     with open("config.json", "w") as outfile:
         outfile.write(json.dumps(source.get_config(), indent=2))
+    item = source["subsection/kommentarer2/new text"]
+    ic(item, item.parentpath)
