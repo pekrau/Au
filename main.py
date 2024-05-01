@@ -121,20 +121,20 @@ class Main:
                                    accelerator="Ctrl-Q")
         self.root.bind("<Control-q>", self.quit)
 
-        # self.menu_edit = tk.Menu(self.menubar)
-        # self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        # self.menu_edit.add_command(label="Move up",
-        #                            command=self.move_item_up,
-        #                            accelerator="Ctrl-Up")
-        # self.menu_edit.add_command(label="Move down",
-        #                            command=self.move_item_down,
-        #                            accelerator="Ctrl-Down")
-        # self.menu_edit.add_command(label="Move into section",
-        #                            command=self.move_item_into_section,
-        #                            accelerator="Ctrl-Left")
-        # self.menu_edit.add_command(label="Move out of section",
-        #                            command=self.move_item_out_of_section,
-        #                            accelerator="Ctrl-Right")
+        self.menu_move = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_move, label="Move item")
+        self.menu_move.add_command(label="Up",
+                                      command=self.move_item_up,
+                                      accelerator="Ctrl-Up")
+        self.menu_move.add_command(label="Down",
+                                      command=self.move_item_down,
+                                      accelerator="Ctrl-Down")
+        self.menu_move.add_command(label="Into section",
+                                      command=self.move_item_into_section,
+                                      accelerator="Ctrl-Left")
+        self.menu_move.add_command(label="Out of section",
+                                      command=self.move_item_out_of_section,
+                                      accelerator="Ctrl-Right")
 
         # self.section_menu = tk.Menu(self.menubar)
         # self.menubar.add_cascade(menu=self.section_menu, label="Section")
@@ -194,10 +194,10 @@ class Main:
 
         # self.treeview.bind("<Control-e>", self.open_texteditor)
         # self.treeview.bind("<Control-n>", self.text_create)
-        # self.treeview.bind("<Control-Up>", self.move_item_up)
-        # self.treeview.bind("<Control-Down>", self.move_item_down)
-        # self.treeview.bind("<Control-Right>", self.move_item_into_section)
-        # self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
+        self.treeview.bind("<Control-Up>", self.move_item_up)
+        self.treeview.bind("<Control-Down>", self.move_item_down)
+        self.treeview.bind("<Control-Right>", self.move_item_into_section)
+        self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
 
         # self.treeview.bind("<Button-3>", self.popup_menu)
         self.treeview.bind("<<TreeviewSelect>>", self.treeview_selected)
@@ -231,11 +231,15 @@ class Main:
                                  open=item.open,
                                  tags=(constants.SECTION, ))
 
-    def treeview_selected(self, event=None):
+    def treeview_selected(self, event):
         "Synchronize text tab with selected in the treeview."
-        item = self.source.lookup[self.treeview.focus()]
-        if item.is_text:
-            self.texts_notebook.select(item.tabid)
+        try:
+            item = self.source.lookup[self.treeview.focus()]
+        except KeyError:
+            pass
+        else:
+            if item.is_text:
+                self.texts_notebook.select(item.tabid)
 
     def treeview_open(self, event=None):
         fullname = self.treeview.focus()
@@ -265,7 +269,7 @@ class Main:
         self.texts_notebook.bind("<<NotebookTabChanged>>",
                                  self.texts_notebook_tab_changed)
 
-    def texts_notebook_tab_changed(self, event=None):
+    def texts_notebook_tab_changed(self, event):
         "Synchronize selected in treeview with tab change."
         text = self.texts_notebook_lookup[self.texts_notebook.select()]
         self.treeview.selection_set(text.fullname)
@@ -286,7 +290,6 @@ class Main:
                                     state=text.shown and tk.NORMAL or tk.HIDDEN)
             tabs = self.texts_notebook.tabs()
             text.tabid = tabs[-1]
-            text.tabindex = len(tabs) - 1
             self.texts_notebook_lookup[text.tabid] = text
             # opener = functools.partial(self.open_texteditor, filepath=filepath)
             # viewer.text.bind("<Double-Button-1>", opener)
@@ -382,32 +385,31 @@ class Main:
         "Re-render the contents of all three panels."
         self.treeview_render()
         self.texts_notebook_render()
-        # self.treeview_update_info()
+        self.treeview_update_info()
         self.meta_notebook_render()
         self.config_apply()
 
-    # def treeview_update_info(self):
-    #     "Update status, chars and age of text entries."
-    #     for text in self.source.all_texts:
-    #         self.set_treeview_info(text)
+    def treeview_update_info(self):
+        "Update status, chars and age of text entries."
+        for text in self.source.all_texts:
+            self.set_treeview_info(text)
 
-    # def set_treeview_info(self, text):
-    #     try:
-    #         modified = text.editor.is_modified
-    #     except AttributeError:
-    #         modified = False
-    #     # XXX
-    #     # tags = set(self.treeview.item(text.fullname), "tags")
-    #     tags = set()
-    #     if modified:
-    #         tags.add("modified")
-    #     else:
-    #         tags.discard("modified")
-    #     self.treeview.item(text.fullname, tags=tuple(tags))
-    #     self.treeview.set(text.fullname, "status", str(text.status))
-    #     self.treeview.set(text.fullname, "chars", text.viewer.character_count)
-    #     age, unit = text.age
-    #     self.treeview.set(text.fullname, "age", f"{age} {unit}")
+    def set_treeview_info(self, text):
+        # try:
+        #     modified = text.editor.is_modified
+        # except AttributeError:
+        #     modified = False
+        # # XXX
+        # # tags = set(self.treeview.item(text.fullname), "tags")
+        # tags = set()
+        # if modified:
+        #     tags.add("modified")
+        # else:
+        #     tags.discard("modified")
+        # self.treeview.item(text.fullname, tags=tuple(tags))
+        self.treeview.set(text.fullname, "status", str(text.status))
+        self.treeview.set(text.fullname, "chars", text.viewer.character_count)
+        self.treeview.set(text.fullname, "age", text.age)
 
     def treeview_rename_children(self, newdirpath, olddirpath, children):
         pass
@@ -425,194 +427,88 @@ class Main:
 
     def move_item_up(self, event=None):
         "Move the currently selected item up within its level of the treeview."
-        pass
-        # try:
-        #     filepath = self.treeview.selection()[0]
-        # except IndexError:
-        #     return "break"
-
-        # parent = self.treeview.parent(filepath)
-        # old_index = self.treeview.index(filepath)
-        # max_index = len(self.treeview.get_children(parent)) - 1
-        # # Moving up implies decreasing the index.
-        # new_index = old_index - 1
-        # # Wrap around within level.
-        # if new_index < 0:
-        #     new_index = max_index
-        # if new_index == old_index:
-        #     return "break"
-
-        # ic(filepath, parent, old_index, new_index)
-        # self.treeview.move(filepath, parent, new_index)
-        # self.config_save()
-        # self.render()
-        # return "break"
+        try:
+            fullname = self.treeview.selection()[0]
+        except IndexError:
+            return "break"
+        item = self.source[fullname]
+        parentfullname = item.parent.fullname
+        index = self.treeview.index(fullname)
+        try:
+            item.move_up()
+        except ValueError:
+            return "break"
+        self.treeview.move(fullname, parentfullname, index - 1)
+        self.texts_notebook_reorder_tabs(item)
+        self.source.check_integrity()
+        self.config_save()
+        return "break"
 
     def move_item_down(self, event=None):
         "Move the currently selected item down within its level of the treeview."
-        pass
-        # try:
-        #     filepath = self.treeview.selection()[0]
-        # except IndexError:
-        #     return "break"
+        try:
+            fullname = self.treeview.selection()[0]
+        except IndexError:
+            return "break"
+        item = self.source[fullname]
+        parentfullname = item.parent.fullname
+        index = self.treeview.index(fullname)
+        try:
+            item.move_down()
+        except ValueError:
+            return "break"
+        self.treeview.move(fullname, parentfullname, index + 1)
+        self.texts_notebook_reorder_tabs(item)
+        self.source.check_integrity()
+        self.config_save()
+        return "break"
 
-        # parent = self.treeview.parent(filepath)
-        # old_index = self.treeview.index(filepath)
-        # max_index = len(self.treeview.get_children(parent)) - 1
-        # # Moving down implies increasing the index.
-        # new_index = old_index + 1
-        # # Wrap around within level.
-        # if new_index > max_index:
-        #     new_index = 0
-        # if new_index == old_index:
-        #     return "break"
-
-        # self.treeview.move(filepath, parent, new_index)
-        # self.config_save()
-        # self.render()
-        # return "break"
+    def texts_notebook_reorder_tabs(self, item):
+        "Reorder all tabs according to current order in source."
+        for index, text in enumerate(self.source.all_texts):
+            self.texts_notebook.insert(index, text.tabid)
 
     def move_item_into_section(self, event=None):
-        "Move the currently selected item down one level in hierarchy."
-        pass
-        # try:
-        #     oldpath = self.treeview.selection()[0]
-        # except IndexError:
-        #     return "break"
-
-        # prevpath = self.treeview.prev(oldpath)
-        # if not prevpath:    # This item is first; no section to move into.
-        #     return "break"
-        # dirpath, ext = os.path.splitext(prevpath)
-        # if ext:             # Previous item is a text; no section to move into.
-        #     return "break"
-
-        # oldabspath = os.path.join(self.absdirpath, oldpath)
-        # newpath = os.path.join(dirpath, os.path.basename(oldpath))
-        # newabspath = os.path.join(self.absdirpath, newpath)
-        # if os.path.exists(newabspath):
-        #     tk_messagebox.showerror(
-        #         parent=self.root,
-        #         title="Name exists",
-        #         message="Cannot move item into section; name already exists.")
-        #     return "break"
-
-        # # Move on disk; this works for both text file and section directory.
-        # os.rename(oldabspath, newabspath)
-
-        # # # Move text file entry in treeview.
-        # # if os.path.isfile(newabspath):
-        # #     self.texts[newpath] = self.texts.pop(oldpath)
-        # #     try:
-        # #         ed = self.texts[newpath]["editor"]
-        # #     except KeyError:
-        # #         pass
-        # #     else:
-        # #         ed.filepath = newpath
-        # #         ed.toplevel.title(os.path.splitext(newpath)[0])
-        # #     self.treeview.delete(oldpath)
-        # #     self.add_treeview_entry(newpath)
-
-        # #     self.treeview.selection_set(newpath)
-        # #     self.treeview.see(newpath)
-        # #     self.treeview.focus(newpath)
-
-        # # # Move section and its items into the given section.
-        # # elif os.path.isdir(newabspath):
-        # #     olddirpath = oldpath
-        # #     newdirpath = newpath
-        # #     children = self.get_all_treeview_items(olddirpath)
-        # #     # This removes all children entries in the treeview.
-        # #     self.treeview.delete(olddirpath)
-        # #     self.add_treeview_entry(newdirpath)
-
-        # #     for oldpath in children:
-        # #         self.texts[newpath] = self.texts.pop(oldpath)
-        # #         try:
-        # #             ed = self.texts[newpath]["editor"]
-        # #         except KeyError:
-        # #             pass
-        # #         else:
-        # #             ed.filepath = newpath
-        # #             ed.toplevel.title(os.path.splitext(newpath)[0])
-        # #         newpath = os.path.join(newdirpath, oldpath[len(olddirpath)+1:])
-        # #         self.add_treeview_entry(newpath)
-
-        # #     self.treeview.selection_set(newdirpath)
-        # #     self.treeview.see(newdirpath)
-        # #     self.treeview.focus(newdirpath)
-
-        # # else:
-        # #     ic("No such old item", newabspath)
-
-        # self.config_save()
-        # self.render()
-        # return "break"
+        """Move the currently selected item down one level in hierarchy
+        into the section immediately above it at the same level.
+        """
+        try:
+            fullname = self.treeview.selection()[0]
+        except IndexError:
+            return "break"
+        item = self.source.lookup[fullname]
+        try:
+            item.move_to_section(item.prev)
+        except ValueError:
+            return "break"
+        self.treeview_render()        # XXX Optimize!
+        self.treeview.update()
+        self.texts_notebook_render()  # XXX Optimize!
+        self.texts_notebook.update()
+        self.treeview.selection_set(item.fullname)
+        self.treeview.focus(item.fullname)
+        self.config_save()
+        return "break"
 
     def move_item_out_of_section(self, event=None):
         "Move the currently selected item up one level in the hierachy."
-        pass
-        # try:
-        #     oldpath = self.treeview.selection()[0]
-        # except IndexError:
-        #     return "break"
-
-        # parent, filename = os.path.split(oldpath)
-        # # Already at top level.
-        # if not parent:
-        #     return "break"
-
-        # parentindex = self.treeview.index(parent)
-        # superparent = os.path.split(parent)[0]
-        # oldabspath = os.path.join(self.absdirpath, oldpath)
-        # newpath = os.path.join(superparent, filename)
-        # newabspath = os.path.join(self.absdirpath, newpath)
-        # if os.path.exists(newabspath):
-        #     tk_messagebox.showerror(
-        #         parent=self.root,
-        #         title="Name exists",
-        #         message="Cannot move item out of section; name already exists.")
-        #     return "break"
-
-        # # Move on disk; this works for both text file and section directory.
-        # os.rename(oldabspath, newabspath)
-
-        # # # Move text file entry in treeview.
-        # # if os.path.isfile(newabspath):
-        # #     self.texts[newpath] = self.texts.pop(oldpath)
-        # #     try:
-        # #         self.texts[newpath]["editor"].rename(newpath)
-        # #     except KeyError:
-        # #         pass
-        # #     self.treeview.delete(oldpath)
-        # #     self.add_treeview_entry(newpath, index=parentindex+1)
-
-        # #     self.treeview.selection_set(newpath)
-        # #     self.treeview.see(newpath)
-        # #     self.treeview.focus(newpath)
-
-        # # # Move section and its items out of the current section in treeview.
-        # # elif os.path.isdir(newabspath):
-        # #     olddirpath = oldpath
-        # #     newdirpath = newpath
-        # #     children = self.get_all_treeview_items(olddirpath)
-
-        # #     # This removes all children entries in the treeview.
-        # #     self.treeview.delete(olddirpath)
-
-        # #     self.add_treeview_entry(newdirpath, index=parentindex+1)
-        # #     self.treeview_rename_children(newdirpath, olddirpath, children)
-
-        # #     self.treeview.selection_set(newdirpath)
-        # #     self.treeview.see(newdirpath)
-        # #     self.treeview.focus(newdirpath)
-
-        # # else:
-        # #     ic("No such old item", newabspath)
-
-        # self.config_save()
-        # self.render()
-        # return "break"
+        try:
+            fullname = self.treeview.selection()[0]
+        except IndexError:
+            return "break"
+        item = self.source.lookup[fullname]
+        try:
+            item.move_to_parent()
+        except ValueError:
+            return "break"
+        self.treeview_render()        # XXX Optimize!
+        self.treeview.update()
+        self.texts_notebook_render()  # XXX Optimize!
+        self.texts_notebook.update()
+        self.treeview.selection_set(item.fullname)
+        self.treeview.focus(item.fullname)
+        self.config_save()
+        return "break"
 
     def section_rename(self):
         pass
@@ -976,7 +872,6 @@ class Main:
         # text = self.texts.pop(filepath)
         # self.texts_notebook.forget(text["tabid"])
         # self.texts_notebook_lookup.pop(text["tabid"])
-        # self.move_file_to_archive(filepath)
 
         # self.config_save()
         # self.render()

@@ -6,32 +6,32 @@ import tkinter as tk
 
 import constants
 import utils
-from viewer import BaseViewer
 from source import Source
+from base_viewer import BaseViewer
 
 
-# class MetaViewer(BaseRenderMixin):
-#     "Base class for meta contents viewers."
+class MetaViewer(BaseViewer):
+    "Base class for meta contents viewers."
 
-#     def __init__(self, parent, main):
-#         self.main = main
-#         self.text_create(parent)
-#         self.text_configure_tags()
+    def __init__(self, parent, main):
+        self.main = main
+        self.text_create(parent)
+        self.text_configure_tags()
 
-#     def set_title(self):
-#         self.text.insert(tk.INSERT, str(self), constants.TITLE)
-#         self.text.insert(tk.INSERT, "\n\n")
+    def set_title(self):
+        self.text.insert(tk.INSERT, str(self), constants.TITLE)
+        self.text.insert(tk.INSERT, "\n\n")
 
 
-# class ReferencesViewer(MetaViewer):
-#     "View of the references list."
+class ReferencesViewer(MetaViewer):
+    "View of the references list."
 
-#     def __str__(self):
-#         return "References"
+    def __str__(self):
+        return "References"
 
-#     def render(self):
-#         self.text.delete("1.0", tk.END)
-#         self.set_title()
+    def render(self):
+        self.text.delete("1.0", tk.END)
+        self.set_title()
 
 
 # class IndexedViewer(MetaViewer):

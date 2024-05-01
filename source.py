@@ -44,6 +44,10 @@ class Source:
         return self.absdirpath
 
     @property
+    def fullname(self):
+        return ""
+
+    @property
     def all_items(self):
         result = []
         for item in self.items:
@@ -173,6 +177,29 @@ class Item:
         return not self.is_text
 
     @property
+    def index(self):
+        "The index of this item among its siblings."
+        for result, item in enumerate(self.parent.items):
+            if item is self:
+                return result
+
+    @property
+    def prev(self):
+        "Previous sibling or None."
+        index = self.index
+        if index == 0:
+            return None
+        return self.parent.items[index-1]
+
+    @property
+    def next(self):
+        "Next sibling or None."
+        try:
+            return self.parent.items[self.index+1]
+        except IndexError:
+            return None
+
+    @property
     def parentpath(self):
         if isinstance(self.parent, Source):
             return ""
@@ -188,7 +215,7 @@ class Item:
 
     @property
     def age(self):
-        "Get the age of the file, as a tuple (value, unit)."
+        "Get the age of the file."
         now = datetime.datetime.today()
         modified = datetime.datetime.fromtimestamp(os.path.getmtime(self.abspath))
         age = now - modified
@@ -210,7 +237,7 @@ class Item:
         else:
             value = age.seconds + age.microseconds / 1000000.0
             unit = "secs"
-        return (f"{value:.0f}", unit)
+        return f"{value:.0f} {unit}"
 
     @property
     def shown(self):
@@ -255,21 +282,26 @@ class Item:
             self.source.lookup[item.fullname] = item
 
     def move_up(self):
-        "Move this item one step towards the beginning of its list of sibling items."
+        """Move this item one step towards the beginning of its list of sibling items.
+        Raise ValueError if no movement was possible; already at the start of the list.
+        """
         pos = self.parent.items.index(self)
         if pos == 0:
-            return
+            raise ValueError("Item already at the start of the list.")
         self.parent.items.insert(pos-1, self.parent.items.pop(pos))
 
     def move_down(self):
-        "Move this item one step down towards the end of its list of sibling items."
+        """Move this item one step down towards the end of its list of sibling items.
+        Raise ValueError if no movement was possible; already at the end of the list.
+        """
         pos = self.parent.items.index(self)
         if pos == len(self.parent.items) - 1:
-            return
+            raise ValueError("Item already at the end of the list.")
         self.parent.items.insert(pos+1, self.parent.items.pop(pos))
 
     def move_to_parent(self):
         """Move this item one level up to the parent.
+        It is placed after the old parent.
         Raise ValueError if any problem.
         """
         if self.parent == self.source:
@@ -279,14 +311,19 @@ class Item:
             raise ValueError("Item cannot be moved up due to name collision.")
         oldabspath = self.abspath
         oldfullnames = [i.fullname for i in self.all_items]
+        before = self.parent.next
         self.parent.items.remove(self)
-        self.parent.parent.items.append(self)
+        if before:
+            self.parent.parent.items.insert(before.index, self)
+        else:
+            self.parent.parent.items.append(self)
         self.parent = self.parent.parent
         os.rename(oldabspath, self.abspath)
         self.replace_in_lookup(oldfullnames)
 
     def move_to_section(self, section):
         """Move this item one level down to the given section.
+        It is placed last among the items of the section.
         Raise ValueError if any problem.
         """
         if not isinstance(section, Section):
@@ -299,7 +336,7 @@ class Item:
         oldabspath = self.abspath
         oldfullnames = [i.fullname for i in self.all_items]
         self.parent.items.remove(self)
-        section.items.insert(0, self)
+        section.items.append(self)
         self.parent = section
         os.rename(oldabspath, self.abspath)
         self.replace_in_lookup(oldfullnames)
@@ -431,7 +468,7 @@ class Text(Item):
 
     @property
     def status(self):
-        return self.frontmatter.get("status")
+        return constants.Status.lookup(self.frontmatter.get("status"), constants.STARTED)
 
     def filename(self, newname=None):
         if newname:
@@ -451,7 +488,7 @@ class Text(Item):
         self.ast = parser.convert(content)
 
     def get_config(self):
-        return dict(type="text", name=self.name)
+        return dict(type="text", name=self.name, status=repr(self.status))
 
     def apply_config(self, config):
         assert config["type"] == "text"
