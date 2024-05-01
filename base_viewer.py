@@ -353,7 +353,7 @@ class Table(BaseRenderMixin):
                             spacing1=constants.TEXT_SPACING1,
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
-        self.master.text_configure_tags(self.view)
+        self.master.view_configure_tags(self.view)
         self.view.grid(row=self.current_row, column=self.current_column,
                        sticky=(tk.W, tk.E, tk.N, tk.S))
         for child in ast["children"]:

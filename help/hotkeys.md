@@ -1,5 +1,3 @@
-This is the official help text.
-
 # Hotkeys
 
 ## Table of contents window
@@ -17,6 +15,7 @@ This is the official help text.
 | Ctrl-Down  | Move current item to the next position. |
 | Ctrl-Right | Move current item down into the subtree. |
 | Ctrl-Left  | Move current item up out of the subtree. |
+
 
 
 ## Text editor window

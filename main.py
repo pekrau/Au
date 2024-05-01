@@ -18,6 +18,7 @@ import utils
 from source import Source
 from viewer import Viewer
 from editor import Editor
+from meta_viewers import HelpViewer
 # from meta_viewers import ReferencesViewer, IndexedViewer, TodoViewer, HelpViewer
 
 
@@ -30,6 +31,7 @@ class Main:
 
     def __init__(self, absdirpath):
         self.absdirpath = absdirpath
+        self.help = Source(os.path.join(os.path.dirname(__file__), "help"))
         self.source = Source(self.absdirpath)
         self.config_read()
         self.source.apply_config(self.config)
@@ -60,7 +62,7 @@ class Main:
         self.menubar_setup()
         self.treeview_create()
         self.texts_notebook_create()
-        # self.meta_notebook_create()
+        self.meta_notebook_create()
 
         # Populate the graphics interface.
         self.render()
@@ -93,8 +95,8 @@ class Main:
         ic("config_save")
         config = dict(main=dict(geometry=self.root.geometry(),
                                 selected=self.treeview.focus(),
-                                sash=[self.panedwindow.sash("coord", 0)[0]]))
-        #       self.panedwindow.sash("coord", 1)[0]],
+                                sash=[self.panedwindow.sash("coord", 0)[0],
+                                      self.panedwindow.sash("coord", 1)[0]]))
         # meta=dict(
         #     selected=str(self.meta_notebook_lookup[self.meta_notebook.select()])))
 
@@ -264,7 +266,7 @@ class Main:
                                  self.texts_notebook_tab_changed)
 
     def texts_notebook_tab_changed(self, event=None):
-        "Synchronize tab change with selected in treeview."
+        "Synchronize selected in treeview with tab change."
         text = self.texts_notebook_lookup[self.texts_notebook.select()]
         self.treeview.selection_set(text.fullname)
         self.treeview.focus(text.fullname)
@@ -290,13 +292,13 @@ class Main:
             # viewer.text.bind("<Double-Button-1>", opener)
             # viewer.text.bind("<Return>", opener)
 
-    # def meta_notebook_create(self):
-    #     "Create the meta content notebook."
-    #     self.meta_notebook = ttk.Notebook(self.panedwindow)
-    #     self.panedwindow.add(self.meta_notebook, minsize=constants.PANE_MINSIZE)
+    def meta_notebook_create(self):
+        "Create the meta content notebook."
+        self.meta_notebook = ttk.Notebook(self.panedwindow)
+        self.panedwindow.add(self.meta_notebook, minsize=constants.PANE_MINSIZE)
 
-    #      # key: tabid; value: instance
-    #     self.meta_notebook_lookup = dict()
+         # key: tabid; value: instance
+        self.meta_notebook_lookup = dict()
 
     #     self.references = ReferencesViewer(self.meta_notebook, self)
     #     self.meta_notebook.add(self.references.frame, text="References")
@@ -313,14 +315,14 @@ class Main:
     #     tabs = self.meta_notebook.tabs()
     #     self.meta_notebook_lookup[tabs[-1]] = self.todo
 
-    #     filepath = os.path.join(os.path.dirname(__file__), constants.HELP_FILENAME)
-    #     self.help = HelpViewer(self.meta_notebook, self, filepath)
-    #     self.meta_notebook.add(self.help.frame, text="Help")
-    #     tabs = self.meta_notebook.tabs()
-    #     self.meta_notebook_lookup[tabs[-1]] = self.help
+        self.help = HelpViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.help.frame, text="Help")
+        tabs = self.meta_notebook.tabs()
+        self.meta_notebook_lookup[tabs[-1]] = self.help
 
-    # def meta_notebook_render(self):
-    #     "Render the meta content notebook."
+    def meta_notebook_render(self):
+        "Render the meta content notebook."
+        pass
     #     self.references.render()
     #     self.indexed.render()
     #     self.todo.render()
@@ -338,7 +340,7 @@ class Main:
         else:
             self.panedwindow.update() # Has to be here for this to work.
             self.panedwindow.sash("place", 0, sash[0], 1)
-            # self.panedwindow.sash("place", 1, sash[1], 1)
+            self.panedwindow.sash("place", 1, sash[1], 1)
 
         # Set selected text tab in notebook.
         try:
@@ -381,7 +383,7 @@ class Main:
         self.treeview_render()
         self.texts_notebook_render()
         # self.treeview_update_info()
-        # self.meta_notebook_render()
+        self.meta_notebook_render()
         self.config_apply()
 
     # def treeview_update_info(self):

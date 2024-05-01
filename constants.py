@@ -13,7 +13,6 @@ DEFAULT_TEXT_WIDTH = 80
 DEFAULT_TEXT_HEIGHT = 30
 
 CONFIG_FILENAME = "config.json"
-HELP_FILENAME = "help.md"
 ARCHIVE_DIRNAME = "au_archive"
 assert os.extsep not in ARCHIVE_DIRNAME # Code relies on this!
 TODO_DIRNAME = "au_todo"
