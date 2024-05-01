@@ -2,38 +2,12 @@
 
 from icecream import ic
 
-import webbrowser
-
 import tkinter as tk
-from tkinter import ttk
 
 import constants
 import utils
 from render_mixins import FootnoteRenderMixin
-from base_viewer import ViewMixin, BaseViewContainer
-
-
-class BaseViewer(ViewMixin, BaseViewContainer):
-    "Base viewer window."
-
-    def __init__(self, parent, main, text, title=None):
-        super().__init__(main, text, title=title)
-        self.view_create(parent)
-        self.view_configure_tags()
-        self.view_configure_tag_bindings()
-        self.view_bind_keys()
-        self.render_title()
-        self.render(self.text.ast)
-
-    def key_press(self, event):
-        "Stop modifying actions."
-        if event.char in constants.AFFECTS_CHARACTER_COUNT:
-            return "break"
-
-    def link_action(self, event):
-        link = self.get_link()
-        if link:
-            webbrowser.open_new_tab(link["url"])
+from base_viewer import BaseViewer
 
 
 class Viewer(FootnoteRenderMixin, BaseViewer):

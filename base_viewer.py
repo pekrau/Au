@@ -3,6 +3,7 @@
 from icecream import ic
 
 import os.path
+import webbrowser
 
 import tkinter as tk
 from tkinter import ttk
@@ -12,8 +13,52 @@ import utils
 from render_mixins import BaseRenderMixin
 
 
-class ViewMixin:
-    "Mixin class setting up and configuring attribute 'view'; instance of tk.Text."
+class BaseViewer(BaseRenderMixin):
+    "Viewer base class with Markdown rendering methods and bindings."
+
+    def __init__(self, parent, main, text, title=None):
+        self.main = main
+        self.text = text
+        self.title = title or str(self)
+        self.prev_line_not_blank = False
+        self.links = dict()       # Lookup local for the instance.
+        self.indexed = dict()     # Lookup local for the instance.
+        self.references = dict()  # Lookup local for the instance.
+        self.view_create(parent)
+        self.view_configure_tags()
+        self.view_configure_tag_bindings()
+        self.view_bind_keys()
+        self.render_title()
+        self.render(self.text.ast)
+
+    def __str__(self):
+        "The full name of the text; filepath excluding extension."
+        return self.text.fullname
+
+    @property
+    def section(self):
+        "The section of the text; empty string if at top level."
+        return self.text.parentpath
+
+    @property
+    def name(self):
+        "The short name of the text."
+        return self.text.name
+
+    @property
+    def absfilepath(self):
+        return self.text.abspath
+
+    @property
+    def is_modified(self):
+        return False
+
+    @property
+    def character_count(self):
+        result = len(self.view.get("1.0", tk.END))
+        if self.title:
+            result -= len(self.title) + 2
+        return result
 
     TEXT_COLOR = "white"
 
@@ -110,56 +155,6 @@ class ViewMixin:
         view.bind("<F3>", self.debug_buffer_paste)
         view.bind("<F4>", self.debug_dump)
 
-
-class BaseViewContainer(BaseRenderMixin):
-    "Viewer container base class with Markdown rendering methods and bindings."
-
-    def __init__(self, main, text, title=None):
-        self.main = main
-        self.text = text
-        self.title = title or str(self)
-        self.prev_line_not_blank = False
-        self.links = dict()       # Lookup local for the instance.
-        self.indexed = dict()     # Lookup local for the instance.
-        self.references = dict()  # Lookup local for the instance.
-
-    def __str__(self):
-        "The full name of the text; filepath excluding extension."
-        return self.text.fullname
-
-    @property
-    def section(self):
-        "The section of the text; empty string if at top level."
-        return self.text.parentpath
-
-    @property
-    def name(self):
-        "The short name of the text."
-        return self.text.name
-
-    @property
-    def absfilepath(self):
-        return self.text.abspath
-
-    # @property
-    # def timestamp(self):
-    #     return utils.get_timestamp(self.absfilepath)
-
-    # @property
-    # def age(self):
-    #     return utils.get_age(self.absfilepath)
-
-    @property
-    def is_modified(self):
-        return False
-
-    @property
-    def character_count(self):
-        result = len(self.view.get("1.0", tk.END))
-        if self.title:
-            result -= len(self.title) + 2
-        return result
-
     def rerender(self):
         self.links = dict()
         self.text.read()
@@ -175,7 +170,9 @@ class BaseViewContainer(BaseRenderMixin):
         self.view.insert(tk.INSERT, "\n\n")
 
     def key_press(self, event):
-        raise NotImplementedError
+        "Stop modifying actions."
+        if event.char in constants.AFFECTS_CHARACTER_COUNT:
+            return "break"
 
     def move_cursor(self, position):
         if position is None:
@@ -273,7 +270,9 @@ class BaseViewContainer(BaseRenderMixin):
         self.view.configure(cursor="hand2")
 
     def link_action(self, event):
-        raise NotImplementedError
+        link = self.get_link()
+        if link:
+            webbrowser.open_new_tab(link["url"])
 
     def reference_enter(self, event):
         self.view.configure(cursor="hand2")

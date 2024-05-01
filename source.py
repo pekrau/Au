@@ -17,6 +17,7 @@ import yaml
 
 import constants
 import utils
+import docx_compiler
 
 FRONTMATTER = re.compile(r"^---([\n\r].*?[\n\r])---[\n\r](.*)$", re.DOTALL)
 
@@ -102,6 +103,22 @@ class Source:
                 item.apply_config(ordered)
         self.items.extend(original.values())
 
+    def filepath_compiled(self, extension):
+        "Filepath to be used for for compiled "
+        return os.path.join(self.abspath, self.name + extension)
+
+    def compile_docx(self):
+        docx_compiler.Compiler(self).write()
+
+    def compile_pdf(self):
+        raise NotImplementedError
+
+    def compile_epub(self):
+        raise NotImplementedError
+
+    def compile_html(self):
+        raise NotImplementedError
+
     def archive(self):
         archivefilepath = os.path.join(self.absdirpath, 
                                        constants.ARCHIVE_DIRNAME,
@@ -150,6 +167,10 @@ class Item:
     @property
     def is_text(self):
         raise NotImplementedError
+
+    @property
+    def is_section(self):
+        return not self.is_text
 
     @property
     def parentpath(self):

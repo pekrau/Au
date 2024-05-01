@@ -14,7 +14,6 @@ from tkinter import simpledialog as tk_simpledialog
 from tkinter import font as tk_font
 
 import constants
-import docx_interface
 import utils
 from source import Source
 from viewer import Viewer
@@ -112,43 +111,46 @@ class Main:
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Write DOCX", command=self.write_docx)
-        self.menu_file.add_command(label="Write PDF", command=self.write_pdf)
-        self.menu_file.add_command(label="Write EPUB", command=self.write_epub)
-        self.menu_file.add_command(label="Write HTML", command=self.write_html)
-        self.menu_file.add_separator()
+        self.menu_file.add_command(label="Archive", command=self.archive)
         self.menu_file.add_command(label="Quit",
                                    command=self.quit,
                                    accelerator="Ctrl-Q")
         self.root.bind("<Control-q>", self.quit)
 
-        self.menu_edit = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Move up",
-                                   command=self.move_item_up,
-                                   accelerator="Ctrl-Up")
-        self.menu_edit.add_command(label="Move down",
-                                   command=self.move_item_down,
-                                   accelerator="Ctrl-Down")
-        self.menu_edit.add_command(label="Move into section",
-                                   command=self.move_item_into_section,
-                                   accelerator="Ctrl-Left")
-        self.menu_edit.add_command(label="Move out of section",
-                                   command=self.move_item_out_of_section,
-                                   accelerator="Ctrl-Right")
+        # self.menu_edit = tk.Menu(self.menubar)
+        # self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        # self.menu_edit.add_command(label="Move up",
+        #                            command=self.move_item_up,
+        #                            accelerator="Ctrl-Up")
+        # self.menu_edit.add_command(label="Move down",
+        #                            command=self.move_item_down,
+        #                            accelerator="Ctrl-Down")
+        # self.menu_edit.add_command(label="Move into section",
+        #                            command=self.move_item_into_section,
+        #                            accelerator="Ctrl-Left")
+        # self.menu_edit.add_command(label="Move out of section",
+        #                            command=self.move_item_out_of_section,
+        #                            accelerator="Ctrl-Right")
 
-        self.section_menu = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.section_menu, label="Section")
-        self.section_menu.add_command(label="Rename", command=self.section_rename)
-        self.section_menu.add_command(label="Copy", command=self.section_copy)
-        self.section_menu.add_command(label="Delete", command=self.section_delete)
+        # self.section_menu = tk.Menu(self.menubar)
+        # self.menubar.add_cascade(menu=self.section_menu, label="Section")
+        # self.section_menu.add_command(label="Rename", command=self.section_rename)
+        # self.section_menu.add_command(label="Copy", command=self.section_copy)
+        # self.section_menu.add_command(label="Delete", command=self.section_delete)
 
-        self.text_menu = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.text_menu, label="Text")
-        self.text_menu.add_command(label="Edit", command=self.open_texteditor)
-        self.text_menu.add_command(label="Rename", command=self.text_rename)
-        self.text_menu.add_command(label="Copy", command=self.text_copy)
-        self.text_menu.add_command(label="Delete", command=self.text_delete)
+        # self.text_menu = tk.Menu(self.menubar)
+        # self.menubar.add_cascade(menu=self.text_menu, label="Text")
+        # self.text_menu.add_command(label="Edit", command=self.open_texteditor)
+        # self.text_menu.add_command(label="Rename", command=self.text_rename)
+        # self.text_menu.add_command(label="Copy", command=self.text_copy)
+        # self.text_menu.add_command(label="Delete", command=self.text_delete)
+
+        self.menu_compile = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_compile, label="Compile")
+        self.menu_compile.add_command(label="DOCX", command=self.source.compile_docx)
+        self.menu_compile.add_command(label="PDF", command=self.source.compile_pdf)
+        self.menu_compile.add_command(label="EPUB", command=self.source.compile_epub)
+        self.menu_compile.add_command(label="HTML", command=self.source.compile_html)
 
     def treeview_create(self):
         self.treeview_frame = ttk.Frame(self.panedwindow)
@@ -362,6 +364,23 @@ class Main:
         #         except tk.TclError:
         #             pass
         #         break
+
+    def archive(self):
+        self.source.archive()
+
+    def quit(self, event=None):
+        # for text in self.texts.values():
+        #     try:
+        #         if text["editor"].is_modified:
+        #             if not tk_messagebox.askokcancel(
+        #                     parent=self.root,
+        #                     title="Quit?",
+        #                     message="All unsaved changes will be lost. Really quit?"):
+        #                 return
+        #             break
+        #     except KeyError:
+        #         pass
+        self.root.destroy()
 
     def render(self):
         "Re-render the contents of all three panels."
@@ -991,39 +1010,6 @@ class Main:
             self.section_menu.tk_popup(event.x_root, event.y_root)
         elif os.path.isfile(abspath):
             self.text_menu.tk_popup(event.x_root, event.y_root)
-
-    def write_docx(self):
-        title = os.path.basename(self.absdirpath)
-        absfilepath = os.path.join(self.absdirpath, title + ".docx")
-        if os.path.exists(absfilepath):
-            archivedfilepath = os.path.join(self.absdirpath,
-                                            constants.ARCHIVE_DIRNAME,
-                                            f"{title} {utils.get_now()}" + ".docx")
-            os.rename(absfilepath, archivedfilepath)
-        docx_interface.Writer(self.absdirpath, self.texts).write()
-
-    def write_pdf(self):
-        raise NotImplementedError
-
-    def write_epub(self):
-        raise NotImplementedError
-
-    def write_html(self):
-        raise NotImplementedError
-
-    def quit(self, event=None):
-        # for text in self.texts.values():
-        #     try:
-        #         if text["editor"].is_modified:
-        #             if not tk_messagebox.askokcancel(
-        #                     parent=self.root,
-        #                     title="Quit?",
-        #                     message="All unsaved changes will be lost. Really quit?"):
-        #                 return
-        #             break
-        #     except KeyError:
-        #         pass
-        self.root.destroy()
 
     def treeview_all_items(self, parent=None):
         "Get the full names of all items in the treeview."
