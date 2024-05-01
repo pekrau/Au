@@ -107,6 +107,51 @@ class Source:
                 item.apply_config(ordered)
         self.items.extend(original.values())
 
+    def create_text(self, anchor, name):
+        """Create a new empty text inside the anchor if it is a section, 
+        or after anchor if it is a text.
+        Raise ValueError if there is a problem.
+        """
+        utils.check_invalid_characters(name)
+        if anchor.is_text:
+            section = anchor.parent
+        else:
+            section = anchor
+        fullpath = os.path.join(section.abspath, name + constants.MARKDOWN_EXT)
+        if os.path.exists(fullpath):
+            raise ValueError(f"The name is already in use within '{section.fullname}'.")
+        with open(fullpath, "w") as outfile:
+            pass
+        text = Text(self, section, name)
+        if anchor.is_text:
+            section.items.insert(anchor.index + 1, text)
+        else:
+            section.items.append(text)
+        self.lookup[text.fullname] = text
+        return text
+
+    def create_section(self, anchor, name):
+        """Create a new empty section inside the anchor if it is a section, 
+        or after anchor if it is a text.
+        Raise ValueError if there is a problem.
+        """
+        utils.check_invalid_characters(name)
+        if anchor.is_text:
+            supersection = anchor.parent
+        else:
+            supersection = anchor
+        fullpath = os.path.join(supersection.abspath, name)
+        if os.path.exists(fullpath):
+            raise ValueError(f"The name is already in use within '{section.fullname}'.")
+        os.mkdir(fullpath)
+        section = Section(self, supersection, name)
+        if anchor.is_text:
+            supersection.items.insert(anchor.index + 1, section)
+        else:
+            supersection.items.append(section)
+        self.lookup[section.fullname] = section
+        return section
+
     def filepath_compiled(self, extension):
         "Filepath to be used for for compiled "
         return os.path.join(self.abspath, self.name + extension)
@@ -124,6 +169,7 @@ class Source:
         raise NotImplementedError
 
     def archive(self):
+        "Write all files to a gzipped tar file. Return the number of items."
         archivefilepath = os.path.join(self.absdirpath, 
                                        constants.ARCHIVE_DIRNAME,
                                        f"{utils.get_now()}.tar.gz")
@@ -132,7 +178,10 @@ class Source:
         with tarfile.open(archivefilepath, "w:gz") as archivefile:
             for item in self.items:
                 archivefile.add(item.filename(), recursive=True)
+        with tarfile.open(archivefilepath) as archivefile:
+            result = len(archivefile.getnames())
         os.chdir(cwd)
+        return result
 
     def check_integrity(self):
         assert os.path.exists(self.abspath), self
@@ -144,6 +193,7 @@ class Source:
             item.check_integrity()
         for text in self.all_texts:
             assert isinstance(text, Text), (self, text)
+        # XXX Check that no extra files/dirs exist.
 
 
 class Item:
@@ -453,7 +503,7 @@ class Text(Item):
 
     def __init__(self, source, parent, name):
         name, ext = os.path.splitext(name)
-        assert ext == constants.MARKDOWN_EXT
+        assert not ext or ext == constants.MARKDOWN_EXT
         super().__init__(source, parent, name)
 
     @property
