@@ -19,7 +19,7 @@ class BaseViewer(BaseRenderMixin):
     def __init__(self, parent, main, text):
         self.main = main
         self.text = text
-        self.prev_line_not_blank = False
+        # self.prev_line_not_blank = False
         self.links = dict()       # Lookup local for the instance.
         self.indexed = dict()     # Lookup local for the instance.
         self.references = dict()  # Lookup local for the instance.
@@ -154,8 +154,8 @@ class BaseViewer(BaseRenderMixin):
     def rerender(self):
         self.links = dict()
         self.text.read()
-        self.prev_line_not_blank = False
         self.view.delete("1.0", tk.END)
+        self.prev_line_not_blank = False
         self.render_title()
         self.render(self.text.ast)
 
@@ -318,7 +318,7 @@ class Table(BaseRenderMixin):
         self.master = master
         self.frame = ttk.Frame(self.master.view)
         self.master.view.window_create(tk.INSERT, window=self.frame)
-        self.prev_line_not_blank = False
+        # self.prev_line_not_blank = False
         self.view = None
         self.current_row = -1
         self.delimiters = [len(d) for d in ast["delimiters"]]

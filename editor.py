@@ -22,33 +22,41 @@ from viewer import Viewer
 class Editor(Viewer):
     "Editor window for Markdown text file."
 
-    def __init__(self, main, filepath):
-        super().__init__(main.root, main, filepath)
+    def __init__(self, main, text):
+        super().__init__(main.root, main, text)
 
         self.toplevel = tk.Toplevel(self.main.root)
-        self.toplevel.title(os.path.splitext(self.filepath)[0])
+        self.toplevel.title(text.fullname)
         self.toplevel.bind("<Control-s>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
-        geometry = self.frontmatter.get("geometry")
+        geometry = self.text.frontmatter.get("geometry")
         if geometry:
             self.toplevel.geometry(geometry)
 
         self.menubar_setup()
-
-        self.text_create(self.toplevel)
-        self.text_configure_tags()
-        self.text_configure_tag_bindings()
-        self.text_bind_keys()
-
-        self.set_status(self.frontmatter.get("status"))
+        self.view_create(self.toplevel)
+        self.view_configure_tags()
+        self.view_configure_tag_bindings()
+        self.view_bind_keys()
         # NOTE: Do not call 'render_title'.
-        self.render(self.ast)
-
+        self.render(self.text.ast)
         self.info_setup()
+        self.view.edit_modified(False)
 
-        self.ignore_modified_event = True
-        self.text.edit_modified(False)
+    def get_ignore_modified_event(self):
+        "Always Tru first time accessed."
+        try:
+            return self._ignore_modified_event
+        except AttributeError:
+            self._ignore_modified_event = True
+            return self._ignore_modified_event
+
+    def set_ignore_modified_event(self, value):
+        self._ignore_modified_event = value
+
+    ignore_modified_event = property(get_ignore_modified_event, 
+                                     set_ignore_modified_event)
 
     def menubar_setup(self):
         self.menubar = tk.Menu(self.toplevel, background="gold")
@@ -60,9 +68,6 @@ class Editor(Viewer):
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Rename", command=self.rename)
-        self.menu_file.add_command(label="Copy", command=self.copy)
-        self.menu_file.add_command(label="Delete", command=self.delete)
         self.menu_file.add_command(label="Save",
                                    command=self.save,
                                    accelerator="Ctrl-S")
@@ -76,6 +81,13 @@ class Editor(Viewer):
         self.menu_edit.add_command(label="Cut", command=self.buffer_cut)
         self.menu_edit.add_command(label="Paste", command=self.buffer_paste)
 
+        self.menu_status = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_status, label="Status")
+        self.status_var = tk.StringVar() # Also referred to by 'info_setup'.
+        for status in constants.STATUSES:
+            self.menu_status.add_radiobutton(label=str(status),
+                                             variable=self.status_var,
+                                             command=self.set_status)
         self.menu_bold = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_bold, label="Bold")
         self.menu_bold.add_command(label="Add", command=self.bold_add)
@@ -91,13 +103,6 @@ class Editor(Viewer):
         self.menu_quote.add_command(label="Add", command=self.quote_add)
         self.menu_quote.add_command(label="Remove", command=self.quote_remove)
 
-        self.menu_status = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_status, label="Status")
-        self.status_var = tk.StringVar() # Also referred to by 'info_setup'.
-        for status in constants.STATUSES:
-            self.menu_status.add_radiobutton(label=status,
-                                             variable=self.status_var,
-                                             command=self.set_status)
         self.menu_link = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_link, label="Link")
         self.menu_link.add_command(label="Add", command=self.link_add)
@@ -118,10 +123,10 @@ class Editor(Viewer):
         self.menu_footnote.add_command(label="Add", command=self.footnote_add)
         self.menu_footnote.add_command(label="Remove", command=self.footnote_remove)
 
-    def text_bind_keys(self, text=None):
-        super().text_bind_keys(text=text)
-        self.text.bind("<<Modified>>", self.handle_modified)
-        self.text.bind("<Button-3>", self.popup_menu)
+    def view_bind_keys(self, view=None):
+        super().view_bind_keys(view=view)
+        self.view.bind("<<Modified>>", self.handle_modified)
+        self.view.bind("<Button-3>", self.popup_menu)
 
     def info_setup(self):
         self.info_frame = ttk.Frame(self.frame, padding=2)
@@ -138,11 +143,12 @@ class Editor(Viewer):
         status_label = ttk.Label(self.info_frame)
         status_label.grid(row=0, column=1, padx=4, sticky=tk.E)
         status_label["textvariable"] = self.status_var # Defined above in 'menu_status'.
+        self.status_var.set(str(self.text.status))
         self.info_frame.columnconfigure(1, weight=1)
 
     @property
     def character_count(self):
-        return len(self.text.get("1.0", tk.END))
+        return len(self.view.get("1.0", tk.END))
 
     def cursor_offset(self, sign=None):
         "Return the offset to convert the cursor position to the one to use."
@@ -151,8 +157,8 @@ class Editor(Viewer):
     def key_press(self, event):
         if event.char not in constants.AFFECTS_CHARACTER_COUNT:
             return
-        pos = self.text.index(tk.INSERT)
-        tags = self.text.tag_names(pos)
+        pos = self.view.index(tk.INSERT)
+        tags = self.view.tag_names(pos)
         # Do not allow modifying keys from encroaching on a reference.
         if constants.REFERENCE in tags:
             return "break"
@@ -162,7 +168,7 @@ class Editor(Viewer):
         self.chars_var.set(f"{self.character_count} characters")
 
     def popup_menu(self, event):
-        menu = tk.Menu(self.text)
+        menu = tk.Menu(self.view)
         any_item = False
         try:
             first, last = self.get_selection(check_no_boundary=False)
@@ -170,7 +176,7 @@ class Editor(Viewer):
             if self.main.paste_buffer:
                 menu.add_command(label="Paste", command=self.buffer_paste)
                 any_item = True
-            tags = self.text.tag_names(tk.CURRENT)
+            tags = self.view.tag_names(tk.CURRENT)
             if constants.LINK in tags:
                 menu.add_command(label="Remove link", command=self.link_remove)
                 any_item = True
@@ -198,7 +204,7 @@ class Editor(Viewer):
 
     @property
     def is_modified(self):
-        return self.text.edit_modified()
+        return self.view.edit_modified()
 
     def handle_modified(self, event=None):
         if self.ignore_modified_event:
@@ -207,95 +213,91 @@ class Editor(Viewer):
             return
         self.original_menubar_background = self.menubar.cget("background")
         self.menubar.configure(background=constants.MODIFIED_COLOR)
-        self.main.set_treeview_info(self.filepath)
+        self.main.set_treeview_info(self.text, modified=True)
 
-    def set_status(self, status=None):
-        if status:
-            self.status = constants.Status.lookup(status) or constants.STARTED
-            self.status_var.set(str(self.status))
-        else:
-            try:
-                old_status = self.status
-            except AttributeError:
-                old_status =  None
-            self.status = constants.Status.lookup(self.status_var.get().lower()) or constants.STARTED
-            self.text.edit_modified(self.status != old_status)
+    def set_status(self):
+        try:
+            old_status = self.text.status
+        except AttributeError:
+            old_status =  None
+        new_status = constants.Status.lookup(self.status_var.get().lower())
+        self.view.edit_modified(new_status != old_status)
 
     def bold_add(self):
         try:
             first, last = self.get_selection(adjust=True)
         except ValueError:
             return
-        self.text.tag_add(constants.BOLD, first, last)
+        self.view.tag_add(constants.BOLD, first, last)
         self.ignore_modified_event = True
-        self.text.edit_modified(True)
+        self.view.edit_modified(True)
 
     def bold_remove(self):
-        current = self.text.index(tk.INSERT)
-        if constants.BOLD in self.text.tag_names(current):
-            region = self.text.tag_prevrange(constants.BOLD, current)
+        current = self.view.index(tk.INSERT)
+        if constants.BOLD in self.view.tag_names(current):
+            region = self.view.tag_prevrange(constants.BOLD, current)
             if region:
-                self.text.tag_remove(constants.BOLD, *region)
+                self.view.tag_remove(constants.BOLD, *region)
                 self.ignore_modified_event = True
-                self.text.edit_modified(True)
+                self.view.edit_modified(True)
 
     def italic_add(self):
         try:
             first, last = self.get_selection(adjust=True)
         except ValueError:
             return
-        self.text.tag_add(constants.ITALIC, first, last)
+        self.view.tag_add(constants.ITALIC, first, last)
         self.ignore_modified_event = True
-        self.text.edit_modified(True)
+        self.view.edit_modified(True)
 
     def italic_remove(self):
-        current = self.text.index(tk.INSERT)
-        if constants.ITALIC in self.text.tag_names(current):
-            region = self.text.tag_prevrange(constants.ITALIC, current)
+        current = self.view.index(tk.INSERT)
+        if constants.ITALIC in self.view.tag_names(current):
+            region = self.view.tag_prevrange(constants.ITALIC, current)
             if region:
-                self.text.tag_remove(constants.ITALIC, *region)
+                self.view.tag_remove(constants.ITALIC, *region)
                 self.ignore_modified_event = True
-                self.text.edit_modified(True)
+                self.view.edit_modified(True)
 
     def quote_add(self):
         try:
             first, last = self.get_selection()
         except ValueError:
             return
-        self.text.tag_add(constants.QUOTE, first, last)
-        if "\n\n" not in self.text.get(last, last + "+2c"):
-            self.text.insert(last, "\n\n")
-        if "\n\n" not in self.text.get(first + "-2c", first):
-            self.text.insert(first, "\n\n")
+        self.view.tag_add(constants.QUOTE, first, last)
+        if "\n\n" not in self.view.get(last, last + "+2c"):
+            self.view.insert(last, "\n\n")
+        if "\n\n" not in self.view.get(first + "-2c", first):
+            self.view.insert(first, "\n\n")
         self.ignore_modified_event = True
-        self.text.edit_modified(True)
+        self.view.edit_modified(True)
 
     def quote_remove(self):
-        current = self.text.index(tk.INSERT)
-        if constants.QUOTE in self.text.tag_names(current):
-            region = self.text.tag_prevrange(constants.QUOTE, current)
+        current = self.view.index(tk.INSERT)
+        if constants.QUOTE in self.view.tag_names(current):
+            region = self.view.tag_prevrange(constants.QUOTE, current)
             if region:
-                self.text.tag_remove(constants.QUOTE, *region)
+                self.view.tag_remove(constants.QUOTE, *region)
                 self.ignore_modified_event = True
-                self.text.edit_modified(True)
+                self.view.edit_modified(True)
 
     def link_action(self, event):
         "Allow viewing, editing and opening the link."
         link = self.get_link()
         if not link:
             return
-        edit = LinkEdit(self.text, link)
+        edit = LinkEdit(self.view, link)
         if edit.result:
             if edit.result["url"]:
                 link["url"] = edit.result["url"]
                 link["title"] = edit.result["title"]
             else:
-                region = self.text.tag_nextrange(link["tag"], "1.0")
-                self.text.tag_remove(constants.LINK, *region)
-                self.text.tag_delete(link["tag"])
+                region = self.view.tag_nextrange(link["tag"], "1.0")
+                self.view.tag_remove(constants.LINK, *region)
+                self.view.tag_delete(link["tag"])
                 # Do not remove entry from 'links': the count must be preserved.
             self.ignore_modified_event = True
-            self.text.edit_modified(True)
+            self.view.edit_modified(True)
 
     def link_add(self):
         try:
@@ -303,7 +305,7 @@ class Editor(Viewer):
         except ValueError:
             return
         url = tk_simpledialog.askstring(
-            parent=self.text,
+            parent=self.toplevel,
             title="Link URL?",
             prompt="Give URL for link:")
         if not url:
@@ -320,24 +322,24 @@ class Editor(Viewer):
         except ValueError:
             title = None
         self.link_create(url, title, first, last)
-        self.text.tag_remove(tk.SEL, first, last)
+        self.view.tag_remove(tk.SEL, first, last)
         self.ignore_modified_event = True
-        self.text.edit_modified(True)
+        self.view.edit_modified(True)
 
     def link_remove(self):
         link = self.get_link()
         if not link:
             return
         if not tk_messagebox.askokcancel(
-                parent=self.text,
+                parent=self.toplevel,
                 title="Remove link?",
                 message=f"Really remove link?"):
             return
-        first, last = self.text.tag_nextrange(link["tag"], "1.0")
-        self.text.tag_delete(link["tag"])
-        self.text.tag_remove(constants.LINK, first, last)
+        first, last = self.view.tag_nextrange(link["tag"], "1.0")
+        self.view.tag_delete(link["tag"])
+        self.view.tag_remove(constants.LINK, first, last)
         self.ignore_modified_event = True
-        self.text.edit_modified(True)
+        self.view.edit_modified(True)
         # Links are not removed from 'links' during a session.
         # The link count must remain strictly increasing.
 
@@ -360,14 +362,14 @@ class Editor(Viewer):
             return
         label = self.get_new_footnote_label()
         tag = constants.FOOTNOTE_DEF_PREFIX + label
-        self.text.tag_configure(tag, elide=True)
-        self.text.tag_add(constants.FOOTNOTE_DEF, first, last)
-        self.text.tag_add(tag, first, last)
-        self.text.insert(self.text.tag_nextrange(tag, "1.0")[0], "\n", (tag, ))
+        self.view.tag_configure(tag, elide=True)
+        self.view.tag_add(constants.FOOTNOTE_DEF, first, last)
+        self.view.tag_add(tag, first, last)
+        self.view.insert(self.view.tag_nextrange(tag, "1.0")[0], "\n", (tag, ))
         tag = constants.FOOTNOTE_REF_PREFIX + label
         self.footnotes[label] = dict(label=label, tag=tag)
-        self.text.insert(first, f"^{label}", (constants.FOOTNOTE_REF, (tag, )))
-        self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+        self.view.insert(first, f"^{label}", (constants.FOOTNOTE_REF, (tag, )))
+        self.view.tag_bind(tag, "<Button-1>", self.footnote_toggle)
 
     def get_new_footnote_label(self):
         try:
@@ -376,8 +378,8 @@ class Editor(Viewer):
             return "1"
 
     def footnote_remove(self):
-        current = self.text.index(tk.INSERT)
-        tags = self.text.tag_names(current)
+        current = self.view.index(tk.INSERT)
+        tags = self.view.tag_names(current)
         if constants.FOOTNOTE_REF in tags or constants.FOOTNOTE_DEF in tags:
             for tag in tags:
                 if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
@@ -389,15 +391,15 @@ class Editor(Viewer):
             else:
                 return
         tag = constants.FOOTNOTE_REF_PREFIX + label
-        region = self.text.tag_nextrange(tag, "1.0")
-        self.text.tag_remove(constants.FOOTNOTE_REF, *region)
-        self.text.tag_delete(tag)
-        self.text.delete(*region)
+        region = self.view.tag_nextrange(tag, "1.0")
+        self.view.tag_remove(constants.FOOTNOTE_REF, *region)
+        self.view.tag_delete(tag)
+        self.view.delete(*region)
         tag = constants.FOOTNOTE_DEF_PREFIX + label
-        region = self.text.tag_nextrange(tag, "1.0")
-        self.text.tag_remove(constants.FOOTNOTE_DEF, *region)
-        self.text.tag_delete(tag)
-        self.text.tag_add(tk.SEL, *region)
+        region = self.view.tag_nextrange(tag, "1.0")
+        self.view.tag_remove(constants.FOOTNOTE_DEF, *region)
+        self.view.tag_delete(tag)
+        self.view.tag_add(tk.SEL, *region)
 
     def buffer_copy(self):
         "Copy the current selection into the paste buffer."
@@ -414,18 +416,18 @@ class Editor(Viewer):
         except ValueError:
             return
         self.main.paste_buffer = self.dump_clean(first, last)
-        self.text.delete(first, last)
+        self.view.delete(first, last)
 
     def buffer_paste(self):
         "Paste in contents from the paste buffer."
-        first = self.text.index(tk.INSERT)
+        first = self.view.index(tk.INSERT)
         self.undump(self.main.paste_buffer)
-        self.text.tag_remove(tk.SEL, first, tk.INSERT)
+        self.view.tag_remove(tk.SEL, first, tk.INSERT)
 
     def dump_clean(self, first, last):
         "Get the dump of the contents, cleanup and preprocess."
         # Get rid of irrelevant marks.
-        dump = [e for e in self.text.dump(first, last)
+        dump = [e for e in self.view.dump(first, last)
                 if not (e[0] == "mark" and (e[1] in (tk.INSERT, tk.CURRENT) or
                                             e[1].startswith("tk::")))]
         # Get rid of tag SEL.
@@ -454,20 +456,20 @@ class Editor(Viewer):
     def undump_text(self, entry, tags):
         if self.skip_text:
             return
-        self.text.insert(tk.INSERT, entry[1])
+        self.view.insert(tk.INSERT, entry[1])
 
     def undump_tagon(self, entry, tags):
         if entry[1].startswith(constants.FOOTNOTE_REF_PREFIX):
             label = self.get_new_footnote_label()
             tags[entry[1]] = dict(label=label,
-                                  first=self.text.index(tk.INSERT))
+                                  first=self.view.index(tk.INSERT))
             self.skip_text = True
         elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
             ref_tag = constants.FOOTNOTE_REF_PREFIX + entry[1][len(constants.FOOTNOTE_DEF_PREFIX):]
             tags[entry[1]] = dict(label=tags[ref_tag]["label"],
-                                  first=self.text.index(tk.INSERT))
+                                  first=self.view.index(tk.INSERT))
         else:
-            tags[entry[1]] = dict(first=self.text.index(tk.INSERT))
+            tags[entry[1]] = dict(first=self.view.index(tk.INSERT))
 
     def undump_tagoff(self, entry, tags):
         try:
@@ -479,53 +481,23 @@ class Editor(Viewer):
                 self.link_create(entry[2],
                                  entry[3],
                                  data["first"], 
-                                 self.text.index(tk.INSERT))
+                                 self.view.index(tk.INSERT))
             elif entry[1].startswith(constants.FOOTNOTE_REF_PREFIX):
                 label = data["label"]
                 tag = constants.FOOTNOTE_REF_PREFIX + label
-                self.text.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
-                self.text.tag_bind(tag, "<Button-1>", self.footnote_toggle)
+                self.view.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
+                self.view.tag_bind(tag, "<Button-1>", self.footnote_toggle)
                 self.skip_text = False
                 self.footnotes[label] = dict(label=label, tag=tag)
             elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
                 tag = constants.FOOTNOTE_DEF_PREFIX + data["label"]
-                self.text.tag_configure(tag, elide=True)
-                self.text.tag_add(tag, data["first"], tk.INSERT)
+                self.view.tag_configure(tag, elide=True)
+                self.view.tag_add(tag, data["first"], tk.INSERT)
             else:
-                self.text.tag_add(entry[1], data["first"], self.text.index(tk.INSERT))
+                self.view.tag_add(entry[1], data["first"], self.view.index(tk.INSERT))
 
     def undump_mark(self, entry, tags):
-        self.text.mark_set(entry[1], tk.INSERT)
-
-    def rename(self):
-        "Rename the text file."
-        self.main.rename_text(parent=self.toplevel, oldpath=self.filepath)
-        self.main.refresh_treeview_info()
-
-    def copy(self, event=None, parent=None):
-        "Make a copy of the current contents."
-        dirpath, filename = os.path.split(self.filepath)
-        initialdir = os.path.join(self.main.absdirpath, dirpath)
-        name = tk_simpledialog.askstring(
-            parent=parent or self.toplevel,
-            title="Text copy name",
-            prompt="Give the name for the text copy:",
-            initialvalue=f"Copy of {os.path.splitext(filename)[0]}")
-        if not name:
-            return
-        name = os.path.splitext(name)[0]
-        filepath = os.path.join(dirpath, name + constants.MARKDOWN_EXT)
-        absfilepath = os.path.normpath(os.path.join(self.main.absdirpath, filepath))
-        if not absfilepath.startswith(self.main.absdirpath):
-            tk_messagebox.showerror(
-                parent=parent or self.toplevel,
-                title="Wrong directory",
-                message=f"Must be within {self.main.absdirpath}")
-            return
-        self.save_file(absfilepath)
-        self.main.add_treeview_entry(filepath)
-        self.main.open_text(filepath=filepath)
-        self.main.refresh_treeview_info()
+        self.view.mark_set(entry[1], tk.INSERT)
 
     def save(self, event=None):
         """Save the current contents to the text file.
@@ -533,47 +505,16 @@ class Editor(Viewer):
         """
         if not self.is_modified:
             return
-        self.main.move_file_to_archive(self.filepath)
-        self.save_file(self.absfilepath)
+        self.text.status = constants.Status.lookup(self.status_var.get().lower())
+        self.set_outfile(io.StringIO())
+        self.markdown()
+        self.text.write(self.outfile.getvalue())
+        self.set_outfile()
         self.menubar.configure(background=self.original_menubar_background)
         self.ignore_modified_event = True
-        self.text.edit_modified(False)
-        self.main.text_rerender(self.filepath, cursor=self.cursor_normalized())
-        self.main.set_treeview_info(self.filepath)
-
-    def delete(self):
-        "Delete the text file and this window."
-        if not tk_messagebox.askokcancel(
-                parent=self.toplevel,
-                title="Delete text?",
-                message=f"Really delete text '{self.filepath}'?"):
-            return
-        self.close(force=True)
-        self.main.delete_text(self.filepath, force=True)
-
-    def close(self, event=None, force=False):
-        if self.is_modified and not force:
-            if not tk_messagebox.askokcancel(
-                    parent=self.toplevel,
-                    title="Close?",
-                    message="Modifications will not be saved. Really close?"):
-                return
-        self.main.set_treeview_info(self.filepath)
-        self.main.texts[self.filepath].pop("editor")
-        self.toplevel.destroy()
-
-    def save_file(self, filepath):
-        """Save the contents of the window as Markdown file.
-        Also used for making a copy of the file.
-        """
-        with open(filepath, "w") as outfile:
-            self.set_outfile(outfile)
-            self.outfile.write("---\n")
-            self.frontmatter["status"] = repr(self.status)
-            self.outfile.write(yaml.dump(self.frontmatter))
-            self.outfile.write("---\n")
-            self.markdown()
-            self.set_outfile()
+        self.view.edit_modified(False)
+        self.text.viewer.rerender()
+        self.main.set_treeview_info(self.text)
 
     @property
     def outfile(self):
@@ -593,7 +534,8 @@ class Editor(Viewer):
         # Only used from this method.
         self.referred_footnotes = dict()
         # This does not need the cleaned dump.
-        for item in self.text.dump("1.0", tk.END):
+        # There is no title here that needs to be taken into account.
+        for item in self.view.dump("1.0", tk.END):
             try:
                 method = getattr(self, f"markdown_{item[0]}")
             except AttributeError:
@@ -677,7 +619,7 @@ class Editor(Viewer):
         self.output_characters("**")
 
     def markdown_tagon_link(self, item):
-        for tag in self.text.tag_names(item[2]):
+        for tag in self.view.tag_names(item[2]):
             if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
                 self.output_characters("[")
@@ -698,7 +640,7 @@ class Editor(Viewer):
         self.line_indents.pop()
 
     def markdown_tagon_thematic_break(self, item):
-        self.output_skip_text = True
+        self.skip_text = True
 
     def markdown_tagoff_thematic_break(self, item):
         self.output_characters("---")
@@ -707,7 +649,7 @@ class Editor(Viewer):
         self.skip_text = False
 
     def markdown_tagon_footnote_ref(self, item):
-        for tag in self.text.tag_names(item[2]):
+        for tag in self.view.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
                 old_label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
                 footnote = self.footnotes[old_label]
@@ -722,7 +664,7 @@ class Editor(Viewer):
         pass
 
     def markdown_tagon_footnote_def(self, item):
-        for tag in self.text.tag_names(item[2]):
+        for tag in self.view.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
                 old_label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
         footnote = self.referred_footnotes[old_label]
@@ -744,6 +686,18 @@ class Editor(Viewer):
 
     def markdown_tagoff_reference(self, item):
         self.output_characters("]")
+
+    def close(self, event=None, force=False):
+        if self.is_modified and not force:
+            if not tk_messagebox.askokcancel(
+                    parent=self.toplevel,
+                    title="Close?",
+                    message="Modifications will not be saved. Really close?"):
+                return
+        self.ignore_modified_event = True
+        self.view.edit_modified(False)
+        self.main.close_editor(self.text)
+        self.toplevel.destroy()
 
 
 class LinkEdit(tk_simpledialog.Dialog):

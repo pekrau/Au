@@ -23,6 +23,18 @@ class BaseRenderMixin:
         else:
             method(ast)
 
+    def get_prev_line_not_blank(self):
+        try:
+            return self._prev_line_not_blank
+        except AttributeError:
+            self._prev_line_not_blank = False
+            return self._prev_line_not_blank
+
+    def set_prev_line_not_blank(self, value):
+        self._prev_line_not_blank = value
+
+    prev_line_not_blank = property(get_prev_line_not_blank, set_prev_line_not_blank)
+
     def render_document(self, ast):
         self.prev_line_not_blank = False
         for child in ast["children"]:

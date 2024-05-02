@@ -518,9 +518,19 @@ class Text(Item):
     def all_texts(self):
         return [self]
 
-    @property
-    def status(self):
+    def get_status(self):
         return constants.Status.lookup(self.frontmatter.get("status"), constants.STARTED)
+
+    def set_status(self, status):
+        if type(status) == str:
+            status = constants.Status.lookup(status)
+            if status is None:
+                raise ValueError("Invalid status value.")
+        elif not isinstance(status, constants.Status):
+            raise ValueError("Invalid status value.")
+        self.frontmatter["status"] = repr(status)
+    
+    status = property(get_status, set_status)
 
     def filename(self, newname=None):
         if newname:
@@ -560,8 +570,13 @@ class Text(Item):
         self.source = None
         self.parent = None
 
-    def write(self):
-        raise NotImplementedError
+    def write(self, content):
+        "Write the text, with current frontmatter and the given Markdown content."
+        with open(self.abspath, "w") as outfile:
+            outfile.write("---\n")
+            outfile.write(yaml.dump(self.frontmatter))
+            outfile.write("---\n")
+            outfile.write(content)
         
     def check_integrity(self):
         super().check_integrity()

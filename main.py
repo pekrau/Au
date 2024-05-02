@@ -36,6 +36,7 @@ class Main:
         self.source = Source(self.absdirpath)
         self.config_read()
         self.source.apply_config(self.config)
+        self.editors = dict()   # Key: fullname; value: Editor instance
 
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk_font.families())
@@ -51,23 +52,25 @@ class Main:
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.root.bind("<Configure>", self.root_resized)
         self.root.bind("<F12>", self.debug)
+        self.root.after(constants.AGES_UPDATE_DELAY, self.update_treeview_ages)
 
-        # Must be 'tk.PanedWindow', since the 'paneconfigure' command is needed.
+        # Must be 'tk.PanedWindow', not 'ttk.PanedWindow',
+        # since the 'paneconfigure' command is needed.
         self.panedwindow = tk.PanedWindow(self.root,
                                           background="gold",
                                           orient=tk.HORIZONTAL,
                                           sashwidth=5)
         self.panedwindow.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Create the graphics interface.
         self.menubar_setup()
         self.treeview_create()
         self.texts_notebook_create()
         self.meta_notebook_create()
 
-        # Populate the graphics interface.
-        self.render()
-        self.config_save()
+        self.treeview_render()
+        self.texts_notebook_render()
+        self.meta_notebook_render()
+        self.config_apply()
 
     @property
     def configpath(self):
@@ -85,7 +88,6 @@ class Main:
 
     def config_save(self):
         "Save the current config. Get current state from the respective widgets."
-        ic("config_save")
         config = dict(main=dict(geometry=self.root.geometry(),
                                 selected=self.treeview.focus(),
                                 sash=[self.panedwindow.sash("coord", 0)[0],
@@ -108,7 +110,7 @@ class Main:
             return
         if getattr(self, "_after_id", None):
             self.root.after_cancel(self._after_id)
-        self._after_id = self.root.after(1000, lambda: self.config_save())
+        self._after_id = self.root.after(constants.CONFIG_UPDATE_DELAY,self.config_save)
 
     def menubar_setup(self):
         self.menubar = tk.Menu(self.root, background="gold")
@@ -125,6 +127,7 @@ class Main:
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        # The order here affects 'set_menubar_state'.
         self.menu_edit.add_command(label="Create text", command=self.create_text)
         self.menu_edit.add_command(label="Create section", command=self.create_section)
         self.menu_edit.add_command(label="Rename", command=self.rename)
@@ -133,6 +136,7 @@ class Main:
 
         self.menu_move = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_move, label="Rearrange")
+        # The order here affects 'set_menubar_state'.
         self.menu_move.add_command(label="Move up",
                                       command=self.move_item_up,
                                       accelerator="Ctrl-Up")
@@ -166,6 +170,15 @@ class Main:
                                     command=self.move_item_into_section)
         self.menu_popup.add_command(label="Out of section",
                                     command=self.move_item_out_of_section)
+
+    def set_menubar_state(self):
+        "To avoid potential problems, some menu items require that no editors are open."
+        state = self.editors and tk.DISABLED or tk.NORMAL
+        self.menu_edit.entryconfigure(2, state=state) # Rename
+        self.menu_edit.entryconfigure(3, state=state) # Copy
+        self.menu_edit.entryconfigure(4, state=state) # Delete
+        self.menu_move.entryconfigure(2, state=state) # Into section
+        self.menu_move.entryconfigure(3, state=state) # Out of section
 
     def treeview_create(self):
         self.treeview_frame = ttk.Frame(self.panedwindow)
@@ -209,6 +222,7 @@ class Main:
         self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
 
         self.treeview.bind("<Button-3>", self.popup_menu)
+        self.treeview.bind("<Double-Button-1>", self.open_editor)
         self.treeview.bind("<<TreeviewSelect>>", self.treeview_selected)
         self.treeview.bind("<<TreeviewOpen>>", self.treeview_open)
         self.treeview.bind("<<TreeviewClose>>", self.treeview_close)
@@ -222,16 +236,10 @@ class Main:
 
     def add_treeview_entry(self, item, index=None):
         if item.is_text:
-            tag = constants.ITEM_PREFIX + item.fullname
             self.treeview.insert(item.parentpath,
                                  index or tk.END,
                                  iid=item.fullname,
-                                 text=item.name,
-                                 tags=(tag, ))
-            self.treeview.tag_bind(tag,
-                                   "<Double-Button-1>",
-                                   functools.partial(self.open_texteditor,
-                                                     fullname=item.fullname))
+                                 text=item.name)
         elif item.is_section:
             self.treeview.insert(item.parentpath,
                                  index or tk.END,
@@ -302,28 +310,32 @@ class Main:
             tabs = self.texts_notebook.tabs()
             text.tabid = tabs[-1]
             self.texts_notebook_lookup[text.tabid] = text
-            # opener = functools.partial(self.open_texteditor, filepath=filepath)
-            # viewer.text.bind("<Double-Button-1>", opener)
-            # viewer.text.bind("<Return>", opener)
+            opener = functools.partial(self.open_editor, text=text)
+            viewer.view.bind("<Double-Button-1>", opener)
+            viewer.view.bind("<Return>", opener)
             self.set_treeview_info(text)
 
-    def set_treeview_info(self, text):
-        # XXX
-        # try:
-        #     modified = text.editor.is_modified
-        # except AttributeError:
-        #     modified = False
-        # # XXX
-        # # tags = set(self.treeview.item(text.fullname), "tags")
-        # tags = set()
-        # if modified:
-        #     tags.add("modified")
-        # else:
-        #     tags.discard("modified")
-        # self.treeview.item(text.fullname, tags=tuple(tags))
+    def set_treeview_info(self, text, modified=None):
+        if modified is None:
+            try:
+                modified = self.editors[text.fullname].is_modified
+            except KeyError:
+                modified = False
+        tags = set(self.treeview.item(text.fullname, "tags"))
+        tags = set()
+        if modified:
+            tags.add("modified")
+        else:
+            tags.discard("modified")
+        self.treeview.item(text.fullname, tags=tuple(tags))
         self.treeview.set(text.fullname, "status", str(text.status))
         self.treeview.set(text.fullname, "chars", text.viewer.character_count)
         self.treeview.set(text.fullname, "age", text.age)
+
+    def update_treeview_ages(self):
+        for text in self.source.all_texts:
+            self.treeview.set(text.fullname, "age", text.age)
+        self.root.after(constants.AGES_UPDATE_DELAY, self.update_treeview_ages)
 
     def meta_notebook_create(self):
         "Create the meta content notebook."
@@ -402,27 +414,19 @@ class Main:
                                message=f"{count} items written to archive file.")
 
     def quit(self, event=None):
-        # XXX
-        # for text in self.texts.values():
-        #     try:
-        #         if text["editor"].is_modified:
-        #             if not tk_messagebox.askokcancel(
-        #                     parent=self.root,
-        #                     title="Quit?",
-        #                     message="All unsaved changes will be lost. Really quit?"):
-        #                 return
-        #             break
-        #     except KeyError:
-        #         pass
+        for editor in self.editors.values():
+            try:
+                if editor.is_modified:
+                    if not tk_messagebox.askokcancel(
+                            parent=self.root,
+                            title="Quit?",
+                            message="All unsaved changes will be lost. Really quit?"):
+                        return
+                    break
+            except KeyError:
+                pass
         self.config_save()
         self.root.destroy()
-
-    def render(self):
-        "Re-render the contents of all three panels."
-        self.treeview_render()
-        self.texts_notebook_render()
-        self.meta_notebook_render()
-        self.config_apply()
 
     def move_item_up(self, event=None):
         "Move the currently selected item up within its level of the treeview."
@@ -611,26 +615,33 @@ class Main:
         self.source.check_integrity()
         self.config_save()
 
-    def open_texteditor(self, event=None, fullname=None):
-        ic("open_texteditor", event, fullname)
-        # XXX
-        # if filepath is None:
-        #     try:
-        #         filepath = self.treeview.selection()[0]
-        #     except IndexError:
-        #         pass
-        # text = self.texts[filepath]
-        # try:
-        #     ed = text["editor"]
-        # except KeyError:
-        #     ed = text["editor"] = Editor(self, filepath)
-        # else:
-        #     ed.toplevel.lift()
-        # self.treeview.see(filepath)
-        # ed.move_cursor(self.config["items"][filepath].get("cursor"))
-        # ed.text.update()
-        # # ed.text.focus_set()
-        # return "break"
+    def open_editor(self, event=None, text=None):
+        if text is None:
+            try:
+                fullname = self.treeview.selection()[0]
+            except IndexError:
+                return "break"
+            text = self.source[fullname]
+            if not text.is_text:
+                return "break"
+        try:
+            editor = self.editors[text.fullname]
+        except KeyError:
+            editor = Editor(self, text)
+            self.editors[text.fullname] = editor
+        else:
+            editor.toplevel.lift()
+        self.set_menubar_state()
+        editor.view.focus_set()
+        return "break"
+
+    def close_editor(self, text):
+        self.set_treeview_info(text)
+        self.editors.pop(text.fullname)
+        self.set_menubar_state()
+
+    def disallow_open_editors(self):
+        "If there are any open editors, then display error message and return True."
 
     def create_text(self):
         try:
