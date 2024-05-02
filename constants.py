@@ -109,6 +109,7 @@ QUOTE_SPACING2 = 4
 QUOTE_FONT = "Verdana"
 
 INDEXED = "indexed"
+INDEXED_PREFIX = "indexed-"
 INDEXED_SPACING = 8
 INDEXED_INDENT = 15
 
@@ -126,6 +127,10 @@ FOOTNOTE_DEF = "footnote_def"
 FOOTNOTE_DEF_PREFIX = "footnote_def-"
 FOOTNOTE_DEF_COLOR = "#ffdddd"
 FOOTNOTE_MARGIN = 4
+
+HIGHLIGHT = "highlight"
+HIGHLIGHT_COLOR = "yellow"
+
 
 # <Return>, <Backspace>, <Delete> must be in this set.
 AFFECTS_CHARACTER_COUNT = frozenset(string.printable + "\r" + "\x08" + "\x7f")

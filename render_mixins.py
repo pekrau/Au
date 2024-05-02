@@ -5,6 +5,7 @@ from icecream import ic
 import tkinter as tk
 
 import constants
+import utils
 
 
 class BaseRenderMixin:
@@ -106,7 +107,8 @@ class BaseRenderMixin:
 
     def render_indexed(self, ast):
         self.indexed.setdefault(ast["canonical"], set()).add(self.view.index(tk.INSERT))
-        self.view.insert(tk.INSERT, ast["term"], (constants.INDEXED, ))
+        tag = f"{constants.INDEXED_PREFIX}{ast['canonical']}"
+        self.view.insert(tk.INSERT, ast["term"], (constants.INDEXED, tag))
 
     def render_reference(self, ast):
         self.references.setdefault(ast["reference"], set()).add(self.view.index(tk.INSERT))

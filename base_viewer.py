@@ -66,6 +66,8 @@ class BaseViewer:
         view.tag_configure(constants.LINK,
                            foreground=constants.LINK_COLOR,
                            underline=True)
+        view.tag_configure(constants.HIGHLIGHT,
+                           background=constants.HIGHLIGHT_COLOR)
 
     def view_configure_tag_bindings(self, view=None):
         "Configure the tag bindings used in the 'tk.Text' instance."
@@ -246,15 +248,12 @@ class TextViewer(BaseRenderMixin, BaseViewer):
         if view is None:
             view = self.view
         super().view_configure_tag_bindings(view=view)
-        # view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
-        # view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
-        # view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
         view.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
         view.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
-        view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_view)
+        view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_action)
         view.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
         view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
-        view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
+        view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_action)
 
     def rerender(self):
         self.links = dict()
@@ -310,44 +309,13 @@ class TextViewer(BaseRenderMixin, BaseViewer):
                 message="Selection contains a region boundary")
         return result
 
-    # def get_link(self, tag=None):
-    #     if tag is None:
-    #         for tag in self.view.tag_names(tk.CURRENT):
-    #             if tag.startswith(constants.LINK_PREFIX):
-    #                 break
-    #         else:
-    #             return None
-    #     return self.links.get(tag)
-
-    # def link_create(self, url, title, first, last):
-    #     # Links are not removed from 'links' during a session.
-    #     # The link count must remain strictly increasing.
-    #     tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
-    #     self.links[tag] = dict(tag=tag, url=url, title=title)
-    #     self.view.tag_add(constants.LINK, first, last)
-    #     self.view.tag_add(tag, first, last)
-
-    # def link_enter(self, event):
-    #     link = self.get_link()
-    #     if not link:
-    #         return
-    #     self.view.configure(cursor="hand2")
-
-    # def link_leave(self, event):
-    #     self.view.configure(cursor="")
-
-    # def link_action(self, event):
-    #     link = self.get_link()
-    #     if link:
-    #         webbrowser.open_new_tab(link["url"])
-
     def reference_enter(self, event):
         self.view.configure(cursor="hand2")
 
     def reference_leave(self, event):
         self.view.configure(cursor="")
 
-    def reference_view(self, event):
+    def reference_action(self, event):
         raise NotImplementedError
 
     def indexed_enter(self, event):
@@ -356,8 +324,13 @@ class TextViewer(BaseRenderMixin, BaseViewer):
     def indexed_leave(self, event):
         self.view.configure(cursor="")
 
-    def indexed_view(self, event):
-        raise NotImplementedError
+    def indexed_action(self, event):
+        for tag in self.view.tag_names(tk.CURRENT):
+            if tag.startswith(constants.INDEXED_PREFIX):
+                break
+        else:
+            return
+        self.main.indexed.highlight(tag[len(constants.INDEXED_PREFIX):])
 
     def render_table(self, ast):
         self.table = Table(self, ast)

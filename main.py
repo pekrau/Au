@@ -31,7 +31,7 @@ class Main:
 
     def __init__(self, absdirpath):
         self.absdirpath = absdirpath
-        self.help = Source(os.path.join(os.path.dirname(__file__), "help"))
+        self.help_source = Source(os.path.join(os.path.dirname(__file__), "help"))
         self.source = Source(self.absdirpath)
         self.config_read()
         self.source.apply_config(self.config["source"])
@@ -324,12 +324,10 @@ class Main:
         self.treeview.selection_set(text.fullname)
         self.treeview.focus(text.fullname)
 
-    def texts_notebook_show(self, text, position=None):
+    def texts_notebook_highlight(self, text, position):
         assert text.is_text
         self.texts_notebook.select(text.tabid)
-        text.viewer.view.focus_set()
-        if position:
-            text.viewer.view.see(position)
+        text.viewer.highlight(position)
 
     def texts_notebook_render(self):
         """Render tabs for the texts notebook; first delete any existing tabs.
@@ -716,8 +714,8 @@ class Main:
 
     def debug(self, event=None):
         ic(self.texts_notebook.tabs(),
-           self.texts_notebook.select())
-           # self.meta_notebook.select())
+           self.texts_notebook.select(),
+           self.meta_notebook.select())
 
     def mainloop(self):
         self.root.mainloop()

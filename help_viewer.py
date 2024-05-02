@@ -12,7 +12,7 @@ class HelpViewer(TextViewer):
     "View of the help file Markdown contents."
 
     def __init__(self, parent, main):
-        super().__init__(parent, main, main.help["hotkeys"])
+        super().__init__(parent, main, main.help_source["hotkeys"])
 
     def __str__(self):
         return "Help"
