@@ -1,4 +1,4 @@
-"Base viewer with rendering methods and bindings."
+"Base viewer classes with rendering methods and bindings."
 
 from icecream import ic
 
@@ -13,20 +13,169 @@ import utils
 from render_mixins import BaseRenderMixin
 
 
-class BaseViewer(BaseRenderMixin):
-    "Viewer base class with Markdown rendering methods and bindings."
+class BaseViewer:
+    "Base class with methods for viewer using a 'tk.Text' instance."
 
-    def __init__(self, parent, main, text):
+    TEXT_COLOR = "white"
+
+    def __init__(self, parent, main):
         self.main = main
-        self.text = text
-        # self.prev_line_not_blank = False
         self.links = dict()       # Lookup local for the instance.
-        self.indexed = dict()     # Lookup local for the instance.
-        self.references = dict()  # Lookup local for the instance.
         self.view_create(parent)
         self.view_configure_tags()
         self.view_configure_tag_bindings()
         self.view_bind_keys()
+
+    def view_create(self, parent):
+        "Create the view tk.Text widget and its associates."
+        self.frame = ttk.Frame(parent)
+        self.frame.pack(fill=tk.BOTH, expand=True)
+        self.frame.rowconfigure(0, weight=1)
+        self.frame.columnconfigure(0, weight=1)
+
+        self.view = tk.Text(self.frame,
+                            background=self.TEXT_COLOR,
+                            padx=constants.TEXT_PADX,
+                            font=constants.FONT_NORMAL_FAMILY,
+                            wrap=tk.WORD,
+                            spacing1=constants.TEXT_SPACING1,
+                            spacing2=constants.TEXT_SPACING2,
+                            spacing3=constants.TEXT_SPACING3)
+        self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+
+        self.scroll_y = ttk.Scrollbar(self.frame,
+                                      orient=tk.VERTICAL,
+                                      command=self.view.yview)
+        self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.view.configure(yscrollcommand=self.scroll_y.set)
+
+    def render_title(self):
+        self.view.insert(tk.INSERT, str(self), constants.TITLE)
+        self.view.insert(tk.INSERT, "\n\n")
+
+    def view_configure_tags(self, view=None):
+        "Configure the tags used in the 'tk.Text' instance."
+        if view is None:
+            view = self.view
+        view.tag_configure(constants.TITLE,
+                           font=constants.TITLE_FONT,
+                           lmargin1=constants.TITLE_LEFT_MARGIN,
+                           lmargin2=constants.TITLE_LEFT_MARGIN)
+        view.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
+        view.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
+        view.tag_configure(constants.LINK,
+                           foreground=constants.LINK_COLOR,
+                           underline=True)
+
+    def view_configure_tag_bindings(self, view=None):
+        "Configure the tag bindings used in the 'tk.Text' instance."
+        if view is None:
+            view = self.view
+        view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
+        view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
+        view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
+
+    def view_bind_keys(self, view=None):
+        "Configure the key bindings used in the 'tk.Text' instance."
+        if view is None:
+            view = self.view
+        view.bind("<Home>", self.move_cursor_home)
+        view.bind("<End>", self.move_cursor_end)
+        view.bind("<Key>", self.key_press)
+        view.bind("<F1>", self.debug_tags)
+        view.bind("<F2>", self.debug_selected)
+        view.bind("<F3>", self.debug_buffer_paste)
+        view.bind("<F4>", self.debug_dump)
+
+    def move_cursor(self, position):
+        if position is None:
+            self.move_cursor_home()
+        else:
+            position = self.view.index(position + self.cursor_offset())
+            self.view.mark_set(tk.INSERT, position)
+            # XXX This does not work?
+            self.view.see(position)
+
+    def move_cursor_home(self, event=None):
+        self.move_cursor("1.0")
+
+    def move_cursor_end(self, event=None):
+        self.move_cursor(tk.END)
+
+    def cursor_offset(self, sign="+"):
+        "Return the offset to convert the cursor position to the one to use."
+        return f"{sign}{len(str(self))+2}c"
+
+    def cursor_normalized(self):
+        "Return the normalized cursor position."
+        return self.view.index(tk.INSERT + self.cursor_offset(sign="-"))
+
+    def key_press(self, event):
+        "Stop modifying actions."
+        if event.char in constants.AFFECTS_CHARACTER_COUNT:
+            return "break"
+
+    def get_link(self, tag=None):
+        if tag is None:
+            for tag in self.view.tag_names(tk.CURRENT):
+                if tag.startswith(constants.LINK_PREFIX):
+                    break
+            else:
+                return None
+        return self.links.get(tag)
+
+    def link_create(self, url, title, first, last):
+        # Links are not removed from 'links' during a session.
+        # The link count must remain strictly increasing.
+        tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
+        self.links[tag] = dict(tag=tag, url=url, title=title)
+        self.view.tag_add(constants.LINK, first, last)
+        self.view.tag_add(tag, first, last)
+
+    def link_enter(self, event):
+        link = self.get_link()
+        if not link:
+            return
+        self.view.configure(cursor="hand2")
+
+    def link_leave(self, event):
+        self.view.configure(cursor="")
+
+    def link_action(self, event):
+        link = self.get_link()
+        if link:
+            webbrowser.open_new_tab(link["url"])
+
+    def debug_tags(self, event=None):
+        ic("--- tags ---", self.view.tag_names(tk.INSERT))
+        ic("--- current ---", self.view.index(tk.CURRENT))
+
+    def debug_selected(self, event=None):
+        try:
+            first, last = self.get_selection(check_no_boundary=False)
+        except ValueError:
+            return
+        ic("--- selected ---",
+           self.view.tag_names(first),
+           self.view.tag_names(last),
+           self.view.dump(first, last))
+
+    def debug_buffer_paste(self, event=None):
+        ic("--- paste buffer ---",  self.main.paste_buffer)
+
+    def debug_dump(self, event=None):
+        dump = self.view.dump("1.0", tk.END)
+        ic("--- dump ---", dump)
+
+
+class TextViewer(BaseRenderMixin, BaseViewer):
+    "Viewer base class for text with Markdown rendering methods and bindings."
+ 
+    def __init__(self, parent, main, text):
+        self.indexed = dict()     # Lookup local for the instance.
+        self.references = dict()  # Lookup local for the instance.
+        super().__init__(parent, main)
+        self.text = text
         self.render_title()
         self.render(self.text.ast)
 
@@ -56,39 +205,11 @@ class BaseViewer(BaseRenderMixin):
     def character_count(self):
         return len(self.view.get("1.0", tk.END)) - (len(str(self)) + 2)
 
-    TEXT_COLOR = "white"
-
-    def view_create(self, parent):
-        "Create the view tk.Text widget and its associates."
-        self.frame = ttk.Frame(parent)
-        self.frame.pack(fill=tk.BOTH, expand=True)
-        self.frame.rowconfigure(0, weight=1)
-        self.frame.columnconfigure(0, weight=1)
-
-        self.view = tk.Text(self.frame,
-                            background=self.TEXT_COLOR,
-                            padx=constants.TEXT_PADX,
-                            font=constants.FONT_NORMAL_FAMILY,
-                            wrap=tk.WORD,
-                            spacing1=constants.TEXT_SPACING1,
-                            spacing2=constants.TEXT_SPACING2,
-                            spacing3=constants.TEXT_SPACING3)
-        self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-
-        self.scroll_y = ttk.Scrollbar(self.frame,
-                                      orient=tk.VERTICAL,
-                                      command=self.view.yview)
-        self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.view.configure(yscrollcommand=self.scroll_y.set)
-
     def view_configure_tags(self, view=None):
         "Configure the tags used in the 'tk.Text' instance."
         if view is None:
             view = self.view
-        view.tag_configure(constants.TITLE,
-                           font=constants.TITLE_FONT,
-                           lmargin1=constants.TITLE_LEFT_MARGIN,
-                           lmargin2=constants.TITLE_LEFT_MARGIN)
+        super().view_configure_tags(view=view)
         view.tag_configure(constants.H1,
                            font=constants.H1_FONT,
                            lmargin1=constants.H_LEFT_MARGIN,
@@ -105,8 +226,6 @@ class BaseViewer(BaseRenderMixin):
                            font=constants.H4_FONT,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
-        view.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
-        view.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         view.tag_configure(constants.QUOTE,
                            lmargin1=constants.QUOTE_LEFT_INDENT,
                            lmargin2=constants.QUOTE_LEFT_INDENT,
@@ -117,9 +236,6 @@ class BaseViewer(BaseRenderMixin):
         view.tag_configure(constants.THEMATIC_BREAK,
                            font=constants.FONT_BOLD,
                            justify=tk.CENTER)
-        view.tag_configure(constants.LINK,
-                           foreground=constants.LINK_COLOR,
-                           underline=True)
         view.tag_configure(constants.INDEXED, underline=True)
         view.tag_configure(constants.REFERENCE,
                            foreground=constants.REFERENCE_COLOR,
@@ -129,27 +245,16 @@ class BaseViewer(BaseRenderMixin):
         "Configure the tag bindings used in the 'tk.Text' instance."
         if view is None:
             view = self.view
-        view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
-        view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
-        view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
+        super().view_configure_tag_bindings(view=view)
+        # view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
+        # view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
+        # view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
         view.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
         view.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
         view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_view)
         view.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
         view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
         view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_view)
-
-    def view_bind_keys(self, view=None):
-        "Configure the key bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
-        view.bind("<Home>", self.move_cursor_home)
-        view.bind("<End>", self.move_cursor_end)
-        view.bind("<Key>", self.key_press)
-        view.bind("<F1>", self.debug_tags)
-        view.bind("<F2>", self.debug_selected)
-        view.bind("<F3>", self.debug_buffer_paste)
-        view.bind("<F4>", self.debug_dump)
 
     def rerender(self):
         self.links = dict()
@@ -158,38 +263,6 @@ class BaseViewer(BaseRenderMixin):
         self.prev_line_not_blank = False
         self.render_title()
         self.render(self.text.ast)
-
-    def render_title(self):
-        self.view.insert(tk.INSERT, str(self), constants.TITLE)
-        self.view.insert(tk.INSERT, "\n\n")
-
-    def key_press(self, event):
-        "Stop modifying actions."
-        if event.char in constants.AFFECTS_CHARACTER_COUNT:
-            return "break"
-
-    def move_cursor(self, position):
-        if position is None:
-            self.move_cursor_home()
-        else:
-            position = self.view.index(position + self.cursor_offset())
-            self.view.mark_set(tk.INSERT, position)
-            # XXX This does not work?
-            self.view.see(position)
-
-    def move_cursor_home(self, event=None):
-        self.move_cursor("1.0")
-
-    def move_cursor_end(self, event=None):
-        self.move_cursor(tk.END)
-
-    def cursor_offset(self, sign="+"):
-        "Return the offset to convert the cursor position to the one to use."
-        return f"{sign}{len(str(self))+2}c"
-
-    def cursor_normalized(self):
-        "Return the normalized cursor position."
-        return self.view.index(tk.INSERT + self.cursor_offset(sign="-"))
 
     def get_selection(self, check_no_boundary=True, adjust=False):
         """Raise ValueError if no current selection, or region boundary (if checked).
@@ -237,33 +310,36 @@ class BaseViewer(BaseRenderMixin):
                 message="Selection contains a region boundary")
         return result
 
-    def get_link(self, tag=None):
-        if tag is None:
-            for tag in self.view.tag_names(tk.CURRENT):
-                if tag.startswith(constants.LINK_PREFIX):
-                    break
-            else:
-                return None
-        return self.links.get(tag)
+    # def get_link(self, tag=None):
+    #     if tag is None:
+    #         for tag in self.view.tag_names(tk.CURRENT):
+    #             if tag.startswith(constants.LINK_PREFIX):
+    #                 break
+    #         else:
+    #             return None
+    #     return self.links.get(tag)
 
-    def link_create(self, url, title, first, last):
-        # Links are not removed from 'links' during a session.
-        # The link count must remain strictly increasing.
-        tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
-        self.links[tag] = dict(tag=tag, url=url, title=title)
-        self.view.tag_add(constants.LINK, first, last)
-        self.view.tag_add(tag, first, last)
+    # def link_create(self, url, title, first, last):
+    #     # Links are not removed from 'links' during a session.
+    #     # The link count must remain strictly increasing.
+    #     tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
+    #     self.links[tag] = dict(tag=tag, url=url, title=title)
+    #     self.view.tag_add(constants.LINK, first, last)
+    #     self.view.tag_add(tag, first, last)
 
-    def link_enter(self, event):
-        link = self.get_link()
-        if not link:
-            return
-        self.view.configure(cursor="hand2")
+    # def link_enter(self, event):
+    #     link = self.get_link()
+    #     if not link:
+    #         return
+    #     self.view.configure(cursor="hand2")
 
-    def link_action(self, event):
-        link = self.get_link()
-        if link:
-            webbrowser.open_new_tab(link["url"])
+    # def link_leave(self, event):
+    #     self.view.configure(cursor="")
+
+    # def link_action(self, event):
+    #     link = self.get_link()
+    #     if link:
+    #         webbrowser.open_new_tab(link["url"])
 
     def reference_enter(self, event):
         self.view.configure(cursor="hand2")
@@ -283,32 +359,8 @@ class BaseViewer(BaseRenderMixin):
     def indexed_view(self, event):
         raise NotImplementedError
 
-    def link_leave(self, event):
-        self.view.configure(cursor="")
-
     def render_table(self, ast):
         self.table = Table(self, ast)
-
-    def debug_tags(self, event=None):
-        ic("--- tags ---", self.view.tag_names(tk.INSERT))
-        ic("--- current ---", self.view.index(tk.CURRENT))
-
-    def debug_selected(self, event=None):
-        try:
-            first, last = self.get_selection(check_no_boundary=False)
-        except ValueError:
-            return
-        ic("--- selected ---",
-           self.view.tag_names(first),
-           self.view.tag_names(last),
-           self.view.dump(first, last))
-
-    def debug_buffer_paste(self, event=None):
-        ic("--- paste buffer ---",  self.main.paste_buffer)
-
-    def debug_dump(self, event=None):
-        dump = self.view.dump("1.0", tk.END)
-        ic("--- dump ---", dump)
 
 
 class Table(BaseRenderMixin):
@@ -318,7 +370,6 @@ class Table(BaseRenderMixin):
         self.master = master
         self.frame = ttk.Frame(self.master.view)
         self.master.view.window_create(tk.INSERT, window=self.frame)
-        # self.prev_line_not_blank = False
         self.view = None
         self.current_row = -1
         self.delimiters = [len(d) for d in ast["delimiters"]]
@@ -344,7 +395,7 @@ class Table(BaseRenderMixin):
                             spacing1=constants.TEXT_SPACING1,
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
-        self.master.view_configure_tags(self.view)
+        self.master.view_configure_tags(view=self.view)
         self.view.grid(row=self.current_row, column=self.current_column,
                        sticky=(tk.W, tk.E, tk.N, tk.S))
         for child in ast["children"]:

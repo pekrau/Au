@@ -18,9 +18,8 @@ import utils
 from source import Source
 from viewer import Viewer
 from editor import Editor
-from meta_viewers import HelpViewer
-# XXX
-# from meta_viewers import ReferencesViewer, IndexedViewer, TodoViewer, HelpViewer
+from help_viewer import HelpViewer
+from meta_viewers import ReferencesViewer, IndexedViewer, TodoViewer
 
 
 class Main:
@@ -35,7 +34,7 @@ class Main:
         self.help = Source(os.path.join(os.path.dirname(__file__), "help"))
         self.source = Source(self.absdirpath)
         self.config_read()
-        self.source.apply_config(self.config)
+        self.source.apply_config(self.config["source"])
         self.editors = dict()   # Key: fullname; value: Editor instance
 
         self.root = tk.Tk()
@@ -89,13 +88,12 @@ class Main:
     def config_save(self):
         "Save the current config. Get current state from the respective widgets."
         config = dict(main=dict(geometry=self.root.geometry(),
-                                selected=self.treeview.focus(),
                                 sash=[self.panedwindow.sash("coord", 0)[0],
-                                      self.panedwindow.sash("coord", 1)[0]]))
-        # meta=dict(
-        #     selected=str(self.meta_notebook_lookup[self.meta_notebook.select()])))
-
-        config.update(self.source.get_config())
+                                      self.panedwindow.sash("coord", 1)[0]]),
+                      meta=dict(
+                          selected=str(self.meta_notebook_lookup[self.meta_notebook.select()])),
+                      source=self.source.get_config())
+        config["source"]["selected"] = self.treeview.focus()
 
         # Save the current cut-and-paste buffer.
         config["paste"] = self.paste_buffer
@@ -103,6 +101,39 @@ class Main:
         with open(self.configpath, "w") as outfile:            
             json.dump(config, outfile, indent=2)
         self.config = config
+
+    def config_apply(self):
+        "Apply configuration to windows and tabs."
+        # The paste buffer is global to all editors, to facilitate cut-and-paste.
+        self.paste_buffer = self.config.get("paste") or list()
+
+        try:
+            sash = self.config["main"]["sash"]
+        except KeyError:
+            pass
+        else:
+            self.panedwindow.update() # Has to be here for this to work.
+            self.panedwindow.sash("place", 0, sash[0], 1)
+            self.panedwindow.sash("place", 1, sash[1], 1)
+
+        # Set selected text tab in notebook.
+        try:
+            text = self.source[self.config["source"]["selected"]]
+        except KeyError:
+            pass
+        else:
+            self.treeview.selection_set(text.fullname)
+            self.treeview.focus(text.fullname)
+            self.treeview.see(text.fullname)
+
+        selected = self.config["meta"].get("selected")
+        for tabid, viewer in self.meta_notebook_lookup.items():
+            if str(viewer) == selected:
+                try:
+                    self.meta_notebook.select(tabid)
+                except tk.TclError:
+                    pass
+                break
 
     def root_resized(self, event):
         "Save configuration after root window resize."
@@ -251,12 +282,13 @@ class Main:
     def treeview_selected(self, event):
         "Synchronize text tab with selected in the treeview."
         try:
-            item = self.source.lookup[self.treeview.focus()]
+            item = self.source[self.treeview.focus()]
         except KeyError:
             pass
         else:
             if item.is_text:
                 self.texts_notebook.select(item.tabid)
+                item.viewer.view.focus_set()
 
     def treeview_open(self, event=None):
         fullname = self.treeview.focus()
@@ -292,6 +324,13 @@ class Main:
         self.treeview.selection_set(text.fullname)
         self.treeview.focus(text.fullname)
 
+    def texts_notebook_show(self, text, position=None):
+        assert text.is_text
+        self.texts_notebook.select(text.tabid)
+        text.viewer.view.focus_set()
+        if position:
+            text.viewer.view.see(position)
+
     def texts_notebook_render(self):
         """Render tabs for the texts notebook; first delete any existing tabs.
         Also updates the text information in the treeview.
@@ -301,6 +340,7 @@ class Main:
         for text in self.source.all_texts:
             viewer = Viewer(self.texts_notebook, self, text)
             text.viewer = viewer
+            # XXX
             # try:
             #     viewer.move_cursor(self.config["items"][filepath].get("cursor"))
             # except KeyError:
@@ -345,21 +385,20 @@ class Main:
          # key: tabid; value: instance
         self.meta_notebook_lookup = dict()
 
-        # XXX
-    #     self.references = ReferencesViewer(self.meta_notebook, self)
-    #     self.meta_notebook.add(self.references.frame, text="References")
-    #     tabs = self.meta_notebook.tabs()
-    #     self.meta_notebook_lookup[tabs[-1]] = self.references
+        self.references = ReferencesViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.references.frame, text="References")
+        tabs = self.meta_notebook.tabs()
+        self.meta_notebook_lookup[tabs[-1]] = self.references
 
-    #     self.indexed = IndexedViewer(self.meta_notebook, self)
-    #     self.meta_notebook.add(self.indexed.frame, text="Indexed")
-    #     tabs = self.meta_notebook.tabs()
-    #     self.meta_notebook_lookup[tabs[-1]] = self.indexed
+        self.indexed = IndexedViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.indexed.frame, text="Indexed")
+        tabs = self.meta_notebook.tabs()
+        self.meta_notebook_lookup[tabs[-1]] = self.indexed
 
-    #     self.todo = TodoViewer(self.meta_notebook, self)
-    #     self.meta_notebook.add(self.todo.frame, text="To do")
-    #     tabs = self.meta_notebook.tabs()
-    #     self.meta_notebook_lookup[tabs[-1]] = self.todo
+        self.todo = TodoViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.todo.frame, text="To do")
+        tabs = self.meta_notebook.tabs()
+        self.meta_notebook_lookup[tabs[-1]] = self.todo
 
         self.help = HelpViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.help.frame, text="Help")
@@ -368,45 +407,9 @@ class Main:
 
     def meta_notebook_render(self):
         "Render the meta content notebook."
-        pass
-    # XXX
-    #     self.references.render()
-    #     self.indexed.render()
-    #     self.todo.render()
-
-    def config_apply(self):
-        "Apply configuration to windows and tabs."
-        # The paste buffer is global to all editors, to facilitate cut-and-paste.
-        self.paste_buffer = self.config.get("paste") or list()
-
-        # Placement of paned window sashes.
-        try:
-            sash = self.config["main"]["sash"]
-        except KeyError:
-            pass
-        else:
-            self.panedwindow.update() # Has to be here for this to work.
-            self.panedwindow.sash("place", 0, sash[0], 1)
-            self.panedwindow.sash("place", 1, sash[1], 1)
-
-        # Set selected text tab in notebook.
-        try:
-            text = self.source[self.config["main"]["selected"]]
-        except KeyError:
-            pass
-        else:
-            self.treeview.selection_set(text.fullname)
-            self.treeview.focus(text.fullname)
-
-            # XXX
-        # selected = self.config["main"]["meta"].get("selected")
-        # for tabid, viewer in self.meta_notebook_lookup.items():
-        #     if str(viewer) == selected:
-        #         try:
-        #             self.meta_notebook.select(tabid)
-        #         except tk.TclError:
-        #             pass
-        #         break
+        self.references.render()
+        self.indexed.render()
+        self.todo.render()
 
     def archive(self):
         count = self.source.archive()
@@ -479,7 +482,7 @@ class Main:
             fullname = self.treeview.selection()[0]
         except IndexError:
             return "break"
-        item = self.source.lookup[fullname]
+        item = self.source[fullname]
         try:
             item.move_to_section(item.prev)
         except ValueError:
@@ -500,7 +503,7 @@ class Main:
             fullname = self.treeview.selection()[0]
         except IndexError:
             return "break"
-        item = self.source.lookup[fullname]
+        item = self.source[fullname]
         try:
             item.move_to_parent()
         except ValueError:
@@ -520,7 +523,7 @@ class Main:
             fullname = self.treeview.selection()[0]
         except IndexError:
             return
-        item = self.source.lookup[fullname]
+        item = self.source[fullname]
         newname = tk_simpledialog.askstring(
             parent=self.root,
             title="New name",
@@ -559,7 +562,7 @@ class Main:
             fullname = self.treeview.selection()[0]
         except IndexError:
             return
-        item = self.source.lookup[fullname]
+        item = self.source[fullname]
         newname = f"Copy of {item.name}"
         for i in range(2, 10):
             try:
@@ -588,7 +591,7 @@ class Main:
             fullname = self.treeview.selection()[0]
         except IndexError:
             return
-        item = self.source.lookup[fullname]
+        item = self.source[fullname]
         if item.is_text:
             if not tk_messagebox.askokcancel(
                     parent=self.treeview,
@@ -648,7 +651,7 @@ class Main:
             fullname = self.treeview.selection()[0]
         except IndexError:
             return
-        anchor = self.source.lookup[fullname]
+        anchor = self.source[fullname]
         name = tk_simpledialog.askstring(
             parent=self.treeview,
             title="New section",
@@ -678,7 +681,7 @@ class Main:
             fullname = self.treeview.selection()[0]
         except IndexError:
             return
-        anchor = self.source.lookup[fullname]
+        anchor = self.source[fullname]
         name = tk_simpledialog.askstring(
             parent=self.treeview,
             title="New text",

@@ -88,13 +88,9 @@ class Source:
             self.lookup[item.fullname] = item
 
     def get_config(self):
-        return dict(type="source",
-                    items=[i.get_config() for i in self.items])
+        return dict(items=[i.get_config() for i in self.items])
 
     def apply_config(self, config):
-        if not config.get("type") == "source":
-            return
-
         original = dict([(i.name, i) for i in self.items])
         self.items = []
         for ordered in config["items"]:
@@ -586,11 +582,15 @@ class Text(Item):
 class Indexed(marko.inline.InlineElement):
     "Markdown extension for indexed term."
 
-    pattern = re.compile(r"\[#(.+?)\]")
+    pattern = re.compile(r"\[#(.+?)(\|(.+?))?\]") # I know, this isn't quite right.
     parse_children = False
 
     def __init__(self, match):
-        self.target = match.group(1).strip()
+        self.term = match.group(1).strip()
+        if match.group(3):      # Because of the not-quite-right regexp...
+            self.canonical = match.group(3).strip()
+        else:
+            self.canonical = self.term
 
 
 class Reference(marko.inline.InlineElement):
@@ -600,7 +600,7 @@ class Reference(marko.inline.InlineElement):
     parse_children = False
 
     def __init__(self, match):
-        self.target = match.group(1).strip()
+        self.reference = match.group(1).strip()
 
 
 parser = marko.Markdown(renderer=marko.ast_renderer.ASTRenderer)

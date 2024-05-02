@@ -7,10 +7,10 @@ import tkinter as tk
 import constants
 import utils
 from render_mixins import FootnoteRenderMixin
-from base_viewer import BaseViewer
+from base_viewer import TextViewer
 
 
-class Viewer(FootnoteRenderMixin, BaseViewer):
+class Viewer(FootnoteRenderMixin, TextViewer):
     "Viewer window for Markdown text file."
 
     TEXT_COLOR = constants.TEXT_COLOR

@@ -104,13 +104,13 @@ class BaseRenderMixin:
         self.view.insert(tk.INSERT, "------------------------------------",
                          (constants.THEMATIC_BREAK, ))
 
-    def render_reference(self, ast):
-        self.references.setdefault(ast["target"], set()).add(self.view.index(tk.INSERT))
-        self.view.insert(tk.INSERT, f"{ast['target']}", (constants.REFERENCE, ))
-
     def render_indexed(self, ast):
-        self.indexed.setdefault(ast["target"], set()).add(self.view.index(tk.INSERT))
-        self.view.insert(tk.INSERT, ast["target"], (constants.INDEXED, ))
+        self.indexed.setdefault(ast["canonical"], set()).add(self.view.index(tk.INSERT))
+        self.view.insert(tk.INSERT, ast["term"], (constants.INDEXED, ))
+
+    def render_reference(self, ast):
+        self.references.setdefault(ast["reference"], set()).add(self.view.index(tk.INSERT))
+        self.view.insert(tk.INSERT, f"{ast['reference']}", (constants.REFERENCE, ))
 
     def conditional_line_break(self, flag=True):
         if self.prev_line_not_blank:
