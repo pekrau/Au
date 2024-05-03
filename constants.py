@@ -114,6 +114,7 @@ INDEXED_SPACING = 8
 INDEXED_INDENT = 15
 
 REFERENCE = "reference"
+REFERENCE_PREFIX = "reference-"
 REFERENCE_COLOR = "magenta"
 
 LINK = "link"
@@ -130,7 +131,6 @@ FOOTNOTE_MARGIN = 4
 
 HIGHLIGHT = "highlight"
 HIGHLIGHT_COLOR = "yellow"
-
 
 # <Return>, <Backspace>, <Delete> must be in this set.
 AFFECTS_CHARACTER_COUNT = frozenset(string.printable + "\r" + "\x08" + "\x7f")

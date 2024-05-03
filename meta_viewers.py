@@ -50,9 +50,9 @@ class IndexedViewer(MetaViewer):
     def render(self):
         super().render()
         self.links = dict()
-        self.indexed = dict()   # Key: term; value: position
+        self.indexed = dict()   # Key: term; value: position here.
         self.highlighted = None # Currently highlighted region.
-        indexed_pos = dict()
+        indexed_pos = dict()    # Position in source text.
         for text in self.main.source.all_texts:
             for term, positions in text.viewer.indexed.items():
                 indexed_pos.setdefault(term, dict())[text.fullname] = list(sorted(positions))
@@ -77,8 +77,10 @@ class IndexedViewer(MetaViewer):
         if not link:
             return
         fullname, position = link
-        ic(fullname, position)
-        self.main.texts_notebook_highlight(self.main.source[fullname], position)
+        text = self.main.source[fullname]
+        assert text.is_text
+        self.main.texts_notebook.select(text.tabid)
+        text.viewer.highlight(position)
 
     def highlight(self, term):
         "Highlight and show the indexed term."

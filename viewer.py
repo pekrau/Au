@@ -45,19 +45,19 @@ class Viewer(FootnoteRenderMixin, TextViewer):
 
     def rerender(self):
         self.footnotes = dict()
+        self.highlighted = None
         super().rerender()
 
     def highlight(self, position):
         "Highlight the indexed term starting at the given position."
         self.view.focus_set()
-        ic(self.highlighted)
         if self.highlighted:
             self.view.tag_remove(constants.HIGHLIGHT, *self.highlighted)
         first, last = self.view.tag_nextrange(constants.INDEXED, position)
         self.view.tag_add(constants.HIGHLIGHT, first, last)
         self.highlighted = (first, last)
-        ic(self.highlighted)
         self.view.see(position)
+        self.view.update()
 
     def footnote_enter(self, event=None):
         self.view.configure(cursor="hand2")

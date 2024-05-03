@@ -50,8 +50,7 @@ class Main:
         self.root.iconphoto(False, self.au64, self.au64)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.root.bind("<Configure>", self.root_resized)
-        self.root.bind("<F12>", self.debug)
-        self.root.after(constants.AGES_UPDATE_DELAY, self.update_treeview_ages)
+        self.root.after(constants.AGES_UPDATE_DELAY, self.treeview_update_ages)
 
         # Must be 'tk.PanedWindow', not 'ttk.PanedWindow',
         # since the 'paneconfigure' command is needed.
@@ -66,9 +65,9 @@ class Main:
         self.texts_notebook_create()
         self.meta_notebook_create()
 
-        self.treeview_render()
-        self.texts_notebook_render()
-        self.meta_notebook_render()
+        self.treeview_populate()
+        self.texts_notebook_populate()
+        self.meta_notebook_populate()
         self.config_apply()
 
     @property
@@ -123,8 +122,8 @@ class Main:
             pass
         else:
             self.treeview.selection_set(text.fullname)
-            self.treeview.focus(text.fullname)
             self.treeview.see(text.fullname)
+            self.treeview.focus(text.fullname)
 
         selected = self.config["meta"].get("selected")
         for tabid, viewer in self.meta_notebook_lookup.items():
@@ -212,6 +211,7 @@ class Main:
         self.menu_move.entryconfigure(3, state=state) # Out of section
 
     def treeview_create(self):
+        "Create the treeview framework."
         self.treeview_frame = ttk.Frame(self.panedwindow)
         self.panedwindow.add(self.treeview_frame,
                              width=constants.TREEVIEW_PANE_WIDTH,
@@ -259,7 +259,7 @@ class Main:
         self.treeview.bind("<<TreeviewClose>>", self.treeview_close)
         self.treeview.focus_set()
 
-    def treeview_render(self):
+    def treeview_populate(self):
         for child in self.treeview.get_children():
             self.treeview.delete(child)
         for item in self.source.all_items:
@@ -309,51 +309,7 @@ class Main:
         for text in item.all_texts:
             self.texts_notebook.hide(text.tabid)
 
-    def texts_notebook_create(self):
-        "Create the texts notebook."
-        self.texts_notebook = ttk.Notebook(self.panedwindow)
-        self.panedwindow.add(self.texts_notebook, minsize=constants.PANE_MINSIZE)
-         # Key: tabid; value: instance
-        self.texts_notebook_lookup = dict()
-        self.texts_notebook.bind("<<NotebookTabChanged>>",
-                                 self.texts_notebook_tab_changed)
-
-    def texts_notebook_tab_changed(self, event):
-        "Synchronize selected in treeview with tab change."
-        text = self.texts_notebook_lookup[self.texts_notebook.select()]
-        self.treeview.selection_set(text.fullname)
-        self.treeview.focus(text.fullname)
-
-    def texts_notebook_highlight(self, text, position):
-        assert text.is_text
-        self.texts_notebook.select(text.tabid)
-        text.viewer.highlight(position)
-
-    def texts_notebook_render(self):
-        """Render tabs for the texts notebook; first delete any existing tabs.
-        Also updates the text information in the treeview.
-        """
-        while self.texts_notebook_lookup:
-            self.texts_notebook.forget(self.texts_notebook_lookup.popitem()[0])
-        for text in self.source.all_texts:
-            viewer = Viewer(self.texts_notebook, self, text)
-            text.viewer = viewer
-            # XXX
-            # try:
-            #     viewer.move_cursor(self.config["items"][filepath].get("cursor"))
-            # except KeyError:
-            #     pass
-            self.texts_notebook.add(viewer.frame, text=viewer.name,
-                                    state=text.shown and tk.NORMAL or tk.HIDDEN)
-            tabs = self.texts_notebook.tabs()
-            text.tabid = tabs[-1]
-            self.texts_notebook_lookup[text.tabid] = text
-            opener = functools.partial(self.open_editor, text=text)
-            viewer.view.bind("<Double-Button-1>", opener)
-            viewer.view.bind("<Return>", opener)
-            self.set_treeview_info(text)
-
-    def set_treeview_info(self, text, modified=None):
+    def treeview_set_info(self, text, modified=None):
         if modified is None:
             try:
                 modified = self.editors[text.fullname].is_modified
@@ -370,13 +326,51 @@ class Main:
         self.treeview.set(text.fullname, "chars", text.viewer.character_count)
         self.treeview.set(text.fullname, "age", text.age)
 
-    def update_treeview_ages(self):
+    def treeview_update_ages(self):
         for text in self.source.all_texts:
             self.treeview.set(text.fullname, "age", text.age)
-        self.root.after(constants.AGES_UPDATE_DELAY, self.update_treeview_ages)
+        self.root.after(constants.AGES_UPDATE_DELAY, self.treeview_update_ages)
+
+    def texts_notebook_create(self):
+        "Create the texts notebook framework."
+        self.texts_notebook = ttk.Notebook(self.panedwindow)
+        self.panedwindow.add(self.texts_notebook, minsize=constants.PANE_MINSIZE)
+         # Key: tabid; value: instance
+        self.texts_notebook_lookup = dict()
+        self.texts_notebook.bind("<<NotebookTabChanged>>",
+                                 self.texts_notebook_tab_changed)
+
+    def texts_notebook_tab_changed(self, event):
+        "Synchronize selected in treeview with tab change."
+        text = self.texts_notebook_lookup[self.texts_notebook.select()]
+        self.treeview.selection_set(text.fullname)
+        self.treeview.focus(text.fullname)
+
+    def texts_notebook_populate(self):
+        """Render tabs for the texts notebook; first delete any existing tabs.
+        Also updates the text information in the treeview.
+        """
+        while self.texts_notebook_lookup:
+            self.texts_notebook.forget(self.texts_notebook_lookup.popitem()[0])
+        for text in self.source.all_texts:
+            text.viewer = viewer = Viewer(self.texts_notebook, self, text)
+            # XXX
+            # try:
+            #     viewer.move_cursor(self.config["items"][filepath].get("cursor"))
+            # except KeyError:
+            #     pass
+            self.texts_notebook.add(viewer.frame, text=viewer.name,
+                                    state=text.shown and tk.NORMAL or tk.HIDDEN)
+            tabs = self.texts_notebook.tabs()
+            text.tabid = tabs[-1]
+            self.texts_notebook_lookup[text.tabid] = text
+            opener = functools.partial(self.open_editor, text=text)
+            viewer.view.bind("<Double-Button-1>", opener)
+            viewer.view.bind("<Return>", opener)
+            self.treeview_set_info(text)
 
     def meta_notebook_create(self):
-        "Create the meta content notebook."
+        "Create the meta notebook framework."
         self.meta_notebook = ttk.Notebook(self.panedwindow)
         self.panedwindow.add(self.meta_notebook, minsize=constants.PANE_MINSIZE)
 
@@ -403,8 +397,8 @@ class Main:
         tabs = self.meta_notebook.tabs()
         self.meta_notebook_lookup[tabs[-1]] = self.help
 
-    def meta_notebook_render(self):
-        "Render the meta content notebook."
+    def meta_notebook_populate(self):
+        "Populate the meta notebook with contents; help panel does not change."
         self.references.render()
         self.indexed.render()
         self.todo.render()
@@ -485,13 +479,13 @@ class Main:
             item.move_to_section(item.prev)
         except ValueError:
             return "break"
-        self.treeview_render()        # XXX Optimize!
+        self.treeview_populate()        # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_render()  # XXX Optimize!
+        self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
-        self.treeview.focus(item.fullname)
         self.treeview.see(item.fullname)
+        self.treeview.focus(item.fullname)
         self.config_save()
         return "break"
 
@@ -506,9 +500,9 @@ class Main:
             item.move_to_parent()
         except ValueError:
             return "break"
-        self.treeview_render()        # XXX Optimize!
+        self.treeview_populate()        # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_render()  # XXX Optimize!
+        self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
@@ -546,9 +540,9 @@ class Main:
             self.texts_notebook.tab(item.tabid, text=item.name)
             item.viewer.rerender()
         elif item.is_section:
-            self.treeview_render()        # XXX Optimize!
+            self.treeview_populate()        # XXX Optimize!
             self.treeview.update()
-            self.texts_notebook_render()  # XXX Optimize!
+            self.texts_notebook_populate()  # XXX Optimize!
             self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
@@ -575,9 +569,9 @@ class Main:
                 title="Error",
                 message="Could not generate a unique name for the copy.")
             return
-        self.treeview_render()        # XXX Optimize!
+        self.treeview_populate()        # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_render()  # XXX Optimize!
+        self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(newitem.fullname)
         self.treeview.focus(newitem.fullname)
@@ -609,9 +603,9 @@ class Main:
             item.delete()
         else:
             item.delete()
-            self.treeview_render()        # XXX Optimize!
+            self.treeview_populate()        # XXX Optimize!
             self.treeview.update()
-            self.texts_notebook_render()  # XXX Optimize!
+            self.texts_notebook_populate()  # XXX Optimize!
             self.texts_notebook.update()
         self.source.check_integrity()
         self.config_save()
@@ -637,7 +631,7 @@ class Main:
         return "break"
 
     def close_editor(self, text):
-        self.set_treeview_info(text)
+        self.treeview_set_info(text)
         self.editors.pop(text.fullname)
         self.set_menubar_state()
 
@@ -664,13 +658,13 @@ class Main:
                 title="Error",
                 message=str(error))
             return
-        self.treeview_render()        # XXX Optimize!
+        self.treeview_populate()        # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_render()  # XXX Optimize!
+        self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(text.fullname)
-        self.treeview.focus(text.fullname)
         self.treeview.see(text.fullname)
+        self.treeview.focus(text.fullname)
         self.source.check_integrity()
         self.config_save()
 
@@ -694,13 +688,13 @@ class Main:
                 title="Error",
                 message=str(error))
             return
-        self.treeview_render()        # XXX Optimize!
+        self.treeview_populate()        # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_render()  # XXX Optimize!
+        self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(section.fullname)
-        self.treeview.focus(section.fullname)
         self.treeview.see(section.fullname)
+        self.treeview.focus(section.fullname)
         self.source.check_integrity()
         self.config_save()
 
@@ -711,11 +705,6 @@ class Main:
         self.treeview.selection_set(fullname)
         self.treeview.focus(fullname)
         self.menu_popup.tk_popup(event.x_root, event.y_root)
-
-    def debug(self, event=None):
-        ic(self.texts_notebook.tabs(),
-           self.texts_notebook.select(),
-           self.meta_notebook.select())
 
     def mainloop(self):
         self.root.mainloop()

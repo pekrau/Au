@@ -95,8 +95,8 @@ class BaseViewer:
         else:
             position = self.view.index(position + self.cursor_offset())
             self.view.mark_set(tk.INSERT, position)
-            # XXX This does not work?
             self.view.see(position)
+            self.view.update()
 
     def move_cursor_home(self, event=None):
         self.move_cursor("1.0")
@@ -149,8 +149,9 @@ class BaseViewer:
             webbrowser.open_new_tab(link["url"])
 
     def debug_tags(self, event=None):
-        ic("--- tags ---", self.view.tag_names(tk.INSERT))
-        ic("--- current ---", self.view.index(tk.CURRENT))
+        ic("--- current ---",
+           self.view.index(tk.CURRENT),
+           self.view.tag_names(tk.INSERT))
 
     def debug_selected(self, event=None):
         try:
@@ -174,12 +175,12 @@ class TextViewer(BaseRenderMixin, BaseViewer):
     "Viewer base class for text with Markdown rendering methods and bindings."
  
     def __init__(self, parent, main, text):
-        self.indexed = dict()     # Lookup local for the instance.
-        self.references = dict()  # Lookup local for the instance.
         super().__init__(parent, main)
         self.text = text
         self.render_title()
         self.render(self.text.ast)
+        self.locate_indexed()
+        self.locate_references()
 
     def __str__(self):
         "The full name of the text; filepath excluding extension."
@@ -259,20 +260,20 @@ class TextViewer(BaseRenderMixin, BaseViewer):
         self.links = dict()
         self.text.read()
         self.view.delete("1.0", tk.END)
-        self.prev_line_not_blank = False
         self.render_title()
+        self.prev_line_not_blank = False
         self.render(self.text.ast)
 
-    def get_selection(self, check_no_boundary=True, adjust=False):
+    def get_selection(self, check_no_boundary=True, strip=False):
         """Raise ValueError if no current selection, or region boundary (if checked).
-        Optionally adjust region to have non-blank beginning and end.
+        Optionally modify region to have non-blank beginning and end.
         """
         try:
             first = self.view.index(tk.SEL_FIRST)
             last = self.view.index(tk.SEL_LAST)
         except tk.TclError:
             raise ValueError("no current selection")
-        if adjust:
+        if strip:
             if self.view.get(first) in string.whitespace:
                 original_first = first
                 for offset in range(1, 10):
@@ -330,6 +331,10 @@ class TextViewer(BaseRenderMixin, BaseViewer):
                 break
         else:
             return
+        for tabid, viewer in self.main.meta_notebook_lookup.items():
+            if str(viewer) == "Indexed":
+                self.main.meta_notebook.select(tabid)
+                break
         self.main.indexed.highlight(tag[len(constants.INDEXED_PREFIX):])
 
     def render_table(self, ast):
@@ -337,7 +342,7 @@ class TextViewer(BaseRenderMixin, BaseViewer):
 
 
 class Table(BaseRenderMixin):
-    "Table requires its own class for rendering."
+    "Read-only table requires its own class for rendering."
 
     def __init__(self, master, ast):
         self.master = master
@@ -375,6 +380,7 @@ class Table(BaseRenderMixin):
             self.render(child)
         if ast.get("header"):
             self.view.tag_add(constants.BOLD, "1.0", tk.INSERT)
+        self.view.configure(state=tk.DISABLED)
 
     def len_raw_text(self, ast):
         if ast["element"] == "raw_text":

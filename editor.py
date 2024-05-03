@@ -213,7 +213,7 @@ class Editor(Viewer):
             return
         self.original_menubar_background = self.menubar.cget("background")
         self.menubar.configure(background=constants.MODIFIED_COLOR)
-        self.main.set_treeview_info(self.text, modified=True)
+        self.main.treeview_set_info(self.text, modified=True)
 
     def set_status(self):
         try:
@@ -225,7 +225,7 @@ class Editor(Viewer):
 
     def bold_add(self):
         try:
-            first, last = self.get_selection(adjust=True)
+            first, last = self.get_selection(strip=True)
         except ValueError:
             return
         self.view.tag_add(constants.BOLD, first, last)
@@ -243,7 +243,7 @@ class Editor(Viewer):
 
     def italic_add(self):
         try:
-            first, last = self.get_selection(adjust=True)
+            first, last = self.get_selection(strip=True)
         except ValueError:
             return
         self.view.tag_add(constants.ITALIC, first, last)
@@ -514,7 +514,7 @@ class Editor(Viewer):
         self.ignore_modified_event = True
         self.view.edit_modified(False)
         self.text.viewer.rerender()
-        self.main.set_treeview_info(self.text)
+        self.main.treeview_set_info(self.text)
 
     @property
     def outfile(self):

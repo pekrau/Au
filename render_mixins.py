@@ -10,10 +10,7 @@ import utils
 
 class BaseRenderMixin:
     """Mixin class containing basic methods to render Marko AST to tk.Text instance.
-    It assumes:
-    - An attribute '.view'; instance of tk.Text.
-    - An attribute '.indexed'; a dict containing indexed terms.
-    - An attribute '.referenced'; a dict containing references.
+    It assumes an attribute '.view'; instance of tk.Text.
     """
 
     def render(self, ast):
@@ -102,22 +99,41 @@ class BaseRenderMixin:
 
     def render_thematic_break(self, ast):
         self.conditional_line_break(flag=True)
-        self.view.insert(tk.INSERT, "------------------------------------",
+        self.view.insert(tk.INSERT, "------------------------------",
                          (constants.THEMATIC_BREAK, ))
 
     def render_indexed(self, ast):
-        self.indexed.setdefault(ast["canonical"], set()).add(self.view.index(tk.INSERT))
-        tag = f"{constants.INDEXED_PREFIX}{ast['canonical']}"
+        tag = constants.INDEXED_PREFIX + ast["canonical"]
         self.view.insert(tk.INSERT, ast["term"], (constants.INDEXED, tag))
 
     def render_reference(self, ast):
-        self.references.setdefault(ast["reference"], set()).add(self.view.index(tk.INSERT))
-        self.view.insert(tk.INSERT, f"{ast['reference']}", (constants.REFERENCE, ))
+        tag = constants.REFERENCE_PREFIX + ast["reference"]
+        self.view.insert(tk.INSERT, f"{ast['reference']}", (constants.REFERENCE, tag))
 
     def conditional_line_break(self, flag=True):
         if self.prev_line_not_blank:
             self.view.insert(tk.INSERT, "\n")
             self.prev_line_not_blank = flag
+
+    def locate_indexed(self):
+        "Get the final positions of the indexed terms; affected by footnotes."
+        self.indexed = dict()     # Lookup local for the instance.
+        for tag in self.view.tag_names():
+            if not tag.startswith(constants.INDEXED_PREFIX):
+                continue
+            canonical = tag[len(constants.INDEXED_PREFIX):]
+            range = self.view.tag_nextrange(tag, "1.0")
+            while range:
+                self.indexed.setdefault(canonical, set()).add(range[0])
+                range = self.view.tag_nextrange(tag, range[0] + "+1c")
+
+    def locate_references(self):
+        "Get the final positions of the references; affected by footnotes."
+        self.references = dict()  # Lookup local for the instance.
+        range = self.view.tag_nextrange(constants.REFERENCE, "1.0")
+        while range:
+            self.references.setdefault(self.view.get(*range), set()).add(range[0])
+            range = self.view.tag_nextrange(constants.REFERENCE, range[0] + "+1c")
 
 
 class FootnoteRenderMixin:
