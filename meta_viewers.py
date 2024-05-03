@@ -17,12 +17,29 @@ class MetaViewer(BaseViewer):
         self.display_title()
 
 
+class BookViewer(MetaViewer):
+    "View of the book title page setup."
+
+    def __str__(self):
+        return "Book"
+
+
 class ReferencesViewer(MetaViewer):
     "View of the references list."
 
     def __str__(self):
         return "References"
 
+
+class SearchViewer(MetaViewer):
+    "View of the search feature and resulting list."
+
+    def __str__(self):
+        return "Search"
+
+    def clear(self):
+        self.display()          # XXX Should reset search term box and results list.
+        
 
 class TodoViewer(MetaViewer):
     "View of the to-do list."

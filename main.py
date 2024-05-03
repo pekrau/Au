@@ -20,7 +20,7 @@ from viewer import Viewer
 from editor import Editor
 from help_viewer import HelpViewer
 from indexed_viewer import IndexedViewer
-from meta_viewers import ReferencesViewer, TodoViewer
+from meta_viewers import BookViewer, ReferencesViewer, SearchViewer, TodoViewer
 
 
 class Main:
@@ -378,31 +378,43 @@ class Main:
          # key: tabid; value: instance
         self.meta_notebook_lookup = dict()
 
-        self.references = ReferencesViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.references.frame, text="References")
+        self.book_viewer = BookViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.book_viewer.frame, text="Book")
         tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.references
+        self.meta_notebook_lookup[tabs[-1]] = self.book_viewer
 
-        self.indexed = IndexedViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.indexed.frame, text="Indexed")
+        self.references_viewer = ReferencesViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.references_viewer.frame, text="References")
         tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.indexed
+        self.meta_notebook_lookup[tabs[-1]] = self.references_viewer
 
-        self.todo = TodoViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.todo.frame, text="To do")
+        self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.indexed_viewer.frame, text="Indexed")
         tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.todo
+        self.meta_notebook_lookup[tabs[-1]] = self.indexed_viewer
 
-        self.help = HelpViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.help.frame, text="Help")
+        self.todo_viewer = TodoViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.todo_viewer.frame, text="To do")
         tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.help
+        self.meta_notebook_lookup[tabs[-1]] = self.todo_viewer
+
+        self.search_viewer = SearchViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.search_viewer.frame, text="Search")
+        tabs = self.meta_notebook.tabs()
+        self.meta_notebook_lookup[tabs[-1]] = self.search_viewer
+
+        self.help_viewer = HelpViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.help_viewer.frame, text="Help")
+        tabs = self.meta_notebook.tabs()
+        self.meta_notebook_lookup[tabs[-1]] = self.help_viewer
 
     def meta_notebook_populate(self):
         "Populate the meta notebook with contents; help panel does not change."
-        self.references.display()
-        self.indexed.display()
-        self.todo.display()
+        self.book_viewer.display()
+        self.references_viewer.display()
+        self.indexed_viewer.display()
+        self.search_viewer.display()
+        self.todo_viewer.display()
 
     def archive(self):
         count = self.source.archive()

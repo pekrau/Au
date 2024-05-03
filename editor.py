@@ -535,8 +535,9 @@ class Editor(Viewer):
         self.view.edit_modified(False)
         self.text.viewer.display()
         self.main.treeview_set_info(self.text)
-        self.main.references.display() # XXX Optimize?
-        self.main.indexed.display()    # XXX Optimize?
+        self.main.references_viewer.display() # XXX Optimize?
+        self.main.indexed_viewer.display()    # XXX Optimize?
+        self.main.search_viewer.clear()
 
     @property
     def outfile(self):

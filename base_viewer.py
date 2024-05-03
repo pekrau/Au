@@ -335,7 +335,7 @@ class TextViewer(BaseRenderMixin, BaseViewer):
             if str(viewer) == "Indexed":
                 self.main.meta_notebook.select(tabid)
                 break
-        self.main.indexed.highlight(tag[len(constants.INDEXED_PREFIX):])
+        self.main.indexed_viewer.highlight(tag[len(constants.INDEXED_PREFIX):])
 
     def render_table(self, ast):
         self.table = Table(self, ast)
