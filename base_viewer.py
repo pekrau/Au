@@ -20,7 +20,7 @@ class BaseViewer:
 
     def __init__(self, parent, main):
         self.main = main
-        self.links = dict()       # Lookup local for the instance.
+        # self.links = dict()
         self.view_create(parent)
         self.view_configure_tags()
         self.view_configure_tag_bindings()
@@ -49,7 +49,7 @@ class BaseViewer:
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
 
-    def render_title(self):
+    def display_title(self):
         self.view.insert(tk.INSERT, str(self), constants.TITLE)
         self.view.insert(tk.INSERT, "\n\n")
 
@@ -177,10 +177,7 @@ class TextViewer(BaseRenderMixin, BaseViewer):
     def __init__(self, parent, main, text):
         super().__init__(parent, main)
         self.text = text
-        self.render_title()
-        self.render(self.text.ast)
-        self.locate_indexed()
-        self.locate_references()
+        self.display(reread_text=False)
 
     def __str__(self):
         "The full name of the text; filepath excluding extension."
@@ -256,13 +253,16 @@ class TextViewer(BaseRenderMixin, BaseViewer):
         view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
         view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_action)
 
-    def rerender(self):
+    def display(self, reread_text=True):
+        if reread_text:
+            self.text.read()
         self.links = dict()
-        self.text.read()
         self.view.delete("1.0", tk.END)
-        self.render_title()
+        self.display_title()
         self.prev_line_not_blank = False
         self.render(self.text.ast)
+        self.locate_indexed()
+        self.locate_references()
 
     def get_selection(self, check_no_boundary=True, strip=False):
         """Raise ValueError if no current selection, or region boundary (if checked).

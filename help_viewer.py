@@ -17,7 +17,7 @@ class HelpViewer(TextViewer):
     def __str__(self):
         return "Help"
 
-    def render_title(self):
+    def display_title(self):
         title = "Au " + ".".join([str(n) for n in constants.VERSION])
         self.view.insert(tk.INSERT, title, constants.TITLE)
         self.view.insert(tk.INSERT, "\n\n")

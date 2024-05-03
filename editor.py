@@ -44,20 +44,6 @@ class Editor(Viewer):
         self.info_setup()
         self.view.edit_modified(False)
 
-    def get_ignore_modified_event(self):
-        "Always Tru first time accessed."
-        try:
-            return self._ignore_modified_event
-        except AttributeError:
-            self._ignore_modified_event = True
-            return self._ignore_modified_event
-
-    def set_ignore_modified_event(self, value):
-        self._ignore_modified_event = value
-
-    ignore_modified_event = property(get_ignore_modified_event, 
-                                     set_ignore_modified_event)
-
     def menubar_setup(self):
         self.menubar = tk.Menu(self.toplevel, background="gold")
         self.toplevel["menu"] = self.menubar
@@ -180,6 +166,9 @@ class Editor(Viewer):
             if constants.LINK in tags:
                 menu.add_command(label="Remove link", command=self.link_remove)
                 any_item = True
+            if constants.INDEXED in tags:
+                menu.add_command(label="Remove indexed", command=self.indexed_remove)
+                any_item = True
             if constants.BOLD in tags:
                 menu.add_command(label="Remove bold", command=self.bold_remove)
                 any_item = True
@@ -192,6 +181,7 @@ class Editor(Viewer):
         else:
             if not self.selection_contains_boundary(first, last, show=False):
                 menu.add_command(label="Link", command=self.link_add)
+                menu.add_command(label="Index", command=self.indexed_add)
                 menu.add_command(label="Bold", command=self.bold_add)
                 menu.add_command(label="Italic", command=self.italic_add)
                 menu.add_command(label="Quote", command=self.quote_add)
@@ -202,9 +192,27 @@ class Editor(Viewer):
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
 
+    def get_ignore_modified_event(self):
+        "Always Tru first time accessed."
+        try:
+            return self._ignore_modified_event
+        except AttributeError:
+            self._ignore_modified_event = True
+            return self._ignore_modified_event
+
+    def set_ignore_modified_event(self, value):
+        self._ignore_modified_event = value
+
+    ignore_modified_event = property(get_ignore_modified_event, 
+                                     set_ignore_modified_event)
+
     @property
     def is_modified(self):
         return self.view.edit_modified()
+
+    def set_modified(self):
+        self.ignore_modified_event = True
+        self.view.edit_modified(True)
 
     def handle_modified(self, event=None):
         if self.ignore_modified_event:
@@ -229,8 +237,7 @@ class Editor(Viewer):
         except ValueError:
             return
         self.view.tag_add(constants.BOLD, first, last)
-        self.ignore_modified_event = True
-        self.view.edit_modified(True)
+        self.set_modified()
 
     def bold_remove(self):
         current = self.view.index(tk.INSERT)
@@ -238,8 +245,7 @@ class Editor(Viewer):
             region = self.view.tag_prevrange(constants.BOLD, current)
             if region:
                 self.view.tag_remove(constants.BOLD, *region)
-                self.ignore_modified_event = True
-                self.view.edit_modified(True)
+                self.set_modified()
 
     def italic_add(self):
         try:
@@ -247,8 +253,7 @@ class Editor(Viewer):
         except ValueError:
             return
         self.view.tag_add(constants.ITALIC, first, last)
-        self.ignore_modified_event = True
-        self.view.edit_modified(True)
+        self.set_modified()
 
     def italic_remove(self):
         current = self.view.index(tk.INSERT)
@@ -256,8 +261,7 @@ class Editor(Viewer):
             region = self.view.tag_prevrange(constants.ITALIC, current)
             if region:
                 self.view.tag_remove(constants.ITALIC, *region)
-                self.ignore_modified_event = True
-                self.view.edit_modified(True)
+                self.set_modified()
 
     def quote_add(self):
         try:
@@ -269,8 +273,7 @@ class Editor(Viewer):
             self.view.insert(last, "\n\n")
         if "\n\n" not in self.view.get(first + "-2c", first):
             self.view.insert(first, "\n\n")
-        self.ignore_modified_event = True
-        self.view.edit_modified(True)
+        self.set_modified()
 
     def quote_remove(self):
         current = self.view.index(tk.INSERT)
@@ -278,8 +281,7 @@ class Editor(Viewer):
             region = self.view.tag_prevrange(constants.QUOTE, current)
             if region:
                 self.view.tag_remove(constants.QUOTE, *region)
-                self.ignore_modified_event = True
-                self.view.edit_modified(True)
+                self.set_modified()
 
     def link_action(self, event):
         "Allow viewing, editing and opening the link."
@@ -296,8 +298,7 @@ class Editor(Viewer):
                 self.view.tag_remove(constants.LINK, *region)
                 self.view.tag_delete(link["tag"])
                 # Do not remove entry from 'links': the count must be preserved.
-            self.ignore_modified_event = True
-            self.view.edit_modified(True)
+            self.set_modified()
 
     def link_add(self):
         try:
@@ -307,7 +308,7 @@ class Editor(Viewer):
         url = tk_simpledialog.askstring(
             parent=self.toplevel,
             title="Link URL?",
-            prompt="Give URL for link:")
+            prompt="Give URL for link")
         if not url:
             return
         try:
@@ -323,8 +324,7 @@ class Editor(Viewer):
             title = None
         self.link_create(url, title, first, last)
         self.view.tag_remove(tk.SEL, first, last)
-        self.ignore_modified_event = True
-        self.view.edit_modified(True)
+        self.set_modified()
 
     def link_remove(self):
         link = self.get_link()
@@ -338,21 +338,41 @@ class Editor(Viewer):
         first, last = self.view.tag_nextrange(link["tag"], "1.0")
         self.view.tag_delete(link["tag"])
         self.view.tag_remove(constants.LINK, first, last)
-        self.ignore_modified_event = True
-        self.view.edit_modified(True)
+        self.set_modified()
         # Links are not removed from 'links' during a session.
         # The link count must remain strictly increasing.
+
+    def indexed_add(self):
+        try:
+            first, last = self.get_selection()
+        except ValueError:
+            return
+        term = self.view.get(first, last)
+        canonical = tk_simpledialog.askstring(
+            parent=self.toplevel,
+            title="Canonical?",
+            prompt="Give canonical term",
+            initialvalue=term)
+        if canonical is None:
+            return
+        if not canonical:
+            canonical = term
+        self.view.tag_add(constants.INDEXED, first, last)
+        self.view.tag_add(constants.INDEXED_PREFIX + canonical, first, last)
+        self.set_modified()
+
+    def indexed_remove(self):
+        for tag in self.view.tag_names(tk.CURRENT):
+            if tag.startswith(constants.INDEXED_PREFIX):
+                first, last = self.view.tag_nextrange(tag, "1.0")
+                self.view.tag_remove(constants.INDEXED, first, last)
+                self.view.tag_remove(tag, first, last)
+        self.set_modified()
 
     def reference_add(self):
         raise NotImplementedError
 
     def reference_remove(self):
-        raise NotImplementedError
-
-    def indexed_add(self):
-        raise NotImplementedError
-
-    def indexed_remove(self):
         raise NotImplementedError
 
     def footnote_add(self):
@@ -513,8 +533,10 @@ class Editor(Viewer):
         self.menubar.configure(background=self.original_menubar_background)
         self.ignore_modified_event = True
         self.view.edit_modified(False)
-        self.text.viewer.rerender()
+        self.text.viewer.display()
         self.main.treeview_set_info(self.text)
+        self.main.references.display() # XXX Optimize?
+        self.main.indexed.display()    # XXX Optimize?
 
     @property
     def outfile(self):
@@ -527,7 +549,6 @@ class Editor(Viewer):
             self.outfile_stack = [outfile]
 
     def markdown(self):
-        self.current_link_tag = None
         self.line_indents = []
         self.line_indented = False
         self.skip_text = False
@@ -622,8 +643,8 @@ class Editor(Viewer):
         for tag in self.view.tag_names(item[2]):
             if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
-                self.output_characters("[")
-                return
+                break
+        self.output_characters("[")
 
     def markdown_tagoff_link(self, item):
         link = self.get_link(self.current_link_tag)
@@ -647,6 +668,28 @@ class Editor(Viewer):
         self.output_line_indent(force=True)
         self.outfile.write("\n")
         self.skip_text = False
+
+    def markdown_tagon_indexed(self, item):
+        for tag in self.view.tag_names(item[2]):
+            if tag.startswith(constants.INDEXED_PREFIX):
+                first, last = self.view.tag_nextrange(tag, item[2])
+                self.current_indexed_term = self.view.get(first, last)
+                self.current_indexed_tag = tag
+                break
+        self.output_characters("[#")
+
+    def markdown_tagoff_indexed(self, item):
+        canonical = self.current_indexed_tag[len(constants.INDEXED_PREFIX):]
+        if self.current_indexed_term == canonical:
+            self.output_characters("]")
+        else:
+            self.output_characters(f"|{canonical}]")
+
+    def markdown_tagon_reference(self, item):
+        self.output_characters("[@")
+
+    def markdown_tagoff_reference(self, item):
+        self.output_characters("]")
 
     def markdown_tagon_footnote_ref(self, item):
         for tag in self.view.tag_names(item[2]):
@@ -674,18 +717,6 @@ class Editor(Viewer):
 
     def markdown_tagoff_footnote_def(self, item):
         self.outfile_stack.pop()
-
-    def markdown_tagon_indexed(self, item):
-        self.output_characters("[#")
-
-    def markdown_tagoff_indexed(self, item):
-        self.output_characters("]")
-
-    def markdown_tagon_reference(self, item):
-        self.output_characters("[@")
-
-    def markdown_tagoff_reference(self, item):
-        self.output_characters("]")
 
     def close(self, event=None, force=False):
         if self.is_modified and not force:

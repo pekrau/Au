@@ -43,10 +43,10 @@ class Viewer(FootnoteRenderMixin, TextViewer):
         view.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
         view.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
-    def rerender(self):
+    def display(self, reread_text=True):
         self.footnotes = dict()
         self.highlighted = None
-        super().rerender()
+        super().display(reread_text=reread_text)
 
     def highlight(self, position):
         "Highlight the indexed term starting at the given position."

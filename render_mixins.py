@@ -99,14 +99,15 @@ class BaseRenderMixin:
 
     def render_thematic_break(self, ast):
         self.conditional_line_break(flag=True)
-        self.view.insert(tk.INSERT, "------------------------------",
-                         (constants.THEMATIC_BREAK, ))
+        self.view.insert(tk.INSERT, "————————————————————", (constants.THEMATIC_BREAK,))
 
     def render_indexed(self, ast):
+        # Position here is not useful; will be affected by footnotes.
         tag = constants.INDEXED_PREFIX + ast["canonical"]
         self.view.insert(tk.INSERT, ast["term"], (constants.INDEXED, tag))
 
     def render_reference(self, ast):
+        # Position here is not useful; will be affected by footnotes.
         tag = constants.REFERENCE_PREFIX + ast["reference"]
         self.view.insert(tk.INSERT, f"{ast['reference']}", (constants.REFERENCE, tag))
 
@@ -117,7 +118,7 @@ class BaseRenderMixin:
 
     def locate_indexed(self):
         "Get the final positions of the indexed terms; affected by footnotes."
-        self.indexed = dict()     # Lookup local for the instance.
+        self.indexed = dict()
         for tag in self.view.tag_names():
             if not tag.startswith(constants.INDEXED_PREFIX):
                 continue
@@ -129,7 +130,7 @@ class BaseRenderMixin:
 
     def locate_references(self):
         "Get the final positions of the references; affected by footnotes."
-        self.references = dict()  # Lookup local for the instance.
+        self.references = dict()
         range = self.view.tag_nextrange(constants.REFERENCE, "1.0")
         while range:
             self.references.setdefault(self.view.get(*range), set()).add(range[0])

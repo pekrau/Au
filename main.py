@@ -19,7 +19,8 @@ from source import Source
 from viewer import Viewer
 from editor import Editor
 from help_viewer import HelpViewer
-from meta_viewers import ReferencesViewer, IndexedViewer, TodoViewer
+from indexed_viewer import IndexedViewer
+from meta_viewers import ReferencesViewer, TodoViewer
 
 
 class Main:
@@ -347,7 +348,7 @@ class Main:
         self.treeview.focus(text.fullname)
 
     def texts_notebook_populate(self):
-        """Render tabs for the texts notebook; first delete any existing tabs.
+        """Display tabs for the texts notebook; first delete any existing tabs.
         Also updates the text information in the treeview.
         """
         while self.texts_notebook_lookup:
@@ -399,9 +400,9 @@ class Main:
 
     def meta_notebook_populate(self):
         "Populate the meta notebook with contents; help panel does not change."
-        self.references.render()
-        self.indexed.render()
-        self.todo.render()
+        self.references.display()
+        self.indexed.display()
+        self.todo.display()
 
     def archive(self):
         count = self.source.archive()
@@ -538,7 +539,7 @@ class Main:
             self.treeview.delete(fullname)
             self.add_treeview_entry(item, index=index)
             self.texts_notebook.tab(item.tabid, text=item.name)
-            item.viewer.rerender()
+            item.viewer.redisplay()
         elif item.is_section:
             self.treeview_populate()        # XXX Optimize!
             self.treeview.update()
