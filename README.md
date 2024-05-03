@@ -1,13 +1,14 @@
-# Au: Simple Markdown authoring tool
+# Au: Markdown authoring tool
 
 - View and edit texts in chapters.
-- Footnotes.
-- References.
+- Search.
 - Indexing.
-- Output:
+- References.
+- Footnotes.
+- Export to:
   - DOCX
   - EPUB
   - PDF
   - HTML
 
-Written in Python 3 using Tkinter.
+Written in Python using Tkinter.

@@ -20,7 +20,6 @@ class BaseViewer:
 
     def __init__(self, parent, main):
         self.main = main
-        # self.links = dict()
         self.view_create(parent)
         self.view_configure_tags()
         self.view_configure_tag_bindings()
@@ -42,7 +41,6 @@ class BaseViewer:
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
         self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-
         self.scroll_y = ttk.Scrollbar(self.frame,
                                       orient=tk.VERTICAL,
                                       command=self.view.yview)
