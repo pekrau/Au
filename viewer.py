@@ -18,6 +18,7 @@ class Viewer(FootnoteRenderMixin, TextViewer):
     def __init__(self, parent, main, text):
         self.footnotes = dict()     # Lookup local for the instance.
         self.highlighted = None
+        self.init_elided_tags()
         super().__init__(parent, main, text)
         self.status = constants.Status.lookup(self.text.frontmatter.get("status")) or constants.STARTED
 
@@ -73,6 +74,4 @@ class Viewer(FootnoteRenderMixin, TextViewer):
                 break
         else:
             return
-        tag = constants.FOOTNOTE_DEF_PREFIX + label
-        elided = bool(int(self.view.tag_cget(tag, "elide")))
-        self.view.tag_configure(tag, elide=not elided)
+        self.tag_toggle(constants.FOOTNOTE_DEF_PREFIX + label)

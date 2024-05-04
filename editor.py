@@ -141,8 +141,6 @@ class Editor(Viewer):
         return ""
 
     def key_press(self, event):
-        if event.char not in constants.AFFECTS_CHARACTER_COUNT:
-            return
         pos = self.view.index(tk.INSERT)
         tags = self.view.tag_names(pos)
         # Do not allow modifying keys from encroaching on a reference.
@@ -382,7 +380,7 @@ class Editor(Viewer):
             return
         label = self.get_new_footnote_label()
         tag = constants.FOOTNOTE_DEF_PREFIX + label
-        self.view.tag_configure(tag, elide=True)
+        self.tag_elide(tag)
         self.view.tag_add(constants.FOOTNOTE_DEF, first, last)
         self.view.tag_add(tag, first, last)
         self.view.insert(self.view.tag_nextrange(tag, "1.0")[0], "\n", (tag, ))
@@ -511,7 +509,7 @@ class Editor(Viewer):
                 self.footnotes[label] = dict(label=label, tag=tag)
             elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
                 tag = constants.FOOTNOTE_DEF_PREFIX + data["label"]
-                self.view.tag_configure(tag, elide=True)
+                self.tag_configure_elide(tag)
                 self.view.tag_add(tag, data["first"], tk.INSERT)
             else:
                 self.view.tag_add(entry[1], data["first"], self.view.index(tk.INSERT))

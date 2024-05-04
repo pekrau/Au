@@ -111,8 +111,9 @@ class BaseViewer:
         return self.view.index(tk.INSERT + self.cursor_offset(sign="-"))
 
     def key_press(self, event):
-        "Stop modifying actions."
-        if event.char in constants.AFFECTS_CHARACTER_COUNT:
+        "Stop all key presses that produce a character."
+        ic(event)
+        if event.char:
             return "break"
 
     def get_link(self, tag=None):

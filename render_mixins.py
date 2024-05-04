@@ -157,5 +157,37 @@ class FootnoteRenderMixin:
             self.render(child)
         self.view.tag_add(constants.FOOTNOTE_DEF, first + "+1c", tk.INSERT)
         tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
-        self.view.tag_configure(tag, elide=True)
+        self.tag_elide(tag)
         self.view.tag_add(tag, first, tk.INSERT)
+
+    def init_elided_tags(self):
+        """Horrible work-around for apparent Tk/Tcl bug that affects
+        searches ot text with tags for elided parts.
+        Keep track of all tags set as elided, so that they can be
+        temporarily be unelided before a search, and restored after.
+        """
+        self.elided_tags = set()
+
+    def tag_toggle_elide(self, tag):
+        if int(self.view.tag_cget(tag, "elide")):
+            self.tag_configure_not_elide(tag)
+        else:
+            self.tag_configure_elide(tag)
+
+    def tag_elide(self, tag):
+        self.view.tag_configure(tag, elide=True)
+        self.elided_tags.add(tag)
+
+    def tag_not_elide(self, tag):
+        self.view.tag_configure(tag, elide=False)
+        self.elided_tags.remove(tag)
+
+    def tags_inhibit_elide(self):
+        "Before search, temporarily set all elide tags to not elide."
+        for tag in self.elided_tags:
+            self.view.tag_configure(tag, elide=False)
+
+    def tags_restore_elide(self):
+        "After search, set all elide tags to elide again."
+        for tag in self.elided_tags:
+            self.view.tag_configure(tag, elide=True)

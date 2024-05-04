@@ -20,7 +20,8 @@ from viewer import Viewer
 from editor import Editor
 from help_viewer import HelpViewer
 from indexed_viewer import IndexedViewer
-from meta_viewers import BookViewer, ReferencesViewer, SearchViewer, TodoViewer
+from search_viewer import SearchViewer
+from meta_viewers import TitleViewer, ReferencesViewer, TodoViewer
 
 
 class Main:
@@ -378,10 +379,10 @@ class Main:
          # key: tabid; value: instance
         self.meta_notebook_lookup = dict()
 
-        self.book_viewer = BookViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.book_viewer.frame, text="Book")
+        self.title_viewer = TitleViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.title_viewer.frame, text="Title")
         tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.book_viewer
+        self.meta_notebook_lookup[tabs[-1]] = self.title_viewer
 
         self.references_viewer = ReferencesViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.references_viewer.frame, text="References")
@@ -410,7 +411,7 @@ class Main:
 
     def meta_notebook_populate(self):
         "Populate the meta notebook with contents; help panel does not change."
-        self.book_viewer.display()
+        self.title_viewer.display()
         self.references_viewer.display()
         self.indexed_viewer.display()
         self.search_viewer.display()
