@@ -63,7 +63,7 @@ class IndexedViewer(BaseViewer):
         text = self.main.source[fullname]
         assert text.is_text
         self.main.texts_notebook.select(text.tabid)
-        text.viewer.highlight(position)
+        text.viewer.highlight(first=position)
 
     def highlight(self, term):
         "Highlight and show the indexed term."
