@@ -143,11 +143,14 @@ class Editor(Viewer):
     def key_press(self, event):
         pos = self.view.index(tk.INSERT)
         tags = self.view.tag_names(pos)
+        # Do not allow modifying keys from encroaching on a list item bullet.
+        if constants.LIST_BULLET in tags and event.char:
+            return "break"
         # Do not allow modifying keys from encroaching on a reference.
-        if constants.REFERENCE in tags:
+        if constants.REFERENCE in tags and event.char:
             return "break"
         # Do not allow modifying keys from encroaching on a footnote reference.
-        if constants.FOOTNOTE_REF in tags:
+        if constants.FOOTNOTE_REF in tags and event.char:
             return "break"
         self.chars_var.set(f"{self.character_count} characters")
 
@@ -551,7 +554,8 @@ class Editor(Viewer):
         self.line_indents = []
         self.line_indented = False
         self.skip_text = False
-        # Only used from this method.
+        self.list_starting = False
+        self.list_stack = []
         self.referred_footnotes = dict()
         # This does not need the cleaned dump.
         # There is no title here that needs to be taken into account.
@@ -574,6 +578,9 @@ class Editor(Viewer):
                 self.outfile.write("  ")
                 self.outfile.write(line)
                 self.outfile.write("\n")
+        # These are not used outside of this method.
+        del self.list_starting
+        del self.list_stack
         del self.referred_footnotes
 
     def output_line_indent(self, force=False):
@@ -603,6 +610,13 @@ class Editor(Viewer):
 
     def markdown_text(self, item):
         if self.skip_text:
+            if self.list_starting:
+                try:
+                    self.list_stack[-1]["value"] = int(item[1].strip().strip("."))
+                    self.list_stack[-1]["ordered"] = True
+                except ValueError:
+                    self.list_stack[-1]["ordered"] = False
+                self.list_starting = False
             return
         self.output_characters(item[1])
 
@@ -610,11 +624,12 @@ class Editor(Viewer):
         pass
 
     def markdown_tagon(self, item):
-        tag = item[1]
         try:
-            method = getattr(self, f"markdown_tagon_{tag}")
+            method = getattr(self, f"markdown_tagon_{item[1]}")
         except AttributeError:
-            pass
+            if item[1].startswith(constants.LIST_PREFIX):
+                depth = int(item[1][len(constants.LIST_PREFIX):])
+                self.list_stack[-1]["depth"] = depth
         else:
             method(item)
 
@@ -622,7 +637,8 @@ class Editor(Viewer):
         try:
             method = getattr(self, f"markdown_tagoff_{item[1]}")
         except AttributeError:
-            pass
+            if item[1].startswith(constants.LIST_PREFIX):
+                self.line_indents.pop()
         else:
             method(item)
 
@@ -638,21 +654,6 @@ class Editor(Viewer):
     def markdown_tagoff_bold(self, item):
         self.output_characters("**")
 
-    def markdown_tagon_link(self, item):
-        for tag in self.view.tag_names(item[2]):
-            if tag.startswith(constants.LINK_PREFIX):
-                self.current_link_tag = tag
-                break
-        self.output_characters("[")
-
-    def markdown_tagoff_link(self, item):
-        link = self.get_link(self.current_link_tag)
-        if link["title"]:
-            self.output_characters(f"""]({link['url']} "{link['title']}")""")
-        else:
-            self.output_characters(f"]({link['url']})")
-        self.current_link_tag = None
-
     def markdown_tagon_quote(self, item):
         self.line_indents.append("> ")
 
@@ -667,6 +668,44 @@ class Editor(Viewer):
         self.output_line_indent(force=True)
         self.outfile.write("\n")
         self.skip_text = False
+
+    def markdown_tagon_list(self, item):
+        self.list_starting = True
+        self.list_stack.append(dict())
+        self.skip_text = True
+
+    def markdown_tagoff_list(self, item):
+        self.list_stack.pop()
+
+    def markdown_tagon_list_bullet(self, item):
+        if not self.list_starting:
+            self.skip_text = True
+
+    def markdown_tagoff_list_bullet(self, item):
+        data = self.list_stack[-1]
+        if data["ordered"]:
+            self.output_characters(f"{data['value']}. ")
+            data["value"] += 1
+        else:
+            self.output_characters("- ")
+        self.skip_text = False
+        self.line_indents.append("  ")
+        self.line_indented = True
+
+    def markdown_tagon_link(self, item):
+        for tag in self.view.tag_names(item[2]):
+            if tag.startswith(constants.LINK_PREFIX):
+                self.current_link_tag = tag
+                break
+        self.output_characters("[")
+
+    def markdown_tagoff_link(self, item):
+        link = self.get_link(self.current_link_tag)
+        if link["title"]:
+            self.output_characters(f"""]({link['url']} "{link['title']}")""")
+        else:
+            self.output_characters(f"]({link['url']})")
+        self.current_link_tag = None
 
     def markdown_tagon_indexed(self, item):
         for tag in self.view.tag_names(item[2]):

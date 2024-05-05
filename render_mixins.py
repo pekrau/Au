@@ -21,20 +21,20 @@ class BaseRenderMixin:
         else:
             method(ast)
 
-    def get_prev_line_not_blank(self):
+    def get_prev_line_blank(self):
         try:
-            return self._prev_line_not_blank
+            return self._prev_line_blank
         except AttributeError:
-            self._prev_line_not_blank = False
-            return self._prev_line_not_blank
+            self._prev_line_blank = True
+            return self._prev_line_blank
 
-    def set_prev_line_not_blank(self, value):
-        self._prev_line_not_blank = value
+    def set_prev_line_blank(self, value):
+        self._prev_line_blank = value
 
-    prev_line_not_blank = property(get_prev_line_not_blank, set_prev_line_not_blank)
+    prev_line_blank = property(get_prev_line_blank, set_prev_line_blank)
 
     def render_document(self, ast):
-        self.prev_line_not_blank = False
+        self.prev_line_blank = True
         for child in ast["children"]:
             self.render(child)
 
@@ -48,7 +48,7 @@ class BaseRenderMixin:
         self.conditional_line_break()
 
     def render_paragraph(self, ast):
-        self.conditional_line_break(flag=False)
+        self.conditional_line_break(flag=True)
         for child in ast["children"]:
             self.render(child)
 
@@ -79,7 +79,7 @@ class BaseRenderMixin:
 
     def render_blank_line(self, ast):
         self.view.insert(tk.INSERT, "\n")
-        self.prev_line_not_blank = True
+        self.prev_line_blank = False
 
     def render_link(self, ast):
         first = self.view.index(tk.INSERT)
@@ -88,7 +88,7 @@ class BaseRenderMixin:
         self.link_create(ast["dest"], ast["title"], first, self.view.index(tk.INSERT))
 
     def render_quote(self, ast):
-        self.conditional_line_break(flag=False)
+        self.conditional_line_break(flag=True)
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
@@ -98,8 +98,55 @@ class BaseRenderMixin:
         self.view.insert(tk.INSERT, ast["children"])
 
     def render_thematic_break(self, ast):
-        self.conditional_line_break(flag=True)
-        self.view.insert(tk.INSERT, "————————————————————", (constants.THEMATIC_BREAK,))
+        self.conditional_line_break()
+        self.view.insert(tk.INSERT, "\u2014" * 20, (constants.THEMATIC_BREAK,))
+
+    def render_list(self, ast):
+        data = dict(ordered=ast["ordered"],
+                    count=ast["start"],
+                    tight=ast["tight"])
+        try:
+            self._list_stack.append(data)
+        except AttributeError:
+            self._list_stack = [data]
+        if data["tight"]:
+            self.view.insert(tk.INSERT, "\n")
+        self.prev_line_blank = True
+        first = self.view.index(tk.INSERT)
+        for child in ast["children"][:-1]:
+            self.render(child)
+            self.view.insert(tk.INSERT, "\n")
+            self.prev_line_blank = True
+        for child in ast["children"][-1:]:
+            self.render(child)
+        # The general tag "list" must enclose "list-N" for editor save.
+        self.view.tag_add(constants.LIST, first, tk.INSERT)
+        self._list_stack.pop()
+
+    def render_list_item(self, ast):
+        data = self._list_stack[-1]
+        if not data["tight"]:
+            self.view.insert(tk.INSERT, "\n")
+        if data["ordered"]:
+            bullet = f"{data['count']}. "
+            data["count"] += 1
+        else:
+            level = 0
+            for prev in reversed(self._list_stack[:-1]):
+                if prev["ordered"]:
+                    break
+                level += 1
+            try:
+                bullet = constants.LIST_BULLETS[level]
+            except IndexError:
+                bullet = constants.LIST_BULLETS[-1]
+            bullet += " "
+        first = self.view.index(tk.INSERT)
+        self.view.insert(tk.INSERT, bullet, (constants.LIST_BULLET, ))
+        for child in ast["children"]:
+            self.render(child)
+        tag = f"{constants.LIST_PREFIX}{len(self._list_stack)}"
+        self.view.tag_add(tag, first, tk.INSERT)
 
     def render_indexed(self, ast):
         # Position here is not useful; will be affected by footnotes.
@@ -111,10 +158,15 @@ class BaseRenderMixin:
         tag = constants.REFERENCE_PREFIX + ast["reference"]
         self.view.insert(tk.INSERT, f"{ast['reference']}", (constants.REFERENCE, tag))
 
-    def conditional_line_break(self, flag=True):
-        if self.prev_line_not_blank:
+    def conditional_line_break(self, flag=False):
+        if not self.prev_line_blank:
             self.view.insert(tk.INSERT, "\n")
-            self.prev_line_not_blank = flag
+            try:
+                if self._list_stack:
+                    self.view.insert(tk.INSERT, "  ") # Empirically two blanks.
+            except AttributeError:
+                pass
+            self.prev_line_blank = flag
 
     def locate_indexed(self):
         "Get the final positions of the indexed terms; affected by footnotes."

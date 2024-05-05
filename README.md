@@ -1,11 +1,12 @@
 # Au: Markdown authoring tool
 
-- View and edit texts in chapters.
-- Search.
-- Indexing.
+- View and edit texts in chapters, optinally in sections and subsections.
+- Links using URLs.
+- Search all text.
+- Indexing terms, allowing canonical form.
 - References.
 - Footnotes.
-- Export to:
+- Compile to:
   - DOCX
   - EPUB
   - PDF

@@ -107,6 +107,13 @@ QUOTE_SPACING1 = 4
 QUOTE_SPACING2 = 4
 QUOTE_FONT = "Verdana"
 
+LIST = "list"
+LIST_BULLET = "list_bullet"
+LIST_PREFIX = "list-"
+LIST_BULLETS = ["\u2022", "\u25e6", "\u2043", "\u2043"]
+LIST_MAX_DEPTH = len(LIST_BULLETS)
+LIST_INDENT = 20
+
 INDEXED = "indexed"
 INDEXED_PREFIX = "indexed-"
 INDEXED_SPACING = 8

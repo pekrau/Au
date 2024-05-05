@@ -64,6 +64,11 @@ class BaseViewer:
         view.tag_configure(constants.LINK,
                            foreground=constants.LINK_COLOR,
                            underline=True)
+        view.tag_configure(constants.LIST_BULLET, font=constants.FONT_BOLD)
+        for depth in range(1, constants.LIST_MAX_DEPTH + 1):
+            view.tag_configure(f"{constants.LIST_PREFIX}{depth}",
+                               lmargin1=depth*constants.LIST_INDENT,
+                               lmargin2=(depth+0.5)*constants.LIST_INDENT)
         view.tag_configure(constants.HIGHLIGHT,
                            background=constants.HIGHLIGHT_COLOR)
 
@@ -112,7 +117,6 @@ class BaseViewer:
 
     def key_press(self, event):
         "Stop all key presses that produce a character."
-        ic(event)
         if event.char:
             return "break"
 
@@ -150,7 +154,7 @@ class BaseViewer:
     def debug_tags(self, event=None):
         ic("--- current ---",
            self.view.index(tk.CURRENT),
-           self.view.tag_names(tk.INSERT))
+           self.view.tag_names(tk.CURRENT))
 
     def debug_selected(self, event=None):
         try:
@@ -258,7 +262,7 @@ class TextViewer(BaseRenderMixin, BaseViewer):
         self.links = dict()
         self.view.delete("1.0", tk.END)
         self.display_title()
-        self.prev_line_not_blank = False
+        self.prev_line_blank = True
         self.render(self.text.ast)
         self.locate_indexed()
         self.locate_references()
