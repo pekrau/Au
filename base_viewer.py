@@ -125,6 +125,12 @@ class BaseViewer:
                 return None
         return self.links.get(tag)
 
+    def render_link(self, ast):
+        first = self.view.index(tk.INSERT)
+        for child in ast["children"]:
+            self.render(child)
+        self.link_create(ast["dest"], ast["title"], first, self.view.index(tk.INSERT))
+
     def link_create(self, url, title, first, last):
         # Links are not removed from 'links' during a session.
         # The link count must remain strictly increasing.
@@ -148,9 +154,9 @@ class BaseViewer:
             webbrowser.open_new_tab(link["url"])
 
     def debug_tags(self, event=None):
-        ic("--- current ---",
-           self.view.index(tk.CURRENT),
-           self.view.tag_names(tk.CURRENT))
+        ic("--- insert ---",
+           self.view.index(tk.INSERT),
+           self.view.tag_names(tk.INSERT))
 
     def debug_selected(self, event=None):
         try:

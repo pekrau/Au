@@ -152,10 +152,6 @@ class Editor(Viewer):
         # Do not allow modifying keys from encroaching on a footnote reference.
         if constants.FOOTNOTE_REF in tags and event.char:
             return "break"
-        if event.keysym == "Return":
-            tags = self.view.tag_names(self.view.index(tk.INSERT + "-1c"))
-            if constants.LIST in tags:
-                self.list_add_item(tags)
         self.chars_var.set(f"{self.character_count} characters")
 
     def popup_menu(self, event):

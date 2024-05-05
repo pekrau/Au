@@ -81,12 +81,6 @@ class BaseRenderMixin:
         self.view.insert(tk.INSERT, "\n")
         self.prev_line_blank = False
 
-    def render_link(self, ast):
-        first = self.view.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.link_create(ast["dest"], ast["title"], first, self.view.index(tk.INSERT))
-
     def render_quote(self, ast):
         self.conditional_line_break(flag=True)
         first = self.view.index(tk.INSERT)
@@ -103,10 +97,10 @@ class BaseRenderMixin:
 
     def render_list(self, ast):
         try:
-            count = len(self.list_lookup)
+            count = len(self.list_lookup) + 1
         except AttributeError:
             self.list_lookup = dict()
-            count = 0
+            count = 1
         tag = f"{constants.LIST_PREFIX}{count}"
         data = dict(tag=tag,
                     ordered=ast["ordered"],
@@ -129,9 +123,6 @@ class BaseRenderMixin:
             self.prev_line_blank = True
         for child in ast["children"][-1:]:
             self.render(child)
-        self.view.tag_configure(tag,
-                                lmargin1=data["depth"]*constants.LIST_INDENT,
-                                lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)
         self.view.tag_add(tag, first, tk.INSERT)
         self.list_stack.pop()
 
@@ -141,7 +132,6 @@ class BaseRenderMixin:
             self.view.insert(tk.INSERT, "\n")
         if data["ordered"]:
             bullet = f"{data['count']}. "
-            data["count"] += 1
         else:
             level = 0
             for prev in reversed(self.list_stack[:-1]):
@@ -155,9 +145,14 @@ class BaseRenderMixin:
             bullet += " "
         first = self.view.index(tk.INSERT)
         self.view.insert(tk.INSERT, bullet, (constants.LIST_BULLET, ))
+        tag = f"{constants.LIST_ITEM_PREFIX}{data['depth']}-{data['count']}"
+        self.view.tag_configure(tag,
+                                lmargin1=data["depth"]*constants.LIST_INDENT,
+                                lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)
         for child in ast["children"]:
             self.render(child)
-        self.view.tag_add(data["tag"], first, tk.INSERT)
+        self.view.tag_add(tag, first, tk.INSERT)
+        data["count"] += 1
 
     def render_indexed(self, ast):
         # Position here is not useful; will be affected by footnotes.
