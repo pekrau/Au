@@ -152,6 +152,10 @@ class Editor(Viewer):
         # Do not allow modifying keys from encroaching on a footnote reference.
         if constants.FOOTNOTE_REF in tags and event.char:
             return "break"
+        if event.keysym == "Return":
+            tags = self.view.tag_names(self.view.index(tk.INSERT + "-1c"))
+            if constants.LIST in tags:
+                self.list_add_item(tags)
         self.chars_var.set(f"{self.character_count} characters")
 
     def popup_menu(self, event):
@@ -554,9 +558,8 @@ class Editor(Viewer):
         self.line_indents = []
         self.line_indented = False
         self.skip_text = False
-        self.list_starting = False
         self.list_stack = []
-        self.referred_footnotes = dict()
+        self.markdown_footnotes = dict()
         # This does not need the cleaned dump.
         # There is no title here that needs to be taken into account.
         for item in self.view.dump("1.0", tk.END):
@@ -566,7 +569,7 @@ class Editor(Viewer):
                 ic("Could not markdown item", item)
             else:
                 method(item)
-        footnotes = list(self.referred_footnotes.values())
+        footnotes = list(self.markdown_footnotes.values())
         footnotes.sort(key=lambda f: int(f["new_label"]))
         for footnote in footnotes:
             self.outfile.write("\n")
@@ -578,10 +581,6 @@ class Editor(Viewer):
                 self.outfile.write("  ")
                 self.outfile.write(line)
                 self.outfile.write("\n")
-        # These are not used outside of this method.
-        del self.list_starting
-        del self.list_stack
-        del self.referred_footnotes
 
     def output_line_indent(self, force=False):
         if self.line_indented and not force:
@@ -610,13 +609,6 @@ class Editor(Viewer):
 
     def markdown_text(self, item):
         if self.skip_text:
-            if self.list_starting:
-                try:
-                    self.list_stack[-1]["value"] = int(item[1].strip().strip("."))
-                    self.list_stack[-1]["ordered"] = True
-                except ValueError:
-                    self.list_stack[-1]["ordered"] = False
-                self.list_starting = False
             return
         self.output_characters(item[1])
 
@@ -628,8 +620,7 @@ class Editor(Viewer):
             method = getattr(self, f"markdown_tagon_{item[1]}")
         except AttributeError:
             if item[1].startswith(constants.LIST_PREFIX):
-                depth = int(item[1][len(constants.LIST_PREFIX):])
-                self.list_stack[-1]["depth"] = depth
+                self.markdown_start_list(item[1])
         else:
             method(item)
 
@@ -638,7 +629,8 @@ class Editor(Viewer):
             method = getattr(self, f"markdown_tagoff_{item[1]}")
         except AttributeError:
             if item[1].startswith(constants.LIST_PREFIX):
-                self.line_indents.pop()
+                self.markdown_finish_list(item[1])
+            pass
         else:
             method(item)
 
@@ -669,28 +661,29 @@ class Editor(Viewer):
         self.outfile.write("\n")
         self.skip_text = False
 
-    def markdown_tagon_list(self, item):
-        self.list_starting = True
-        self.list_stack.append(dict())
-        self.skip_text = True
+    def markdown_start_list(self, tag):
+        data = self.list_lookup[tag]
+        data["count"] = data["start"]
+        if len(self.list_stack):
+            self.line_indents.append("    ")
+        self.list_stack.append(data)
 
-    def markdown_tagoff_list(self, item):
+    def markdown_finish_list(self, tag):
         self.list_stack.pop()
+        if len(self.list_stack):
+            self.line_indents.pop()
 
     def markdown_tagon_list_bullet(self, item):
-        if not self.list_starting:
-            self.skip_text = True
-
-    def markdown_tagoff_list_bullet(self, item):
         data = self.list_stack[-1]
         if data["ordered"]:
-            self.output_characters(f"{data['value']}. ")
-            data["value"] += 1
+            self.output_characters(f"{data['count']}. ")
+            data["count"] += 1
         else:
             self.output_characters("- ")
+        self.skip_text = True
+
+    def markdown_tagoff_list_bullet(self, item):
         self.skip_text = False
-        self.line_indents.append("  ")
-        self.line_indented = True
 
     def markdown_tagon_link(self, item):
         for tag in self.view.tag_names(item[2]):
@@ -734,9 +727,9 @@ class Editor(Viewer):
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
                 old_label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
                 footnote = self.footnotes[old_label]
-                new_label = str(len(self.referred_footnotes) + 1)
+                new_label = str(len(self.markdown_footnotes) + 1)
                 footnote["new_label"] = new_label
-                self.referred_footnotes[old_label] = footnote
+                self.markdown_footnotes[old_label] = footnote
                 break
         self.output_characters(f"[^{new_label}]")
         self.skip_text = True
@@ -748,7 +741,7 @@ class Editor(Viewer):
         for tag in self.view.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
                 old_label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
-        footnote = self.referred_footnotes[old_label]
+        footnote = self.markdown_footnotes[old_label]
         footnote["outfile"] = io.StringIO()
         self.outfile_stack.append(footnote["outfile"])
         self.skip_text = False

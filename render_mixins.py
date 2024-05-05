@@ -102,13 +102,23 @@ class BaseRenderMixin:
         self.view.insert(tk.INSERT, "\u2014" * 20, (constants.THEMATIC_BREAK,))
 
     def render_list(self, ast):
-        data = dict(ordered=ast["ordered"],
+        try:
+            count = len(self.list_lookup)
+        except AttributeError:
+            self.list_lookup = dict()
+            count = 0
+        tag = f"{constants.LIST_PREFIX}{count}"
+        data = dict(tag=tag,
+                    ordered=ast["ordered"],
+                    start=ast["start"],
                     count=ast["start"],
                     tight=ast["tight"])
+        self.list_lookup[tag] = data
         try:
-            self._list_stack.append(data)
+            self.list_stack.append(data)
         except AttributeError:
-            self._list_stack = [data]
+            self.list_stack = [data]
+        data["depth"] = len(self.list_stack)
         if data["tight"]:
             self.view.insert(tk.INSERT, "\n")
         self.prev_line_blank = True
@@ -119,12 +129,14 @@ class BaseRenderMixin:
             self.prev_line_blank = True
         for child in ast["children"][-1:]:
             self.render(child)
-        # The general tag "list" must enclose "list-N" for editor save.
-        self.view.tag_add(constants.LIST, first, tk.INSERT)
-        self._list_stack.pop()
+        self.view.tag_configure(tag,
+                                lmargin1=data["depth"]*constants.LIST_INDENT,
+                                lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)
+        self.view.tag_add(tag, first, tk.INSERT)
+        self.list_stack.pop()
 
     def render_list_item(self, ast):
-        data = self._list_stack[-1]
+        data = self.list_stack[-1]
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n")
         if data["ordered"]:
@@ -132,7 +144,7 @@ class BaseRenderMixin:
             data["count"] += 1
         else:
             level = 0
-            for prev in reversed(self._list_stack[:-1]):
+            for prev in reversed(self.list_stack[:-1]):
                 if prev["ordered"]:
                     break
                 level += 1
@@ -145,8 +157,7 @@ class BaseRenderMixin:
         self.view.insert(tk.INSERT, bullet, (constants.LIST_BULLET, ))
         for child in ast["children"]:
             self.render(child)
-        tag = f"{constants.LIST_PREFIX}{len(self._list_stack)}"
-        self.view.tag_add(tag, first, tk.INSERT)
+        self.view.tag_add(data["tag"], first, tk.INSERT)
 
     def render_indexed(self, ast):
         # Position here is not useful; will be affected by footnotes.
@@ -162,7 +173,7 @@ class BaseRenderMixin:
         if not self.prev_line_blank:
             self.view.insert(tk.INSERT, "\n")
             try:
-                if self._list_stack:
+                if self.list_stack:
                     self.view.insert(tk.INSERT, "  ") # Empirically two blanks.
             except AttributeError:
                 pass

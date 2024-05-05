@@ -65,10 +65,6 @@ class BaseViewer:
                            foreground=constants.LINK_COLOR,
                            underline=True)
         view.tag_configure(constants.LIST_BULLET, font=constants.FONT_BOLD)
-        for depth in range(1, constants.LIST_MAX_DEPTH + 1):
-            view.tag_configure(f"{constants.LIST_PREFIX}{depth}",
-                               lmargin1=depth*constants.LIST_INDENT,
-                               lmargin2=(depth+0.5)*constants.LIST_INDENT)
         view.tag_configure(constants.HIGHLIGHT,
                            background=constants.HIGHLIGHT_COLOR)
 
