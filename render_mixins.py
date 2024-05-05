@@ -97,17 +97,19 @@ class BaseRenderMixin:
 
     def render_list(self, ast):
         try:
-            count = len(self.list_lookup) + 1
+            number = len(self.list_lookup) + 1
         except AttributeError:
             self.list_lookup = dict()
-            count = 1
-        tag = f"{constants.LIST_PREFIX}{count}"
+            number = 1
+        tag = f"{constants.LIST_PREFIX}{number}"
         data = dict(tag=tag,
+                    number=number,
                     ordered=ast["ordered"],
                     start=ast["start"],
                     count=ast["start"],
                     tight=ast["tight"])
         self.list_lookup[tag] = data
+        self.list_lookup[str(number)] = data
         try:
             self.list_stack.append(data)
         except AttributeError:
@@ -133,19 +135,20 @@ class BaseRenderMixin:
         if data["ordered"]:
             bullet = f"{data['count']}. "
         else:
-            level = 0
+            depth = 0
             for prev in reversed(self.list_stack[:-1]):
                 if prev["ordered"]:
                     break
-                level += 1
+                depth += 1
             try:
-                bullet = constants.LIST_BULLETS[level]
+                bullet = constants.LIST_BULLETS[depth]
             except IndexError:
                 bullet = constants.LIST_BULLETS[-1]
+            data["bullet"] = bullet
             bullet += " "
         first = self.view.index(tk.INSERT)
         self.view.insert(tk.INSERT, bullet, (constants.LIST_BULLET, ))
-        tag = f"{constants.LIST_ITEM_PREFIX}{data['depth']}-{data['count']}"
+        tag = f"{constants.LIST_ITEM_PREFIX}{data['number']}-{data['count']}"
         self.view.tag_configure(tag,
                                 lmargin1=data["depth"]*constants.LIST_INDENT,
                                 lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)

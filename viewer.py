@@ -55,7 +55,7 @@ class Viewer(FootnoteRenderMixin, TextViewer):
         if self.highlighted:
             self.view.tag_remove(constants.HIGHLIGHT, *self.highlighted)
         if last is None:
-            first, last = self.view.tag_nextrange(constants.INDEXED, position)
+            first, last = self.view.tag_nextrange(constants.INDEXED, first)
         self.view.tag_add(constants.HIGHLIGHT, first, last)
         self.highlighted = (first, last)
         self.view.see(first)

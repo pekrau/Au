@@ -2,6 +2,7 @@
 
 from icecream import ic
 
+import functools
 import io
 import os.path
 import string
@@ -152,9 +153,15 @@ class Editor(Viewer):
         # Do not allow modifying keys from encroaching on a footnote reference.
         if constants.FOOTNOTE_REF in tags and event.char:
             return "break"
+        # Do not allow 'Return' when in list; for now.
+        if event.keysym == "Return":
+            for tag in tags:
+                if tag.startswith(constants.LIST_PREFIX):
+                    return "break"
         self.chars_var.set(f"{self.character_count} characters")
 
     def popup_menu(self, event):
+        "Create a popup menu according to current state and display."
         menu = tk.Menu(self.view)
         any_item = False
         try:
@@ -163,7 +170,7 @@ class Editor(Viewer):
             if self.main.paste_buffer:
                 menu.add_command(label="Paste", command=self.buffer_paste)
                 any_item = True
-            tags = self.view.tag_names(tk.CURRENT)
+            tags = self.view.tag_names(tk.INSERT + "-1c")
             if constants.LINK in tags:
                 menu.add_command(label="Remove link", command=self.link_remove)
                 any_item = True
@@ -179,7 +186,20 @@ class Editor(Viewer):
             if constants.QUOTE in tags:
                 menu.add_command(label="Remove quote", command=self.quote_remove)
                 any_item = True
-        else:
+            if any_item:
+                menu.add_separator()
+            menu.add_command(label="Add list", command=self.list_add)
+            any_item = True
+            for tag in tags:
+                if tag.startswith(constants.LIST_ITEM_PREFIX):
+                    menu.add_command(label="Add list item",
+                                     command=functools.partial(self.list_item_add,
+                                                               tags=tags))
+                    menu.add_command(label="Remove list item",
+                                     command=functools.partial(self.list_item_remove,
+                                                               tags=tags))
+                    break
+        else:                   # There is current selection.
             if not self.selection_contains_boundary(first, last, show=False):
                 menu.add_command(label="Link", command=self.link_add)
                 menu.add_command(label="Index", command=self.indexed_add)
@@ -283,6 +303,61 @@ class Editor(Viewer):
             if region:
                 self.view.tag_remove(constants.QUOTE, *region)
                 self.set_modified()
+
+    def list_add(self):
+        raise NotImplementedError
+
+    def list_item_add(self, tags):
+        # XXX add item where cursor is, not at the end of the list.
+        depth = 0
+        for t in tags:
+            if t.startswith(constants.LIST_ITEM_PREFIX):
+                n, c = t[len(constants.LIST_ITEM_PREFIX):].split("-")
+                d = self.list_lookup[n]
+                if d["depth"] > depth:
+                    data = d
+                    depth = d["depth"]
+                    count = int(c)
+        first, last = self.view.tag_nextrange(data["tag"], "1.0")
+        tags = set(tags)
+        tags.remove(data["tag"])
+        self.view.mark_set(tk.INSERT, last)
+        self.view.insert(tk.INSERT, "\n")
+        if not data["tight"]:
+            self.view.insert(tk.INSERT, "\n")
+        if data["ordered"]:
+            bullet = f"{count+1}."
+        else:
+            bullet = data["bullet"] + " "
+        first = self.view.index(tk.INSERT)
+        self.view.insert(tk.INSERT, f"{bullet} ", (constants.LIST_BULLET, ))
+        data["count"] += 1
+        tag = f"{constants.LIST_ITEM_PREFIX}{data['number']}-{data['count']}"
+        self.view.tag_configure(tag,
+                                lmargin1=data["depth"]*constants.LIST_INDENT,
+                                lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)
+        self.view.tag_add(tag, first, tk.INSERT)
+        tag = f"{constants.LIST_PREFIX}{data['number']}"
+        self.view.tag_add(tag, first, tk.INSERT)
+        for tag in tags:
+            self.view.tag_add(tag, first, tk.INSERT)
+
+    def list_item_remove(self, tags):
+        depth = 0
+        for t in tags:
+            if t.startswith(constants.LIST_ITEM_PREFIX):
+                n, c = t[len(constants.LIST_ITEM_PREFIX):].split("-")
+                d = self.list_lookup[n]
+                d = self.list_lookup[n]
+                if d["depth"] > depth:
+                    tag = t
+                    data = d
+                    depth = d["depth"]
+                    count = int(c)
+        first, last = self.view.tag_nextrange(tag, "1.0")
+        # Also remove the newline after the previous line.
+        first = self.view.index(first + "-1c")
+        self.view.delete(first, last)
 
     def link_action(self, event):
         "Allow viewing, editing and opening the link."
