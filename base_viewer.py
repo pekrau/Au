@@ -330,17 +330,15 @@ class TextViewer(BaseRenderMixin, BaseViewer):
     def indexed_leave(self, event):
         self.view.configure(cursor="")
 
-    def indexed_action(self, event):
+    def get_indexed(self):
         for tag in self.view.tag_names(tk.CURRENT):
             if tag.startswith(constants.INDEXED_PREFIX):
-                break
-        else:
-            return
-        for tabid, viewer in self.main.meta_notebook_lookup.items():
-            if str(viewer) == "Indexed":
-                self.main.meta_notebook.select(tabid)
-                break
-        self.main.indexed_viewer.highlight(tag[len(constants.INDEXED_PREFIX):])
+                return tag[len(constants.INDEXED_PREFIX):]
+
+    def indexed_action(self, event):
+        term = self.get_indexed()
+        if term:
+            self.main.indexed_viewer.highlight(term)
 
     def render_table(self, ast):
         self.table = Table(self, ast)

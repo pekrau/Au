@@ -128,10 +128,10 @@ class Main:
             self.treeview.focus(text.fullname)
 
         selected = self.config["meta"].get("selected")
-        for tabid, viewer in self.meta_notebook_lookup.items():
+        for viewer in self.meta_notebook_lookup.values():
             if str(viewer) == selected:
                 try:
-                    self.meta_notebook.select(tabid)
+                    self.meta_notebook.select(viewer.tabid)
                 except tk.TclError:
                     pass
                 break
@@ -381,33 +381,33 @@ class Main:
 
         self.title_viewer = TitleViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.title_viewer.frame, text="Title")
-        tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.title_viewer
+        self.title_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.meta_notebook_lookup[self.title_viewer.tabid] = self.title_viewer
 
         self.references_viewer = ReferencesViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.references_viewer.frame, text="References")
-        tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.references_viewer
+        self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
 
         self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.indexed_viewer.frame, text="Indexed")
-        tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.indexed_viewer
+        self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
         self.todo_viewer = TodoViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.todo_viewer.frame, text="To do")
-        tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.todo_viewer
+        self.todo_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.meta_notebook_lookup[self.todo_viewer.tabid] = self.todo_viewer
 
         self.search_viewer = SearchViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.search_viewer.frame, text="Search")
-        tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.search_viewer
+        self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.meta_notebook_lookup[self.search_viewer.tabid] = self.search_viewer
 
         self.help_viewer = HelpViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.help_viewer.frame, text="Help")
-        tabs = self.meta_notebook.tabs()
-        self.meta_notebook_lookup[tabs[-1]] = self.help_viewer
+        self.help_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.meta_notebook_lookup[self.help_viewer.tabid] = self.help_viewer
 
     def meta_notebook_populate(self):
         "Populate the meta notebook with contents; help panel does not change."

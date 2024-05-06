@@ -392,16 +392,17 @@ class Editor(Viewer):
         if not link:
             return
         edit = LinkEdit(self.view, link)
-        if edit.result:
-            if edit.result["url"]:
-                link["url"] = edit.result["url"]
-                link["title"] = edit.result["title"]
-            else:
-                region = self.view.tag_nextrange(link["tag"], "1.0")
-                self.view.tag_remove(constants.LINK, *region)
-                self.view.tag_delete(link["tag"])
-                # Do not remove entry from 'links': the count must be preserved.
-            self.set_modified()
+        if not edit.result:
+            return
+        if edit.result["url"]:
+            link["url"] = edit.result["url"]
+            link["title"] = edit.result["title"]
+        else:
+            first, last = self.view.tag_nextrange(link["tag"], "1.0")
+            self.view.tag_remove(constants.LINK, first, last)
+            self.view.tag_delete(link["tag"])
+            # Do not remove entry from 'links': the count must be preserved.
+        self.set_modified()
 
     def link_add(self):
         try:
@@ -467,9 +468,26 @@ class Editor(Viewer):
     def indexed_remove(self):
         for tag in self.view.tag_names(tk.CURRENT):
             if tag.startswith(constants.INDEXED_PREFIX):
-                first, last = self.view.tag_nextrange(tag, "1.0")
+                first, last = self.view.tag_prevrange(tag, tk.CURRENT)
                 self.view.tag_remove(constants.INDEXED, first, last)
                 self.view.tag_remove(tag, first, last)
+                self.set_modified()
+                break
+
+    def indexed_action(self, event):
+        term = self.get_indexed()
+        if not term:
+            return
+        tag = constants.INDEXED_PREFIX + term
+        first, last = self.view.tag_prevrange(tag, tk.CURRENT)
+        edit = IndexedEdit(self.main, self.view, term)
+        if edit.result is None or edit.result == term:
+            return
+        self.view.tag_remove(tag, first, last)
+        if edit.result:
+            self.view.tag_add(constants.INDEXED_PREFIX + edit.result, first, last)
+        else:
+            self.view.tag_remove(constants.INDEXED, first, last)
         self.set_modified()
 
     def reference_add(self):
@@ -860,6 +878,44 @@ class Editor(Viewer):
         self.toplevel.destroy()
 
 
+class IndexedEdit(tk_simpledialog.Dialog):
+    "Simple dialog window for editing the canonical term for an indexed term."
+
+    def __init__(self, main, toplevel, term):
+        self.main = main
+        self.term = term
+        self.result = None
+        self.remove = False
+        super().__init__(toplevel, title="Edit indexed")
+
+    def body(self, body):
+        label = ttk.Label(body, text="Canonical")
+        label.grid(row=0, column=0, padx=4, sticky=tk.E)
+        self.canonical_entry = tk.Entry(body, width=50)
+        self.canonical_entry.insert(0, self.term)
+        self.canonical_entry.grid(row=0, column=1)
+        return self.canonical_entry
+
+    def validate(self):
+        self.result = self.canonical_entry.get()
+        return True
+
+    def buttonbox(self):
+        box = tk.Frame(self)
+        w = ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Show", width=10, command=self.show)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bind("<Return>", self.ok)
+        self.bind("<Escape>", self.cancel)
+        box.pack()
+
+    def show(self):
+        self.main.indexed_viewer.highlight(self.term)
+
+
 class LinkEdit(tk_simpledialog.Dialog):
     "Simple dialog window for editing the URL and title for a link."
 
@@ -875,6 +931,7 @@ class LinkEdit(tk_simpledialog.Dialog):
         if self.link["url"]:
             self.url_entry.insert(0, self.link["url"])
         self.url_entry.grid(row=0, column=1)
+
         label = ttk.Label(body, text="Title")
         label.grid(row=1, column=0, padx=4, sticky=tk.E)
         self.title_entry = tk.Entry(body, width=50)

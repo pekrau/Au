@@ -66,7 +66,7 @@ class IndexedViewer(BaseViewer):
         text.viewer.highlight(first=position)
 
     def highlight(self, term):
-        "Highlight and show the indexed term."
+        "Highlight and show the indexed term; show this pane."
         try:
             first = self.indexed[term]
         except KeyError:
@@ -78,4 +78,4 @@ class IndexedViewer(BaseViewer):
             self.view.tag_add(constants.HIGHLIGHT, first, last)
             self.highlighted = (first, last)
             self.view.see(first)
-
+            self.main.meta_notebook.select(self.tabid)
