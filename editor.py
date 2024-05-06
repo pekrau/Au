@@ -75,45 +75,57 @@ class Editor(Viewer):
             self.menu_status.add_radiobutton(label=str(status),
                                              variable=self.status_var,
                                              command=self.set_status)
-        self.menu_bold = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_bold, label="Bold")
-        self.menu_bold.add_command(label="Add", command=self.bold_add)
-        self.menu_bold.add_command(label="Remove", command=self.bold_remove)
+        self.menu_format = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_format, label="Format")
+        self.menu_format.add_command(label="Bold",
+                                     command=self.bold_add,
+                                     state=tk.DISABLED)
+        self.menu_format.add_command(label="Italic", 
+                                     command=self.italic_add,
+                                     state=tk.DISABLED)
+        self.menu_format.add_command(label="Quote",
+                                     command=self.quote_add,
+                                     state=tk.DISABLED)
 
-        self.menu_italic = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_italic, label="Italic")
-        self.menu_italic.add_command(label="Add", command=self.italic_add)
-        self.menu_italic.add_command(label="Remove", command=self.italic_remove)
+        self.menu_list = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_list, label="List")
+        self.menu_list.add_command(label="Ordered",
+                                   command=functools.partial(self.list_add,
+                                                             ordered=True))
+        self.menu_list.add_command(label="Unordered",
+                                   command=functools.partial(self.list_add,
+                                                             ordered=False))
 
-        self.menu_quote = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_quote, label="Quote")
-        self.menu_quote.add_command(label="Add", command=self.quote_add)
-        self.menu_quote.add_command(label="Remove", command=self.quote_remove)
+        self.menu_xref = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_xref, label="Xref")
+        self.menu_xref.add_command(label="Link",
+                                   command=self.link_add,
+                                   state=tk.DISABLED)
+        self.menu_xref.add_command(label="Indexed",
+                                   command=self.indexed_add,
+                                   state=tk.DISABLED)
+        self.menu_xref.add_command(label="Reference",
+                                   command=self.reference_add,
+                                   state=tk.DISABLED)
+        self.menu_xref.add_command(label="Footnote",
+                                   command=self.footnote_add,
+                                   state=tk.DISABLED)
 
-        self.menu_link = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_link, label="Link")
-        self.menu_link.add_command(label="Add", command=self.link_add)
-        self.menu_link.add_command(label="Remove", command=self.link_remove)
-
-        self.menu_indexed = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_indexed, label="Indexed")
-        self.menu_indexed.add_command(label="Add", command=self.indexed_add)
-        self.menu_indexed.add_command(label="Remove", command=self.indexed_remove)
-
-        self.menu_reference = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_reference, label="Reference")
-        self.menu_reference.add_command(label="Add", command=self.reference_add)
-        self.menu_reference.add_command(label="Remove", command=self.reference_remove)
-
-        self.menu_footnote = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_footnote, label="Footnote")
-        self.menu_footnote.add_command(label="Add", command=self.footnote_add)
-        self.menu_footnote.add_command(label="Remove", command=self.footnote_remove)
+    def view_configure_tag_bindings(self, view=None):
+        "Configure the tag bindings used in the 'tk.Text' instance."
+        if view is None:
+            view = self.view
+        super().view_configure_tag_bindings(view=view)
+        view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
+        view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
+        view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
+        view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
     def view_bind_keys(self, view=None):
         super().view_bind_keys(view=view)
         self.view.bind("<<Modified>>", self.handle_modified)
         self.view.bind("<Button-3>", self.popup_menu)
+        self.view.bind("<<Selection>>", self.selection_change)
 
     def info_setup(self):
         self.info_frame = ttk.Frame(self.frame, padding=2)
@@ -171,21 +183,6 @@ class Editor(Viewer):
                 menu.add_command(label="Paste", command=self.buffer_paste)
                 any_item = True
             tags = self.view.tag_names(tk.INSERT + "-1c")
-            if constants.LINK in tags:
-                menu.add_command(label="Remove link", command=self.link_remove)
-                any_item = True
-            if constants.INDEXED in tags:
-                menu.add_command(label="Remove indexed", command=self.indexed_remove)
-                any_item = True
-            if constants.BOLD in tags:
-                menu.add_command(label="Remove bold", command=self.bold_remove)
-                any_item = True
-            if constants.ITALIC in tags:
-                menu.add_command(label="Remove italic", command=self.italic_remove)
-                any_item = True
-            if constants.QUOTE in tags:
-                menu.add_command(label="Remove quote", command=self.quote_remove)
-                any_item = True
             if any_item:
                 menu.add_separator()
             for tag in tags:
@@ -203,21 +200,36 @@ class Editor(Viewer):
                              command=functools.partial(self.list_add, ordered=False))
             any_item = True
         else:                   # There is current selection.
-            if not self.selection_contains_boundary(first, last, show=False):
-                menu.add_command(label="Link", command=self.link_add)
-                menu.add_command(label="Index", command=self.indexed_add)
+            if not self.selection_contains_boundary(first, last, complain=False):
+                menu.add_command(label="Copy", command=self.buffer_copy)
+                menu.add_command(label="Cut", command=self.buffer_cut)
+                menu.add_separator()
                 menu.add_command(label="Bold", command=self.bold_add)
                 menu.add_command(label="Italic", command=self.italic_add)
                 menu.add_command(label="Quote", command=self.quote_add)
                 menu.add_separator()
-                menu.add_command(label="Copy", command=self.buffer_copy)
-                menu.add_command(label="Cut", command=self.buffer_cut)
+                menu.add_command(label="Link", command=self.link_add)
+                menu.add_command(label="Index", command=self.indexed_add)
                 any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
 
+    def selection_change(self, event):
+        try:
+            self.view.index(tk.SEL_FIRST)
+        except tk.TclError:
+            for pos in range(0, self.menu_format.index(tk.END) + 1):
+                self.menu_format.entryconfigure(pos, state=tk.DISABLED)
+            for pos in range(0, self.menu_xref.index(tk.END) + 1):
+                self.menu_xref.entryconfigure(pos, state=tk.DISABLED)
+        else:
+            for pos in range(0, self.menu_format.index(tk.END) + 1):
+                self.menu_format.entryconfigure(pos, state=tk.NORMAL)
+            for pos in range(0, self.menu_xref.index(tk.END) + 1):
+                self.menu_xref.entryconfigure(pos, state=tk.NORMAL)
+
     def get_ignore_modified_event(self):
-        "Always Tru first time accessed."
+        "Always True first time accessed."
         try:
             return self._ignore_modified_event
         except AttributeError:
@@ -263,13 +275,17 @@ class Editor(Viewer):
         self.view.tag_add(constants.BOLD, first, last)
         self.set_modified()
 
-    def bold_remove(self):
-        current = self.view.index(tk.INSERT)
-        if constants.BOLD in self.view.tag_names(current):
-            region = self.view.tag_prevrange(constants.BOLD, current)
-            if region:
-                self.view.tag_remove(constants.BOLD, *region)
-                self.set_modified()
+    def bold_remove(self, event):
+        if constants.BOLD not in self.view.tag_names(tk.CURRENT):
+            return
+        first, last = self.view.tag_prevrange(constants.BOLD, tk.CURRENT)
+        if not tk_messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Remove bold?",
+                message=f"Really remove bold?"):
+            return
+        self.view.tag_remove(constants.BOLD, first, last)
+        self.set_modified()
 
     def italic_add(self):
         try:
@@ -279,13 +295,17 @@ class Editor(Viewer):
         self.view.tag_add(constants.ITALIC, first, last)
         self.set_modified()
 
-    def italic_remove(self):
-        current = self.view.index(tk.INSERT)
-        if constants.ITALIC in self.view.tag_names(current):
-            region = self.view.tag_prevrange(constants.ITALIC, current)
-            if region:
-                self.view.tag_remove(constants.ITALIC, *region)
-                self.set_modified()
+    def italic_remove(self, event):
+        if constants.ITALIC not in self.view.tag_names(tk.CURRENT):
+            return
+        first, last = self.view.tag_prevrange(constants.ITALIC, tk.CURRENT)
+        if not tk_messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Remove italic?",
+                message=f"Really remove italic?"):
+            return
+        self.view.tag_remove(constants.ITALIC, *range)
+        self.set_modified()
 
     def quote_add(self):
         try:
@@ -299,13 +319,17 @@ class Editor(Viewer):
             self.view.insert(first, "\n\n")
         self.set_modified()
 
-    def quote_remove(self):
-        current = self.view.index(tk.INSERT)
-        if constants.QUOTE in self.view.tag_names(current):
-            region = self.view.tag_prevrange(constants.QUOTE, current)
-            if region:
-                self.view.tag_remove(constants.QUOTE, *region)
-                self.set_modified()
+    def quote_remove(self, event):
+        if constants.QUOTE not in self.view.tag_names(tk.CURRENT):
+            return
+        first, last = self.view.tag_prevrange(constants.QUOTE, tk.CURRENT)
+        if not tk_messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Remove quote?",
+                message=f"Really remove quote?"):
+            return
+        self.view.tag_remove(constants.QUOTE, first, last)
+        self.set_modified()
 
     def list_add(self, ordered):
         data = self.list_create_entry(ordered, 1, True)
@@ -327,7 +351,6 @@ class Editor(Viewer):
         self.view.tag_add(tag, first, tk.INSERT)
         self.view.tag_add(data["tag"], first, tk.INSERT)
         data["count"] += 1
-        ic(first, data, self.view.index(tk.INSERT))
 
     def list_item_add(self, tags):
         # XXX item is not added to the correct place, if another has been
@@ -430,22 +453,6 @@ class Editor(Viewer):
         self.view.tag_remove(tk.SEL, first, last)
         self.set_modified()
 
-    def link_remove(self):
-        link = self.get_link()
-        if not link:
-            return
-        if not tk_messagebox.askokcancel(
-                parent=self.toplevel,
-                title="Remove link?",
-                message=f"Really remove link?"):
-            return
-        first, last = self.view.tag_nextrange(link["tag"], "1.0")
-        self.view.tag_delete(link["tag"])
-        self.view.tag_remove(constants.LINK, first, last)
-        self.set_modified()
-        # Links are not removed from 'links' during a session.
-        # The link count must remain strictly increasing.
-
     def indexed_add(self):
         try:
             first, last = self.get_selection()
@@ -464,15 +471,6 @@ class Editor(Viewer):
         self.view.tag_add(constants.INDEXED, first, last)
         self.view.tag_add(constants.INDEXED_PREFIX + canonical, first, last)
         self.set_modified()
-
-    def indexed_remove(self):
-        for tag in self.view.tag_names(tk.CURRENT):
-            if tag.startswith(constants.INDEXED_PREFIX):
-                first, last = self.view.tag_prevrange(tag, tk.CURRENT)
-                self.view.tag_remove(constants.INDEXED, first, last)
-                self.view.tag_remove(tag, first, last)
-                self.set_modified()
-                break
 
     def indexed_action(self, event):
         term = self.get_indexed()
@@ -493,7 +491,7 @@ class Editor(Viewer):
     def reference_add(self):
         raise NotImplementedError
 
-    def reference_remove(self):
+    def reference_remove(self, event):
         raise NotImplementedError
 
     def footnote_add(self):
@@ -513,34 +511,35 @@ class Editor(Viewer):
         self.view.tag_bind(tag, "<Button-1>", self.footnote_toggle)
 
     def get_new_footnote_label(self):
+        "Return the label (str) to use for a new footnote."
         try:
             return str(max([int(label) for label in self.footnotes]) + 1)
         except ValueError:
             return "1"
 
-    def footnote_remove(self):
-        current = self.view.index(tk.INSERT)
-        tags = self.view.tag_names(current)
-        if constants.FOOTNOTE_REF in tags or constants.FOOTNOTE_DEF in tags:
-            for tag in tags:
-                if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
-                    label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
-                    break
-                elif tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
-                    label = tag[len(constants.FOOTNOTE_DEF_PREFIX):]
-                    break
-            else:
-                return
+    def footnote_remove(self, event):
+        tags = self.view.tag_names(tk.CURRENT)
+        for tag in tags:
+            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
+                break
+        else:
+            return
         tag = constants.FOOTNOTE_REF_PREFIX + label
-        region = self.view.tag_nextrange(tag, "1.0")
-        self.view.tag_remove(constants.FOOTNOTE_REF, *region)
+        first, last = self.view.tag_nextrange(tag, "1.0")
+        if not tk_messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Remove footnote?",
+                message=f"Really remove footnote (text will remain)?"):
+            return
+        self.view.tag_remove(constants.FOOTNOTE_REF, first, last)
         self.view.tag_delete(tag)
-        self.view.delete(*region)
+        self.view.delete(first, self.view.index(last + "+1c")) # Remove newline.
         tag = constants.FOOTNOTE_DEF_PREFIX + label
-        region = self.view.tag_nextrange(tag, "1.0")
-        self.view.tag_remove(constants.FOOTNOTE_DEF, *region)
+        first, last = self.view.tag_nextrange(tag, "1.0")
+        self.view.tag_remove(constants.FOOTNOTE_DEF, first, last)
         self.view.tag_delete(tag)
-        self.view.tag_add(tk.SEL, *region)
+        self.view.tag_add(tk.SEL, first, last)
 
     def buffer_copy(self):
         "Copy the current selection into the paste buffer."
@@ -881,30 +880,38 @@ class Editor(Viewer):
 class IndexedEdit(tk_simpledialog.Dialog):
     "Simple dialog window for editing the canonical term for an indexed term."
 
-    def __init__(self, main, toplevel, term):
+    def __init__(self, main, toplevel, canonical):
         self.main = main
-        self.term = term
+        self.canonical = canonical
         self.result = None
-        self.remove = False
         super().__init__(toplevel, title="Edit indexed")
 
     def body(self, body):
         label = ttk.Label(body, text="Canonical")
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
         self.canonical_entry = tk.Entry(body, width=50)
-        self.canonical_entry.insert(0, self.term)
+        self.canonical_entry.insert(0, self.canonical)
         self.canonical_entry.grid(row=0, column=1)
         return self.canonical_entry
 
-    def validate(self):
+    def remove(self):
+        "Remove the indexed entry."
+        self.canonical_entry.delete(0, tk.END)
+        try:
+            self.apply()
+        finally:
+            self.cancel()
+
+    def apply(self):
         self.result = self.canonical_entry.get()
-        return True
 
     def buttonbox(self):
         box = tk.Frame(self)
         w = ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         w = ttk.Button(box, text="Show", width=10, command=self.show)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Remove", width=10, command=self.remove)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         w = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
@@ -913,7 +920,7 @@ class IndexedEdit(tk_simpledialog.Dialog):
         box.pack()
 
     def show(self):
-        self.main.indexed_viewer.highlight(self.term)
+        self.main.indexed_viewer.highlight(self.canonical)
 
 
 class LinkEdit(tk_simpledialog.Dialog):
@@ -940,16 +947,27 @@ class LinkEdit(tk_simpledialog.Dialog):
         self.title_entry.grid(row=1, column=1)
         return self.url_entry
 
-    def validate(self):
+    def remove(self):
+        """Remove the link in the text. Do not remove from 'viewer.links'.
+        The link count must remain strictly increasing.
+        """
+        self.url_entry.delete(0, tk.END)
+        try:
+            self.apply()
+        finally:
+            self.cancel()
+
+    def apply(self):
         self.result = dict(url=self.url_entry.get(),
                            title=self.title_entry.get())
-        return True
 
     def buttonbox(self):
         box = tk.Frame(self)
         w = ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         w = ttk.Button(box, text="Visit", width=10, command=self.visit)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = ttk.Button(box, text="Remove", width=10, command=self.remove)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         w = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)

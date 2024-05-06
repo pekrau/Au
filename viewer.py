@@ -74,4 +74,4 @@ class Viewer(FootnoteRenderMixin, TextViewer):
                 break
         else:
             return
-        self.tag_toggle(constants.FOOTNOTE_DEF_PREFIX + label)
+        self.tag_toggle_elide(constants.FOOTNOTE_DEF_PREFIX + label)

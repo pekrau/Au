@@ -3,10 +3,12 @@
 from icecream import ic
 
 import os.path
+import string
 import webbrowser
 
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox as tk_messagebox
 
 import constants
 import utils
@@ -279,25 +281,20 @@ class TextViewer(BaseRenderMixin, BaseViewer):
         except tk.TclError:
             raise ValueError("no current selection")
         if strip:
-            if self.view.get(first) in string.whitespace:
-                original_first = first
-                for offset in range(1, 10):
-                    first = f"{original_first}+{offset}c"
-                    if self.view.get(first) not in string.whitespace:
-                        break
-            if self.view.get(last + "-1c") in string.whitespace:
-                original_last = last
-                for offset in range(1, 11):
-                    last = f"{original_last}-{offset}c"
-                    probe = f"{original_last}-{offset+1}c"
-                    if self.view.get(probe) not in string.whitespace:
-                        break
+            while self.view.get(first) in string.whitespace:
+                if self.view.compare(first, ">=", last):
+                    break
+                first = self.view.index(first + "+1c")
+            while self.view.get(last + "-1c") in string.whitespace:
+                if self.view.compare(first, ">=", last):
+                    break
+                last = self.view.index(last + "-1c")
         if check_no_boundary:
             if self.selection_contains_boundary(first, last):
                 raise ValueError
         return first, last
 
-    def selection_contains_boundary(self, first=None, last=None, show=True):
+    def selection_contains_boundary(self, first=None, last=None, complain=True):
         try:
             if first is None or last is None:
                 first, last = self.get_selection()
@@ -308,11 +305,11 @@ class TextViewer(BaseRenderMixin, BaseViewer):
         last_tags = set(self.view.tag_names(last))
         last_tags.discard("sel")
         result = first_tags != last_tags
-        if result and show:
+        if result and complain:
             tk_messagebox.showerror(
                 parent=self.toplevel,
                 title="Region boundary",
-                message="Selection contains a region boundary")
+                message="Selection contains a region boundary.")
         return result
 
     def reference_enter(self, event):

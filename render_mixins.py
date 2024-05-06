@@ -237,9 +237,9 @@ class FootnoteRenderMixin:
 
     def tag_toggle_elide(self, tag):
         if int(self.view.tag_cget(tag, "elide")):
-            self.tag_configure_not_elide(tag)
+            self.tag_not_elide(tag)
         else:
-            self.tag_configure_elide(tag)
+            self.tag_elide(tag)
 
     def tag_elide(self, tag):
         self.view.tag_configure(tag, elide=True)
