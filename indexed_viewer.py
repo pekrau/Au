@@ -1,4 +1,4 @@
-"Meta content text viewers."
+"Viewer for the list of indexed terms."
 
 from icecream import ic
 
@@ -10,7 +10,7 @@ from base_viewer import BaseViewer
 
 
 class IndexedViewer(BaseViewer):
-    "Viewer fpr the list of indexed terms."
+    "Viewer for the list of indexed terms."
 
     def __str__(self):
         return "Indexed"
@@ -31,7 +31,6 @@ class IndexedViewer(BaseViewer):
 
     def display(self):
         self.view.delete("1.0", tk.END)
-        self.display_title()
         self.links = dict()
         self.indexed = dict()   # Key: term; value: position here.
         self.highlighted = None # Currently highlighted region.

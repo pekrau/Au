@@ -178,7 +178,7 @@ class BaseViewer:
         ic("--- dump ---", dump)
 
 
-class TextViewer(BaseRenderMixin, BaseViewer):
+class BaseTextViewer(BaseRenderMixin, BaseViewer):
     "Viewer base class for text with Markdown rendering methods and bindings."
  
     def __init__(self, parent, main, text):

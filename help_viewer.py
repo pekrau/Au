@@ -5,10 +5,10 @@ from icecream import ic
 import tkinter as tk
 
 import constants
-from base_viewer import TextViewer
+from base_viewer import BaseTextViewer
 
 
-class HelpViewer(TextViewer):
+class HelpViewer(BaseTextViewer):
     "View of the help file Markdown contents."
 
     def __init__(self, parent, main):

@@ -19,9 +19,10 @@ from source import Source
 from viewer import Viewer
 from editor import Editor
 from help_viewer import HelpViewer
+from references_viewer import ReferencesViewer
 from indexed_viewer import IndexedViewer
 from search_viewer import SearchViewer
-from meta_viewers import TitleViewer, ReferencesViewer, TodoViewer
+from meta_viewers import TitleViewer, TodoViewer
 
 
 class Main:
