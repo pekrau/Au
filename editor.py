@@ -27,7 +27,7 @@ class Editor(Viewer):
         super().__init__(main.root, main, text)
 
         self.toplevel = tk.Toplevel(self.main.root)
-        self.toplevel.title(text.fullname)
+        self.toplevel.title(f"Edit: {text.fullname}")
         self.toplevel.bind("<Control-s>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
@@ -188,8 +188,6 @@ class Editor(Viewer):
                 any_item = True
             if any_item:
                 menu.add_separator()
-            menu.add_command(label="Add list", command=self.list_add)
-            any_item = True
             for tag in tags:
                 if tag.startswith(constants.LIST_ITEM_PREFIX):
                     menu.add_command(label="Add list item",
@@ -199,6 +197,11 @@ class Editor(Viewer):
                                      command=functools.partial(self.list_item_remove,
                                                                tags=tags))
                     break
+            menu.add_command(label="Add ordered list",
+                             command=functools.partial(self.list_add, ordered=True))
+            menu.add_command(label="Add unordered list",
+                             command=functools.partial(self.list_add, ordered=False))
+            any_item = True
         else:                   # There is current selection.
             if not self.selection_contains_boundary(first, last, show=False):
                 menu.add_command(label="Link", command=self.link_add)
@@ -304,16 +307,36 @@ class Editor(Viewer):
                 self.view.tag_remove(constants.QUOTE, *region)
                 self.set_modified()
 
-    def list_add(self):
-        raise NotImplementedError
+    def list_add(self, ordered):
+        data = self.list_create_entry(ordered, 1, True)
+        if ordered:
+            data["bullet"] = f"{data['count']}."
+            data["depth"] = 1
+        else:
+            # XXX actual depth needed
+            data["depth"] = 0
+            data["bullet"] = constants.LIST_BULLETS[data["depth"]]
+            data["depth"] += 1
+        self.view.insert(tk.INSERT, "\n")
+        first = self.view.index(tk.INSERT)
+        self.view.insert(tk.INSERT, data["bullet"] + " ", (constants.LIST_BULLET, ))
+        tag = f"{constants.LIST_ITEM_PREFIX}{data['number']}-{data['count']}"
+        self.view.tag_configure(tag,
+                                lmargin1=data["depth"]*constants.LIST_INDENT,
+                                lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)
+        self.view.tag_add(tag, first, tk.INSERT)
+        self.view.tag_add(data["tag"], first, tk.INSERT)
+        data["count"] += 1
+        ic(first, data, self.view.index(tk.INSERT))
 
     def list_item_add(self, tags):
-        # XXX add item where cursor is, not at the end of the list.
+        # XXX item is not added to the correct place, if another has been
+        # added before in in the same edit session.
         depth = 0
         for t in tags:
             if t.startswith(constants.LIST_ITEM_PREFIX):
                 n, c = t[len(constants.LIST_ITEM_PREFIX):].split("-")
-                d = self.list_lookup[n]
+                d = self.lists_lookup[n]
                 if d["depth"] > depth:
                     data = d
                     depth = d["depth"]
@@ -326,29 +349,33 @@ class Editor(Viewer):
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n")
         if data["ordered"]:
-            bullet = f"{count+1}."
+            data["bullet"] = f"{count+1}."
         else:
-            bullet = data["bullet"] + " "
+            data["bullet"] = data["bullet"]
         first = self.view.index(tk.INSERT)
-        self.view.insert(tk.INSERT, f"{bullet} ", (constants.LIST_BULLET, ))
+        self.view.insert(tk.INSERT, data["bullet"] + " ", (constants.LIST_BULLET, ))
         data["count"] += 1
         tag = f"{constants.LIST_ITEM_PREFIX}{data['number']}-{data['count']}"
         self.view.tag_configure(tag,
                                 lmargin1=data["depth"]*constants.LIST_INDENT,
                                 lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)
+        # Kludge to make insert point be placed within list tags.
+        self.view.insert(tk.INSERT, " ")
         self.view.tag_add(tag, first, tk.INSERT)
         tag = f"{constants.LIST_PREFIX}{data['number']}"
         self.view.tag_add(tag, first, tk.INSERT)
         for tag in tags:
             self.view.tag_add(tag, first, tk.INSERT)
+        # Kludge to make insert point be placed within list tags.
+        self.view.mark_set(tk.INSERT, self.view.index(tk.INSERT + "-1c"))
 
     def list_item_remove(self, tags):
         depth = 0
         for t in tags:
             if t.startswith(constants.LIST_ITEM_PREFIX):
                 n, c = t[len(constants.LIST_ITEM_PREFIX):].split("-")
-                d = self.list_lookup[n]
-                d = self.list_lookup[n]
+                d = self.lists_lookup[n]
+                d = self.lists_lookup[n]
                 if d["depth"] > depth:
                     tag = t
                     data = d
@@ -733,7 +760,7 @@ class Editor(Viewer):
         self.skip_text = False
 
     def markdown_start_list(self, tag):
-        data = self.list_lookup[tag]
+        data = self.lists_lookup[tag]
         data["count"] = data["start"]
         if len(self.list_stack):
             self.line_indents.append("    ")

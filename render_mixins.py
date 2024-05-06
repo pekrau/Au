@@ -33,6 +33,14 @@ class BaseRenderMixin:
 
     prev_line_blank = property(get_prev_line_blank, set_prev_line_blank)
 
+    @property
+    def lists_lookup(self):
+        try:
+            return self._lists_lookup
+        except AttributeError:
+            self._lists_lookup = dict()
+            return self._lists_lookup
+
     def render_document(self, ast):
         self.prev_line_blank = True
         for child in ast["children"]:
@@ -96,20 +104,7 @@ class BaseRenderMixin:
         self.view.insert(tk.INSERT, "\u2014" * 20, (constants.THEMATIC_BREAK,))
 
     def render_list(self, ast):
-        try:
-            number = len(self.list_lookup) + 1
-        except AttributeError:
-            self.list_lookup = dict()
-            number = 1
-        tag = f"{constants.LIST_PREFIX}{number}"
-        data = dict(tag=tag,
-                    number=number,
-                    ordered=ast["ordered"],
-                    start=ast["start"],
-                    count=ast["start"],
-                    tight=ast["tight"])
-        self.list_lookup[tag] = data
-        self.list_lookup[str(number)] = data
+        data = self.list_create_entry(ast["ordered"], ast["start"], ast["tight"])
         try:
             self.list_stack.append(data)
         except AttributeError:
@@ -125,15 +120,28 @@ class BaseRenderMixin:
             self.prev_line_blank = True
         for child in ast["children"][-1:]:
             self.render(child)
-        self.view.tag_add(tag, first, tk.INSERT)
+        self.view.tag_add(data["tag"], first, tk.INSERT)
         self.list_stack.pop()
+
+    def list_create_entry(self, ordered, start, tight):
+        number = len(self.lists_lookup) + 1
+        tag = f"{constants.LIST_PREFIX}{number}"
+        data = dict(tag=tag,
+                    number=number,
+                    ordered=ordered,
+                    start=start,
+                    count=start,
+                    tight=tight)
+        self.lists_lookup[tag] = data
+        self.lists_lookup[str(number)] = data
+        return data
 
     def render_list_item(self, ast):
         data = self.list_stack[-1]
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n")
         if data["ordered"]:
-            bullet = f"{data['count']}. "
+            data["bullet"] = f"{data['count']}."
         else:
             depth = 0
             for prev in reversed(self.list_stack[:-1]):
@@ -141,13 +149,11 @@ class BaseRenderMixin:
                     break
                 depth += 1
             try:
-                bullet = constants.LIST_BULLETS[depth]
+                data["bullet"] = constants.LIST_BULLETS[depth]
             except IndexError:
-                bullet = constants.LIST_BULLETS[-1]
-            data["bullet"] = bullet
-            bullet += " "
+                data["bullet"] = constants.LIST_BULLETS[-1]
         first = self.view.index(tk.INSERT)
-        self.view.insert(tk.INSERT, bullet, (constants.LIST_BULLET, ))
+        self.view.insert(tk.INSERT, data["bullet"] + " ", (constants.LIST_BULLET, ))
         tag = f"{constants.LIST_ITEM_PREFIX}{data['number']}-{data['count']}"
         self.view.tag_configure(tag,
                                 lmargin1=data["depth"]*constants.LIST_INDENT,
