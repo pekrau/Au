@@ -10,13 +10,13 @@ from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
 
 import bibtexparser
-import LaTexAccents
 
 import constants
 import utils
 
 from source import Source
 from base_viewer import BaseViewer
+import latex_utf8
 
 
 class ReferencesViewer(BaseViewer):
@@ -79,6 +79,7 @@ class ReferencesViewer(BaseViewer):
         view.tag_configure(constants.LINK,
                            font=constants.FONT_SMALL,
                            foreground=constants.LINK_COLOR,
+                           spacing1=0,
                            lmargin1=2 * constants.REFERENCE_INDENT,
                            lmargin2=2 * constants.REFERENCE_INDENT,
                            underline=True)
@@ -149,6 +150,7 @@ class ReferencesViewer(BaseViewer):
             fullnames = texts_pos.get(reference["id"])
             if fullnames:
                 for fullname, positions in sorted(fullnames.items()):
+                    self.view.insert(tk.INSERT, "\n")
                     tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
                     self.view.insert(tk.INSERT, fullname, (constants.LINK, tag))
                     positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
@@ -158,7 +160,6 @@ class ReferencesViewer(BaseViewer):
                         self.view.insert(tk.INSERT, ", ")
                         self.view.insert(tk.INSERT, str(i), (constants.LINK, tag))
                         self.links[tag] = (fullname, position)
-                    self.view.insert(tk.INSERT, "\n")
             self.view.insert(tk.INSERT, "\n")
 
     def link_action(self, event):
@@ -216,7 +217,7 @@ class ReferencesViewer(BaseViewer):
         entry = entries[0]
         authors = entry.fields_dict["author"].value
         authors = " ".join([s.strip() for s in authors.split("\n")])
-        authors = LaTexAccents.AccentConverter().decode_Tex_Accents(authors)
+        authors = latex_utf8.from_latex_to_utf8(authors)
         authors = [a.strip() for a in authors.split(" and ")]
         name = authors[0].split(",")[0].strip() + " " + entry.fields_dict["year"].value
         try:
@@ -233,11 +234,11 @@ class ReferencesViewer(BaseViewer):
         abstract = ""
         for key, field in entry.fields_dict.items():
             if key == "abstract":
-                abstract = " ".join(field.value.split())
+                abstract = latex_utf8.from_latex_to_utf8(" ".join(field.value.split()))
             elif key == "author":
                 pass
             else:
-                text[key] = field.value
+                text[key] = latex_utf8.from_latex_to_utf8(field.value)
         text.write(abstract)
         self.references.append(text)
         self.references_lookup[text["id"]] = text
