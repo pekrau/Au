@@ -32,14 +32,14 @@ class IndexedViewer(BaseViewer):
     def display(self):
         self.view.delete("1.0", tk.END)
         self.links = dict()
-        self.indexed = dict()   # Key: term; value: position here.
-        self.highlighted = None # Currently highlighted region.
-        indexed_pos = dict()    # Position in source text.
+        self.indexed = dict()   # Key: term; value: position in this view.
+        self.highlighted = None # Currently highlighted range.
+        texts_pos = dict()      # Position in source text; dict first, then sorted list.
         for text in self.main.source.all_texts:
             for term, positions in text.viewer.indexed.items():
-                indexed_pos.setdefault(term, dict())[text.fullname] = list(sorted(positions))
-        indexed_pos = sorted(indexed_pos.items(), key=lambda i: i[0].lower())
-        for term, fullnames in indexed_pos:
+                texts_pos.setdefault(term, dict())[text.fullname] = list(sorted(positions))
+        texts_pos = sorted(texts_pos.items(), key=lambda i: i[0].lower())
+        for term, fullnames in texts_pos:
             self.indexed[term] = self.view.index(tk.INSERT)
             self.view.insert(tk.INSERT, term + "\n", (constants.INDEXED, ))
             for fullname, positions in sorted(fullnames.items()):
@@ -62,7 +62,7 @@ class IndexedViewer(BaseViewer):
         text = self.main.source[fullname]
         assert text.is_text
         self.main.texts_notebook.select(text.tabid)
-        text.viewer.highlight(first=position)
+        text.viewer.highlight(position, tag=constants.INDEXED)
 
     def highlight(self, term):
         "Highlight and show the indexed term; show this pane."

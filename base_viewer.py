@@ -272,8 +272,8 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         self.locate_references()
 
     def get_selection(self, check_no_boundary=True, strip=False):
-        """Raise ValueError if no current selection, or region boundary (if checked).
-        Optionally modify region to have non-blank beginning and end.
+        """Raise ValueError if no current selection, or range boundary (if checked).
+        Optionally modify range to have non-blank beginning and end.
         """
         try:
             first = self.view.index(tk.SEL_FIRST)
@@ -308,8 +308,8 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         if result and complain:
             tk_messagebox.showerror(
                 parent=self.toplevel,
-                title="Region boundary",
-                message="Selection contains a region boundary.")
+                title="Range boundary",
+                message="Selection contains a range boundary.")
         return result
 
     def reference_enter(self, event):

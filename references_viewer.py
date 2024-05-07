@@ -76,11 +76,26 @@ class ReferencesViewer(BaseViewer):
         view.tag_configure(constants.REFERENCE, 
                            spacing1=constants.REFERENCE_SPACING,
                            lmargin2=constants.REFERENCE_INDENT)
+        view.tag_configure(constants.LINK,
+                           font=constants.FONT_SMALL,
+                           foreground=constants.LINK_COLOR,
+                           lmargin1=2 * constants.REFERENCE_INDENT,
+                           lmargin2=2 * constants.REFERENCE_INDENT,
+                           underline=True)
 
     def display(self):
         self.view.delete("1.0", tk.END)
+        self.links = dict()
+        self.references_pos = dict() # Key: reference id; value: position here.
+        self.highlighted = None  # Currently highlighted range.
+        texts_pos = dict()  # Position in the source text.
+        for text in self.main.source.all_texts:
+            for id, positions in text.viewer.references.items():
+                texts_pos.setdefault(id, dict())[text.fullname] = list(sorted(positions))
+
         for reference in sorted(self.references, key=lambda r: r["id"]):
             first = self.view.index(tk.INSERT)
+            self.references_pos[reference["id"]] = first
             self.view.insert(tk.INSERT, reference["id"], (constants.BOLD, ))
             self.view.insert(tk.INSERT, "  ")
             self.view.insert(tk.INSERT, reference["authors"][0])
@@ -130,16 +145,55 @@ class ReferencesViewer(BaseViewer):
                     pass
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
             self.view.mark_set(reference["id"].replace(" ", "_"), first)
+
+            fullnames = texts_pos.get(reference["id"])
+            if fullnames:
+                for fullname, positions in sorted(fullnames.items()):
+                    tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
+                    self.view.insert(tk.INSERT, fullname, (constants.LINK, tag))
+                    positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
+                    self.links[tag] = (fullname, positions[0])
+                    for i, position in enumerate(positions[1:], start=2):
+                        tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
+                        self.view.insert(tk.INSERT, ", ")
+                        self.view.insert(tk.INSERT, str(i), (constants.LINK, tag))
+                        self.links[tag] = (fullname, position)
+                    self.view.insert(tk.INSERT, "\n")
             self.view.insert(tk.INSERT, "\n")
+
+    def link_action(self, event):
+        link = self.get_link()
+        if not link:
+            return
+        fullname, position = link
+        text = self.main.source[fullname]
+        assert text.is_text
+        self.main.texts_notebook.select(text.tabid)
+        text.viewer.highlight(position, tag=constants.REFERENCE)
+
+    def highlight(self, term):
+        "Highlight and show the reference; show this pane."
+        try:
+            first = self.references_pos[term]
+        except KeyError:
+            pass
+        else:
+            if self.highlighted:
+                self.view.tag_remove(constants.HIGHLIGHT, *self.highlighted)
+            last = self.view.index(first + " lineend")
+            self.view.tag_add(constants.HIGHLIGHT, first, last)
+            self.highlighted = (first, last)
+            self.view.see(first)
+            self.main.meta_notebook.select(self.tabid)
+
+    def add_manually(self):
+        raise NotImplementedError
 
     def read(self):
         self.source = Source(os.path.join(self.main.absdirpath,
                                           constants.REFERENCES_DIRNAME))
         self.references = [t for t in self.source.all_texts if "id" in t]
         self.references_lookup = dict([(r["id"], r) for r in self.references])
-
-    def add_manually(self):
-        raise NotImplementedError
 
     def import_bibtex(self):
         bibtex = BibtexImport(self.view)
