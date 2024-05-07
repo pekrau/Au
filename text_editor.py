@@ -13,8 +13,6 @@ from tkinter import ttk
 from tkinter import messagebox as tk_messagebox
 from tkinter import simpledialog as tk_simpledialog
 
-import yaml
-
 import constants
 import utils
 from text_viewer import TextViewer
@@ -31,10 +29,10 @@ class TextEditor(TextViewer):
         self.toplevel.bind("<Control-s>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
-        geometry = self.text.frontmatter.get("geometry")
-        if geometry:
-            self.toplevel.geometry(geometry)
-
+        try:
+            self.toplevel.geometry(self.text["geometry"])
+        except KeyError:
+            pass
         self.menubar_setup()
         self.view_create(self.toplevel)
         self.view_configure_tags()

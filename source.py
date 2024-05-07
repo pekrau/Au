@@ -36,6 +36,9 @@ class Source:
     def __repr__(self):
         return f"Source('{self}')"
 
+    def __len__(self):
+        return sum([len(i) for i in self.all_items])
+
     def __getitem__(self, fullname):
         return self.lookup[fullname]
 
@@ -60,6 +63,10 @@ class Source:
         for item in self.items:
             result.extend(item.all_texts)
         return result
+
+    @property
+    def is_text(self):
+        return False
 
     def read(self):
         self.items = []
@@ -103,13 +110,15 @@ class Source:
                 item.apply_config(ordered)
         self.items.extend(original.values())
 
-    def create_text(self, anchor, name):
+    def create_text(self, name, anchor=None):
         """Create a new empty text inside the anchor if it is a section, 
         or after anchor if it is a text.
         Raise ValueError if there is a problem.
         """
         utils.check_invalid_characters(name)
-        if anchor.is_text:
+        if anchor is None:
+            section = self
+        elif anchor.is_text:
             section = anchor.parent
         else:
             section = anchor
@@ -119,7 +128,9 @@ class Source:
         with open(fullpath, "w") as outfile:
             pass
         text = Text(self, section, name)
-        if anchor.is_text:
+        if anchor is None:
+            section.items.append(text)
+        elif anchor.is_text:
             section.items.insert(anchor.index + 1, text)
         else:
             section.items.append(text)
@@ -165,7 +176,7 @@ class Source:
         raise NotImplementedError
 
     def archive(self):
-        "Write all files to a gzipped tar file. Return the number of items."
+        "Write all files to a gzipped tar file. Return the number of items written."
         archivefilepath = os.path.join(self.absdirpath, 
                                        constants.ARCHIVE_DIRNAME,
                                        f"{utils.get_now()}.tar.gz")
@@ -416,6 +427,9 @@ class Section(Item):
         self.open = False
         super().__init__(source, parent, name)
 
+    def __len__(self):
+        return sum([len(i) for i in self.all_items])
+
     @property
     def is_text(self):
         return False
@@ -502,6 +516,18 @@ class Text(Item):
         assert not ext or ext == constants.MARKDOWN_EXT
         super().__init__(source, parent, name)
 
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, key):
+        return self.frontmatter[key]
+
+    def __setitem__(self, key, value):
+        self.frontmatter[key] = value
+
+    def __contains__(self, key):
+        return key in self.frontmatter
+
     @property
     def is_text(self):
         return True
@@ -514,8 +540,14 @@ class Text(Item):
     def all_texts(self):
         return [self]
 
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
     def get_status(self):
-        return constants.Status.lookup(self.frontmatter.get("status"), constants.STARTED)
+        return constants.Status.lookup(self.get("status"), constants.STARTED)
 
     def set_status(self, status):
         if type(status) == str:

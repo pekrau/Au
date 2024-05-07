@@ -666,7 +666,7 @@ class Main:
         if not name:
             return
         try:
-            text = self.source.create_text(anchor, name)
+            text = self.source.create_text(name, anchor)
         except ValueError as error:
             tk_messagebox.showerror(
                 parent=self.treeview,

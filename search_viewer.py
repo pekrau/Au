@@ -22,23 +22,21 @@ class SearchViewer(BaseViewer):
         self.frame = ttk.Frame(parent)
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.entry_frame = ttk.Frame(self.frame, 
-                                     relief=tk.RAISED,
-                                     borderwidth=3,
-                                     padding=4)
+                                     padding=6)
         self.entry_frame.pack(fill=tk.X)
         self.entry_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(self.entry_frame, text="Search term").grid(row=0, column=0, padx=4)
+        ttk.Label(self.entry_frame, text="Term").grid(row=0, column=0, padx=4)
         self.search_entry = ttk.Entry(self.entry_frame)
         self.search_entry.grid(row=0, column=1,
                                sticky=(tk.E, tk.W), 
                                padx=4)
         self.search_entry.bind("<Return>", self.search)
 
-        button = ttk.Button(self.entry_frame, text="Go", command=self.search)
-        button.grid(row=0, column=2, padx=4, pady=2)
+        button = ttk.Button(self.entry_frame, text="Search", command=self.search)
+        button.grid(row=0, column=2, padx=4, pady=4)
         button = ttk.Button(self.entry_frame, text="Clear", command=self.clear)
-        button.grid(row=1, column=2, padx=4, pady=2)
+        button.grid(row=1, column=2, padx=4, pady=4)
 
         self.search_nocase_var = tk.IntVar(value=1)
         self.search_nocase = ttk.Checkbutton(self.entry_frame,
