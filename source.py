@@ -175,19 +175,29 @@ class Source:
     def compile_html(self):
         raise NotImplementedError
 
-    def archive(self):
-        "Write all files to a gzipped tar file. Return the number of items written."
+    def archive(self, sources=None):
+        """Write all files for texts to a gzipped tar file.
+        Optionally include items from other sources, using the name of each
+        source as prefix; effectively a subdirectory.
+        Return the number of items written.
+        Raise an OSError if any error.
+        """
         archivefilepath = os.path.join(self.absdirpath, 
                                        constants.ARCHIVE_DIRNAME,
-                                       f"{utils.get_now()}.tar.gz")
-        cwd = os.getcwd()
-        os.chdir(self.absdirpath)
-        with tarfile.open(archivefilepath, "w:gz") as archivefile:
+                                       f"{utils.get_now()}.tgz")
+        with tarfile.open(archivefilepath, "x:gz") as archivefile:
+            # By looping over top-level items, the special directories are avoided.
             for item in self.items:
-                archivefile.add(item.filename(), recursive=True)
+                archivefile.add(item.abspath, arcname=item.filename(), recursive=True)
+                
+            if sources:
+                if not isinstance(sources, list):
+                    sources = [sources]
+                for source in sources:
+                    archivefile.add(source.abspath, arcname=source.name, recursive=True)
         with tarfile.open(archivefilepath) as archivefile:
             result = len(archivefile.getnames())
-        os.chdir(cwd)
+        # os.chdir(cwd)
         return result
 
     def check_integrity(self):

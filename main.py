@@ -419,9 +419,14 @@ class Main:
         self.todo_viewer.display()
 
     def archive(self):
-        count = self.source.archive()
-        tk.messagebox.showinfo(title="Archive file written.",
-                               message=f"{count} items written to archive file.")
+        try:
+            count = self.source.archive(sources=self.references_viewer.source)
+        except OSError as error:
+            tk_messagebox.showerror(title="Error",
+                                    message=f"Could not write .tgz file: {error}")
+        else:
+            tk_messagebox.showinfo(title="Archive file written.",
+                                   message=f"{count} items written to archive file.")
 
     def quit(self, event=None):
         for editor in self.editors.values():

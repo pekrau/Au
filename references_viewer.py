@@ -79,7 +79,7 @@ class ReferencesViewer(BaseViewer):
 
     def display(self):
         self.view.delete("1.0", tk.END)
-        for reference in self.references:
+        for reference in sorted(self.references, key=lambda r: r["id"]):
             first = self.view.index(tk.INSERT)
             self.view.insert(tk.INSERT, reference["id"], (constants.BOLD, ))
             self.view.insert(tk.INSERT, "  ")
@@ -136,7 +136,7 @@ class ReferencesViewer(BaseViewer):
         self.source = Source(os.path.join(self.main.absdirpath,
                                           constants.REFERENCES_DIRNAME))
         self.references = [t for t in self.source.all_texts if "id" in t]
-        self.references.sort(key=lambda r: r["id"])
+        self.references_lookup = dict([(r["id"], r) for r in self.references])
 
     def add_manually(self):
         raise NotImplementedError
@@ -179,14 +179,14 @@ class ReferencesViewer(BaseViewer):
         abstract = ""
         for key, field in entry.fields_dict.items():
             if key == "abstract":
-                abstract = field.value
+                abstract = " ".join(field.value.split())
             elif key == "author":
                 pass
             else:
                 text[key] = field.value
         text.write(abstract)
         self.references.append(text)
-        self.references.sort(key=lambda r: r["id"])
+        self.references_lookup[text["id"]] = text
         self.display()
 
 
