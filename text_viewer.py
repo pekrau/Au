@@ -10,7 +10,7 @@ from render_mixins import FootnoteRenderMixin
 from base_viewer import BaseTextViewer
 
 
-class Viewer(FootnoteRenderMixin, BaseTextViewer):
+class TextViewer(FootnoteRenderMixin, BaseTextViewer):
     "Viewer window for Markdown text file."
 
     TEXT_COLOR = constants.TEXT_COLOR

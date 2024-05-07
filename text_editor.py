@@ -17,10 +17,10 @@ import yaml
 
 import constants
 import utils
-from viewer import Viewer
+from text_viewer import TextViewer
 
 
-class Editor(Viewer):
+class TextEditor(TextViewer):
     "Editor window for Markdown text file."
 
     def __init__(self, main, text):

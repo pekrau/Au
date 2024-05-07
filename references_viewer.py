@@ -26,14 +26,7 @@ class ReferencesViewer(BaseViewer):
         if view is None:
             view = self.view
         super().view_configure_tags(view=view)
-        # view.tag_configure(constants.INDEXED,
-        #                    font=constants.FONT_NORMAL,
-        #                    spacing1=constants.INDEXED_SPACING)
-        # view.tag_configure(constants.LINK,
-        #                    font=constants.FONT_SMALL,
-        #                    foreground=constants.LINK_COLOR,
-        #                    lmargin1=constants.INDEXED_INDENT,
-        #                    underline=True)
+        view.tag_configure(constants.TITLE, font=constants.FONT_BOLD)
 
     def display(self):
         self.view.delete("1.0", tk.END)

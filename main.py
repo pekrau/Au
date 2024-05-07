@@ -16,8 +16,8 @@ from tkinter import font as tk_font
 import constants
 import utils
 from source import Source
-from viewer import Viewer
-from editor import Editor
+from text_viewer import TextViewer
+from text_editor import TextEditor
 from help_viewer import HelpViewer
 from references_viewer import ReferencesViewer
 from indexed_viewer import IndexedViewer
@@ -38,7 +38,7 @@ class Main:
         self.source = Source(self.absdirpath)
         self.config_read()
         self.source.apply_config(self.config["source"])
-        self.editors = dict()   # Key: fullname; value: Editor instance
+        self.editors = dict()   # Key: fullname; value: TextEditor instance
 
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk_font.families())
@@ -356,7 +356,7 @@ class Main:
         while self.texts_notebook_lookup:
             self.texts_notebook.forget(self.texts_notebook_lookup.popitem()[0])
         for text in self.source.all_texts:
-            text.viewer = viewer = Viewer(self.texts_notebook, self, text)
+            text.viewer = viewer = TextViewer(self.texts_notebook, self, text)
             # XXX
             # try:
             #     viewer.move_cursor(self.config["items"][filepath].get("cursor"))
@@ -637,7 +637,7 @@ class Main:
         try:
             editor = self.editors[text.fullname]
         except KeyError:
-            editor = Editor(self, text)
+            editor = TextEditor(self, text)
             self.editors[text.fullname] = editor
         else:
             editor.toplevel.lift()
