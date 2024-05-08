@@ -581,6 +581,7 @@ class TextEditor(TextViewer):
         return result
 
     def undump(self, dump):
+        "Read a dump, adding to the content of the view."
         tags = dict()
         self.skip_text = False
         for entry in dump:
@@ -644,30 +645,7 @@ class TextEditor(TextViewer):
         if not self.is_modified:
             return
         self.text.status = constants.Status.lookup(self.status_var.get().lower())
-        self.set_outfile(io.StringIO())
-        self.markdown()
-        self.text.write(self.outfile.getvalue())
-        self.set_outfile()
-        self.menubar.configure(background=self.original_menubar_background)
-        self.ignore_modified_event = True
-        self.view.edit_modified(False)
-        self.text.viewer.display()
-        self.main.treeview_set_info(self.text)
-        self.main.references_viewer.display() # XXX Optimize?
-        self.main.indexed_viewer.display()    # XXX Optimize?
-        self.main.search_viewer.clear()
-
-    @property
-    def outfile(self):
-        return self.outfile_stack[-1]
-
-    def set_outfile(self, outfile=None):
-        if outfile is None:
-            self.outfile_stack = []
-        else:
-            self.outfile_stack = [outfile]
-
-    def markdown(self):
+        self.outfile_stack = [io.StringIO()]
         self.line_indents = []
         self.line_indented = False
         self.skip_text = False
@@ -694,6 +672,20 @@ class TextEditor(TextViewer):
                 self.outfile.write("  ")
                 self.outfile.write(line)
                 self.outfile.write("\n")
+        self.text.write(self.outfile.getvalue())
+        self.outfile_stack = []
+        self.menubar.configure(background=self.original_menubar_background)
+        self.ignore_modified_event = True
+        self.view.edit_modified(False)
+        self.text.viewer.display()
+        self.main.treeview_set_info(self.text)
+        self.main.references_viewer.display() # XXX Optimize?
+        self.main.indexed_viewer.display()    # XXX Optimize?
+        self.main.search_viewer.clear()
+
+    @property
+    def outfile(self):
+        return self.outfile_stack[-1]
 
     def output_line_indent(self, force=False):
         if self.line_indented and not force:
@@ -764,6 +756,18 @@ class TextEditor(TextViewer):
 
     def markdown_tagoff_quote(self, item):
         self.line_indents.pop()
+
+    def markdown_tagon_h1(self, item):
+        self.output_characters("# ")
+
+    def markdown_tagoff_h1(self, item):
+        pass
+
+    def markdown_tagon_h2(self, item):
+        self.output_characters("# ")
+
+    def markdown_tagoff_h2(self, item):
+        pass
 
     def markdown_tagon_thematic_break(self, item):
         self.skip_text = True

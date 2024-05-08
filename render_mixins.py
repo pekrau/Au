@@ -174,14 +174,15 @@ class BaseRenderMixin:
         self.view.insert(tk.INSERT, f"{ast['reference']}", (constants.REFERENCE, tag))
 
     def conditional_line_break(self, flag=False):
-        if not self.prev_line_blank:
-            self.view.insert(tk.INSERT, "\n")
-            try:
-                if self.list_stack:
-                    self.view.insert(tk.INSERT, "  ") # Empirically two blanks.
-            except AttributeError:
-                pass
-            self.prev_line_blank = flag
+        if self.prev_line_blank:
+            return
+        self.view.insert(tk.INSERT, "\n")
+        try:
+            if self.list_stack:
+                self.view.insert(tk.INSERT, "  ") # Empirically two blanks.
+        except AttributeError:
+            pass
+        self.prev_line_blank = flag
 
     def locate_indexed(self):
         "Get the final positions of the indexed terms; affected by footnotes."

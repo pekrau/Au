@@ -34,6 +34,15 @@ class Main:
 
     def __init__(self, absdirpath):
         self.absdirpath = absdirpath
+
+        # Create hard-wired directories, if not done.
+        archivedirpath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
+        if not os.path.exists(archivedirpath):
+            os.mkdir(archivedirpath)
+        referencesdirpath = os.path.join(self.absdirpath, constants.REFERENCES_DIRNAME)
+        if not os.path.exists(referencesdirpath):
+            os.mkdir(referencesdirpath)
+        
         self.help_source = Source(os.path.join(os.path.dirname(__file__), "help"))
         self.source = Source(self.absdirpath)
         self.config_read()
@@ -60,7 +69,7 @@ class Main:
         self.panedwindow = tk.PanedWindow(self.root,
                                           background="gold",
                                           orient=tk.HORIZONTAL,
-                                          sashwidth=5)
+                                          sashwidth=4)
         self.panedwindow.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.menubar_setup()

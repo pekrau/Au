@@ -16,8 +16,6 @@
 | Ctrl-Right | Move current item down into the subtree. |
 | Ctrl-Left  | Move current item up out of the subtree. |
 
-
-
 ## Editor
 
 | Hotkey  | Action                                    |

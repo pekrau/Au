@@ -182,7 +182,7 @@ class Source:
         Return the number of items written.
         Raise an OSError if any error.
         """
-        archivefilepath = os.path.join(self.absdirpath, 
+        archivefilepath = os.path.join(self.absdirpath,
                                        constants.ARCHIVE_DIRNAME,
                                        f"{utils.get_now()}.tgz")
         with tarfile.open(archivefilepath, "x:gz") as archivefile:
@@ -197,7 +197,6 @@ class Source:
                     archivefile.add(source.abspath, arcname=source.name, recursive=True)
         with tarfile.open(archivefilepath) as archivefile:
             result = len(archivefile.getnames())
-        # os.chdir(cwd)
         return result
 
     def check_integrity(self):

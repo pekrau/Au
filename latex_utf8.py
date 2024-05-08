@@ -12,6 +12,7 @@ def from_latex_to_utf8(value):
         elif c == "}":
             if len(stack) == 1:
                 item = value[stack[0]:pos+1]
+                # This kludge fixes a problem seen in BibTex from Paperpile.
                 if item.startswith(r"{\v "):
                     item = r"{\v{" + item[4:] + "}"
                 result.append(map_latex_to_utf8.get(item[1:-1], item))
