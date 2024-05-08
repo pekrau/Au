@@ -219,18 +219,22 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         super().view_configure_tags(view=view)
         view.tag_configure(constants.H1,
                            font=constants.H1_FONT,
+                           spacing1=constants.H1_SPACING,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
         view.tag_configure(constants.H2,
                            font=constants.H2_FONT,
+                           spacing1=constants.H2_SPACING,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
         view.tag_configure(constants.H3,
                            font=constants.H3_FONT,
+                           spacing1=constants.H3_SPACING,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
         view.tag_configure(constants.H4,
                            font=constants.H4_FONT,
+                           spacing1=constants.H4_SPACING,
                            lmargin1=constants.H_LEFT_MARGIN,
                            lmargin2=constants.H_LEFT_MARGIN)
         view.tag_configure(constants.QUOTE,

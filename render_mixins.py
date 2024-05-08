@@ -49,11 +49,10 @@ class BaseRenderMixin:
     def render_heading(self, ast):
         self.conditional_line_break()
         first = self.view.index(tk.INSERT)
-        h = constants.H.get(ast["level"], constants.H4)
+        h = constants.H_LOOKUP[min(ast["level"], constants.MAX_H_LEVEL)]
         for child in ast["children"]:
             self.render(child)
         self.view.tag_add(h, first, tk.INSERT)
-        self.conditional_line_break()
 
     def render_paragraph(self, ast):
         self.conditional_line_break(flag=True)
