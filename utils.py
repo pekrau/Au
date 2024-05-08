@@ -1,7 +1,5 @@
 "Utility functions."
 
-from icecream import ic
-
 import os
 import time
 
@@ -33,8 +31,3 @@ def check_invalid_characters(name):
     for invalid in invalids:
         if invalid in name:
             raise ValueError(f"The name may not contain the character '{invalid}'.")
-
-
-if __name__ == "__main__":
-    frontmatter, ast = get_frontmatter_ast("test.md")
-    ic(frontmatter, ast)

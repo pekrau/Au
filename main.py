@@ -63,6 +63,7 @@ class Main:
         self.root.iconphoto(False, self.au64, self.au64)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.root.bind("<Configure>", self.root_resized)
+        self.root.bind("<Control-q>", self.quit)
         self.root.after(constants.AGES_UPDATE_DELAY, self.treeview_update_ages)
 
         # Must be 'tk.PanedWindow', not 'tk.ttk.PanedWindow',
@@ -170,7 +171,6 @@ class Main:
         self.menu_file.add_command(label=Tr("Quit"),
                                    command=self.quit,
                                    accelerator="Ctrl-Q")
-        self.root.bind("<Control-q>", self.quit)
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
@@ -223,11 +223,11 @@ class Main:
     def set_menubar_state(self):
         "To avoid potential problems, some menu items require that no editors are open."
         state = self.editors and tk.DISABLED or tk.NORMAL
-        self.menu_edit.entryconfigure(2, state=state) # Rename
-        self.menu_edit.entryconfigure(3, state=state) # Copy
-        self.menu_edit.entryconfigure(4, state=state) # Delete
-        self.menu_move.entryconfigure(2, state=state) # Into section
-        self.menu_move.entryconfigure(3, state=state) # Out of section
+        self.menu_edit.entryconfigure(2, state=state) # Edit: Rename
+        self.menu_edit.entryconfigure(3, state=state) # Edit: Copy
+        self.menu_edit.entryconfigure(4, state=state) # Edit: Delete
+        self.menu_move.entryconfigure(2, state=state) # Move: Into section
+        self.menu_move.entryconfigure(3, state=state) # Move: Out of section
 
     def treeview_create(self):
         "Create the treeview framework."
@@ -380,6 +380,7 @@ class Main:
             self.texts_notebook_lookup[text.tabid] = text
             opener = functools.partial(self.open_editor, text=text)
             viewer.view.bind("<Double-Button-1>", opener)
+            viewer.view.bind("<Control-q>", self.quit)
             viewer.view.bind("<Return>", opener)
             self.treeview_set_info(text)
         for text in self.source.all_texts:
@@ -399,16 +400,19 @@ class Main:
         self.title_viewer = TitleViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.title_viewer.frame, text=Tr("Title"))
         self.title_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.title_viewer.view.bind("<Control-q>", self.quit)
         self.meta_notebook_lookup[self.title_viewer.tabid] = self.title_viewer
 
         self.references_viewer = ReferencesViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.references_viewer.frame, text=Tr("References"))
         self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.references_viewer.view.bind("<Control-q>", self.quit)
         self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
 
         self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.indexed_viewer.frame, text=Tr("Indexed"))
         self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.indexed_viewer.view.bind("<Control-q>", self.quit)
         self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
         self.todo_viewer = TodoViewer(self.meta_notebook, self)
@@ -419,11 +423,13 @@ class Main:
         self.search_viewer = SearchViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.search_viewer.frame, text=Tr("Search"))
         self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.search_viewer.view.bind("<Control-q>", self.quit)
         self.meta_notebook_lookup[self.search_viewer.tabid] = self.search_viewer
 
         self.help_viewer = HelpViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.help_viewer.frame, text=Tr("Help"))
         self.help_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.help_viewer.view.bind("<Control-q>", self.quit)
         self.meta_notebook_lookup[self.help_viewer.tabid] = self.help_viewer
 
     def meta_notebook_populate(self):

@@ -11,6 +11,7 @@ DEFAULT_ROOT_GEOMETRY = "400x400+700+0"
 DEFAULT_TEXT_WIDTH = 80
 DEFAULT_TEXT_HEIGHT = 30
 
+MARKDOWN_EXT = ".md"
 CONFIG_FILENAME = "config.json"
 ARCHIVE_DIRNAME = "au_archive"
 assert os.extsep not in ARCHIVE_DIRNAME # Code relies on this!
@@ -19,7 +20,6 @@ assert os.extsep not in TODO_DIRNAME # Code relies on this!
 REFERENCES_DIRNAME = "au_references"
 assert os.extsep not in REFERENCES_DIRNAME # Code relies on this!
 TRANSLATION_FILE = "translation.csv"
-MARKDOWN_EXT = ".md"
 
 TEXT_COLOR = "oldlace"
 EDIT_COLOR = "seashell"

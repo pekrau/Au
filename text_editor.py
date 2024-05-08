@@ -113,7 +113,7 @@ class TextEditor(TextViewer):
 
         self.menu_status = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_status, label=Tr("Status"))
-        self.status_var = tk.StringVar() # Also referred to by 'info_setup'.
+        self.status_var = tk.StringVar()
         for status in constants.STATUSES:
             self.menu_status.add_radiobutton(label=Tr(str(status)),
                                              value=str(status),
@@ -140,9 +140,9 @@ class TextEditor(TextViewer):
 
     def info_setup(self):
         self.info_frame = tk.ttk.Frame(self.frame, padding=2)
+
         self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
         self.frame.rowconfigure(1, minsize=22)
-
         self.chars_var = tk.StringVar()
         chars_label = tk.ttk.Label(self.info_frame)
         chars_label.grid(row=0, column=0, padx=4, sticky=tk.W)
@@ -152,9 +152,10 @@ class TextEditor(TextViewer):
 
         status_label = tk.ttk.Label(self.info_frame)
         status_label.grid(row=0, column=1, padx=4, sticky=tk.E)
-        status_label["textvariable"] = self.status_var # Defined above in 'menu_status'.
-        self.status_var.set(Tr(str(self.text.status)))
-        self.info_frame.columnconfigure(1, weight=1)
+        self.status_var.set(str(self.text.status))
+        self.tr_status_var = tk.StringVar(value=Tr(str(self.text.status)))
+        status_label["textvariable"] = self.tr_status_var
+        self.info_frame.columnconfigure(1, weight=1)        
 
     @property
     def character_count(self):
@@ -273,6 +274,7 @@ class TextEditor(TextViewer):
             old_status =  None
         new_status = constants.Status.lookup(self.status_var.get().lower())
         self.view.edit_modified(new_status != old_status)
+        self.tr_status_var.set(Tr(str(new_status)))
 
     def bold_add(self):
         try:
