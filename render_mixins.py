@@ -170,7 +170,7 @@ class BaseRenderMixin:
     def render_reference(self, ast):
         # Position here is not useful; will be affected by footnotes.
         tag = constants.REFERENCE_PREFIX + ast["reference"]
-        self.view.insert(tk.INSERT, f"{ast['reference']}", (constants.REFERENCE, tag))
+        self.view.insert(tk.INSERT, ast["reference"], (constants.REFERENCE, tag))
 
     def conditional_line_break(self, flag=False):
         if self.prev_line_blank:

@@ -5,9 +5,8 @@ from icecream import ic
 import os
 
 import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox as tk_messagebox
-from tkinter import simpledialog as tk_simpledialog
+import tkinter.messagebox
+import tkinter.ttk
 
 import bibtexparser
 
@@ -27,26 +26,26 @@ class ReferencesViewer(BaseViewer):
         self.read()
 
     def view_create(self, parent):
-        self.frame = ttk.Frame(parent)
+        self.frame = tk.ttk.Frame(parent)
         self.frame.pack(fill=tk.BOTH, expand=True)
-        self.actions_frame = ttk.Frame(self.frame, padding=6)
+        self.actions_frame = tk.ttk.Frame(self.frame, padding=6)
         self.actions_frame.pack(fill=tk.X)
         self.actions_frame.columnconfigure(0, weight=1)
         self.actions_frame.columnconfigure(1, weight=1)
 
-        button = ttk.Button(self.actions_frame,
-                            text="Import BibTeX",
-                            command=self.import_bibtex,
-                            padding=4)
+        button = tk.ttk.Button(self.actions_frame,
+                               text="Import BibTeX",
+                               command=self.import_bibtex,
+                               padding=4)
         button.grid(row=0, column=0, padx=4, pady=4)
 
-        button = ttk.Button(self.actions_frame,
-                            text="Add manually",
-                            command=self.add_manually,
-                            padding=4)
+        button = tk.ttk.Button(self.actions_frame,
+                               text="Add manually",
+                               command=self.add_manually,
+                               padding=4)
         button.grid(row=0, column=1, padx=4, pady=4)
 
-        self.result_frame = ttk.Frame(self.frame)
+        self.result_frame = tk.ttk.Frame(self.frame)
         self.result_frame.pack(fill=tk.BOTH, expand=True)
         self.result_frame.rowconfigure(0, weight=1)
         self.result_frame.columnconfigure(0, weight=1)
@@ -59,7 +58,7 @@ class ReferencesViewer(BaseViewer):
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
         self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.scroll_y = ttk.Scrollbar(self.result_frame,
+        self.scroll_y = tk.ttk.Scrollbar(self.result_frame,
                                       orient=tk.VERTICAL,
                                       command=self.view.yview)
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
@@ -92,9 +91,9 @@ class ReferencesViewer(BaseViewer):
         texts_pos = dict()  # Position in the source text.
         for text in self.main.source.all_texts:
             for id, positions in text.viewer.references.items():
-                texts_pos.setdefault(id, dict())[text.fullname] = list(sorted(positions))
+                texts_pos.setdefault(id,dict())[text.fullname] = list(sorted(positions))
 
-        for reference in sorted(self.references, key=lambda r: r["id"]):
+        for reference in self.references:
             first = self.view.index(tk.INSERT)
             self.references_pos[reference["id"]] = first
             self.view.insert(tk.INSERT, reference["id"], (constants.BOLD, ))
@@ -177,15 +176,14 @@ class ReferencesViewer(BaseViewer):
         try:
             first = self.references_pos[term]
         except KeyError:
-            pass
-        else:
-            if self.highlighted:
-                self.view.tag_remove(constants.HIGHLIGHT, *self.highlighted)
-            last = self.view.index(first + " lineend")
-            self.view.tag_add(constants.HIGHLIGHT, first, last)
-            self.highlighted = (first, last)
-            self.view.see(first)
-            self.main.meta_notebook.select(self.tabid)
+            return
+        if self.highlighted:
+            self.view.tag_remove(constants.HIGHLIGHT, *self.highlighted)
+        last = self.view.index(first + " lineend")
+        self.view.tag_add(constants.HIGHLIGHT, first, last)
+        self.highlighted = (first, last)
+        self.view.see(first)
+        self.main.meta_notebook.select(self.tabid)
 
     def add_manually(self):
         raise NotImplementedError
@@ -194,6 +192,7 @@ class ReferencesViewer(BaseViewer):
         self.source = Source(os.path.join(self.main.absdirpath,
                                           constants.REFERENCES_DIRNAME))
         self.references = [t for t in self.source.all_texts if "id" in t]
+        self.references.sort(key=lambda r: r["id"])
         self.references_lookup = dict([(r["id"], r) for r in self.references])
 
     def import_bibtex(self):
@@ -203,13 +202,13 @@ class ReferencesViewer(BaseViewer):
         library = bibtexparser.parse_string(bibtex.result["bibtex"])
         entries = list(library.entries)
         if len(entries) > 1:
-            tk_messagebox.showerror(
+            tk.messagebox.showerror(
                 parent=self.view,
                 title="Error",
                 message="More than one BibTeX entry in data.")
             return
         elif len(entries) == 0:
-            tk_messagebox.showerror(
+            tk.messagebox.showerror(
                 parent=self.view,
                 title="Error",
                 message="No BibTeX entry in data.")
@@ -223,7 +222,7 @@ class ReferencesViewer(BaseViewer):
         try:
             text = self.source.create_text(name)
         except ValueError as error:
-            tk_messagebox.showerror(
+            tk.messagebox.showerror(
                 parent=self.view,
                 title="Error",
                 message=str(error))
@@ -241,11 +240,12 @@ class ReferencesViewer(BaseViewer):
                 text[key] = latex_utf8.from_latex_to_utf8(field.value)
         text.write(abstract)
         self.references.append(text)
+        self.references.sort(key=lambda r: r["id"])
         self.references_lookup[text["id"]] = text
         self.display()
 
 
-class BibtexImport(tk_simpledialog.Dialog):
+class BibtexImport(tk.simpledialog.Dialog):
     "Simple dialog window for importing a BibTeX entry."
 
     def __init__(self, toplevel):
@@ -253,12 +253,12 @@ class BibtexImport(tk_simpledialog.Dialog):
         super().__init__(toplevel, title="Import BibTeX")
 
     def body(self, body):
-        label = ttk.Label(body, text="Id")
+        label = tk.ttk.Label(body, text="Id")
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
         self.id_entry = tk.Entry(body, width=50)
         self.id_entry.grid(row=0, column=1)
 
-        label = ttk.Label(body, text="BibTeX")
+        label = tk.ttk.Label(body, text="BibTeX")
         label.grid(row=1, column=0, padx=4, sticky=(tk.E, tk.N))
         self.bibtex_text = tk.Text(body, width=50)
         self.bibtex_text.grid(row=1, column=1)

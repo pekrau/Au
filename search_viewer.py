@@ -5,7 +5,7 @@ from icecream import ic
 import functools
 
 import tkinter as tk
-from tkinter import ttk
+import tkinter.ttk
 
 import constants
 import utils
@@ -19,39 +19,38 @@ class SearchViewer(BaseViewer):
         return "Search"
 
     def view_create(self, parent):
-        self.frame = ttk.Frame(parent)
+        self.frame = tk.ttk.Frame(parent)
         self.frame.pack(fill=tk.BOTH, expand=True)
-        self.entry_frame = ttk.Frame(self.frame, 
-                                     padding=6)
+        self.entry_frame = tk.ttk.Frame(self.frame, padding=6)
         self.entry_frame.pack(fill=tk.X)
         self.entry_frame.columnconfigure(1, weight=1)
 
-        ttk.Label(self.entry_frame, text="Term").grid(row=0, column=0, padx=4)
-        self.search_entry = ttk.Entry(self.entry_frame)
+        tk.ttk.Label(self.entry_frame, text="Term").grid(row=0, column=0, padx=4)
+        self.search_entry = tk.ttk.Entry(self.entry_frame)
         self.search_entry.grid(row=0, column=1,
                                sticky=(tk.E, tk.W), 
                                padx=4)
         self.search_entry.bind("<Return>", self.search)
 
-        button = ttk.Button(self.entry_frame, text="Search", command=self.search)
+        button = tk.ttk.Button(self.entry_frame, text="Search", command=self.search)
         button.grid(row=0, column=2, padx=4, pady=4)
-        button = ttk.Button(self.entry_frame, text="Clear", command=self.clear)
+        button = tk.ttk.Button(self.entry_frame, text="Clear", command=self.clear)
         button.grid(row=1, column=2, padx=4, pady=4)
 
         self.search_nocase_var = tk.IntVar(value=1)
-        self.search_nocase = ttk.Checkbutton(self.entry_frame,
-                                             text="Ignore character case",
-                                             variable=self.search_nocase_var)
+        self.search_nocase = tk.ttk.Checkbutton(self.entry_frame,
+                                                text="Ignore character case",
+                                                variable=self.search_nocase_var)
         self.search_nocase.grid(row=1, column=1, sticky=tk.W)
 
         self.search_regexp_var = tk.IntVar(value=0)
-        self.search_regexp = ttk.Checkbutton(
+        self.search_regexp = tk.ttk.Checkbutton(
             self.entry_frame,
             text="Allow regular expression\n. ^ [c1...] (...) * + ? e1|e2",
             variable=self.search_regexp_var)
         self.search_regexp.grid(row=2, column=1, sticky=tk.W)
 
-        self.result_frame = ttk.Frame(self.frame)
+        self.result_frame = tk.ttk.Frame(self.frame)
         self.result_frame.pack(fill=tk.BOTH, expand=True)
         self.result_frame.rowconfigure(0, weight=1)
         self.result_frame.columnconfigure(0, weight=1)
@@ -65,9 +64,9 @@ class SearchViewer(BaseViewer):
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
         self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.scroll_y = ttk.Scrollbar(self.result_frame,
-                                      orient=tk.VERTICAL,
-                                      command=self.view.yview)
+        self.scroll_y = tk.ttk.Scrollbar(self.result_frame,
+                                         orient=tk.VERTICAL,
+                                         command=self.view.yview)
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
         

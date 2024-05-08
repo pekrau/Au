@@ -7,8 +7,8 @@ import string
 import webbrowser
 
 import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox as tk_messagebox
+import tkinter.messagebox
+import tkinter.ttk
 
 import constants
 import utils
@@ -29,7 +29,7 @@ class BaseViewer:
 
     def view_create(self, parent):
         "Create the view tk.Text widget and its associates."
-        self.frame = ttk.Frame(parent)
+        self.frame = tk.ttk.Frame(parent)
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.frame.rowconfigure(0, weight=1)
         self.frame.columnconfigure(0, weight=1)
@@ -43,9 +43,9 @@ class BaseViewer:
                             spacing2=constants.TEXT_SPACING2,
                             spacing3=constants.TEXT_SPACING3)
         self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.scroll_y = ttk.Scrollbar(self.frame,
-                                      orient=tk.VERTICAL,
-                                      command=self.view.yview)
+        self.scroll_y = tk.ttk.Scrollbar(self.frame,
+                                         orient=tk.VERTICAL,
+                                         command=self.view.yview)
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
 
@@ -310,7 +310,7 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         last_tags.discard("sel")
         result = first_tags != last_tags
         if result and complain:
-            tk_messagebox.showerror(
+            tk.messagebox.showerror(
                 parent=self.toplevel,
                 title="Range boundary",
                 message="Selection contains a range boundary.")
@@ -323,7 +323,14 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         self.view.configure(cursor="")
 
     def reference_action(self, event):
-        raise NotImplementedError
+        reference = self.get_reference()
+        if reference:
+            self.main.references_viewer.highlight(reference)
+
+    def get_reference(self):
+        for tag in self.view.tag_names(tk.CURRENT):
+            if tag.startswith(constants.REFERENCE_PREFIX):
+                return tag[len(constants.REFERENCE_PREFIX):]
 
     def indexed_enter(self, event):
         self.view.configure(cursor="hand2")
@@ -331,15 +338,15 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
     def indexed_leave(self, event):
         self.view.configure(cursor="")
 
-    def get_indexed(self):
-        for tag in self.view.tag_names(tk.CURRENT):
-            if tag.startswith(constants.INDEXED_PREFIX):
-                return tag[len(constants.INDEXED_PREFIX):]
-
     def indexed_action(self, event):
         term = self.get_indexed()
         if term:
             self.main.indexed_viewer.highlight(term)
+
+    def get_indexed(self):
+        for tag in self.view.tag_names(tk.CURRENT):
+            if tag.startswith(constants.INDEXED_PREFIX):
+                return tag[len(constants.INDEXED_PREFIX):]
 
     def render_table(self, ast):
         self.table = Table(self, ast)
@@ -350,7 +357,7 @@ class Table(BaseRenderMixin):
 
     def __init__(self, master, ast):
         self.master = master
-        self.frame = ttk.Frame(self.master.view)
+        self.frame = tk.ttk.Frame(self.master.view)
         self.master.view.window_create(tk.INSERT, window=self.frame)
         self.view = None
         self.current_row = -1

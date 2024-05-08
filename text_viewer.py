@@ -50,7 +50,7 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
         super().display(reread_text=reread_text)
 
     def highlight(self, first, last=None, tag=constants.INDEXED):
-        "Highlight the indexed term starting at the given position."
+        "Highlight the characters marked by the tag starting at the given position."
         self.view.focus_set()
         if self.highlighted:
             self.view.tag_remove(constants.HIGHLIGHT, *self.highlighted)

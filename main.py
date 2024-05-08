@@ -8,10 +8,9 @@ import os
 import shutil
 
 import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox as tk_messagebox
-from tkinter import simpledialog as tk_simpledialog
-from tkinter import font as tk_font
+import tkinter.messagebox
+import tkinter.ttk
+import tkinter.font
 
 import constants
 import utils
@@ -50,7 +49,7 @@ class Main:
         self.editors = dict()   # Key: fullname; value: TextEditor instance
 
         self.root = tk.Tk()
-        constants.FONT_FAMILIES = frozenset(tk_font.families())
+        constants.FONT_FAMILIES = frozenset(tk.font.families())
         assert constants.FONT_NORMAL_FAMILY in constants.FONT_FAMILIES
 
         self.root.title(os.path.basename(absdirpath))
@@ -64,7 +63,7 @@ class Main:
         self.root.bind("<Configure>", self.root_resized)
         self.root.after(constants.AGES_UPDATE_DELAY, self.treeview_update_ages)
 
-        # Must be 'tk.PanedWindow', not 'ttk.PanedWindow',
+        # Must be 'tk.PanedWindow', not 'tk.ttk.PanedWindow',
         # since the 'paneconfigure' command is needed.
         self.panedwindow = tk.PanedWindow(self.root,
                                           background="gold",
@@ -224,14 +223,14 @@ class Main:
 
     def treeview_create(self):
         "Create the treeview framework."
-        self.treeview_frame = ttk.Frame(self.panedwindow)
+        self.treeview_frame = tk.ttk.Frame(self.panedwindow)
         self.panedwindow.add(self.treeview_frame,
                              width=constants.TREEVIEW_PANE_WIDTH,
                              minsize=constants.PANE_MINSIZE)
 
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
-        self.treeview = ttk.Treeview(self.treeview_frame,
+        self.treeview = tk.ttk.Treeview(self.treeview_frame,
                                      columns=("status", "chars", "age"),
                                      selectmode="browse")
         self.treeview.tag_configure("section", background=constants.SECTION_COLOR)
@@ -253,7 +252,7 @@ class Main:
                              anchor=tk.E,
                              minwidth=2*constants.FONT_NORMAL_SIZE,
                              width=6*constants.FONT_NORMAL_SIZE)
-        self.treeview_scroll_y = ttk.Scrollbar(self.treeview_frame,
+        self.treeview_scroll_y = tk.ttk.Scrollbar(self.treeview_frame,
                                                orient=tk.VERTICAL,
                                                command=self.treeview.yview)
         self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
@@ -345,7 +344,7 @@ class Main:
 
     def texts_notebook_create(self):
         "Create the texts notebook framework."
-        self.texts_notebook = ttk.Notebook(self.panedwindow)
+        self.texts_notebook = tk.ttk.Notebook(self.panedwindow)
         self.panedwindow.add(self.texts_notebook, minsize=constants.PANE_MINSIZE)
          # Key: tabid; value: instance
         self.texts_notebook_lookup = dict()
@@ -383,7 +382,7 @@ class Main:
 
     def meta_notebook_create(self):
         "Create the meta notebook framework."
-        self.meta_notebook = ttk.Notebook(self.panedwindow)
+        self.meta_notebook = tk.ttk.Notebook(self.panedwindow)
         self.panedwindow.add(self.meta_notebook, minsize=constants.PANE_MINSIZE)
 
          # key: tabid; value: instance
@@ -431,17 +430,17 @@ class Main:
         try:
             count = self.source.archive(sources=self.references_viewer.source)
         except OSError as error:
-            tk_messagebox.showerror(title="Error",
+            tk.messagebox.showerror(title="Error",
                                     message=f"Could not write .tgz file: {error}")
         else:
-            tk_messagebox.showinfo(title="Archive file written.",
+            tk.messagebox.showinfo(title="Archive file written.",
                                    message=f"{count} items written to archive file.")
 
     def quit(self, event=None):
         for editor in self.editors.values():
             try:
                 if editor.is_modified:
-                    if not tk_messagebox.askokcancel(
+                    if not tk.messagebox.askokcancel(
                             parent=self.root,
                             title="Quit?",
                             message="All unsaved changes will be lost. Really quit?"):
@@ -545,7 +544,7 @@ class Main:
         except IndexError:
             return
         item = self.source[fullname]
-        newname = tk_simpledialog.askstring(
+        newname = tk.simpledialog.askstring(
             parent=self.root,
             title="New name",
             prompt="Give the new name for the item",
@@ -557,7 +556,7 @@ class Main:
         try:
             item.rename(newname)
         except ValueError as error:
-            tk_messagebox.showerror(
+            tk.messagebox.showerror(
                 parent=self.treeview,
                 title="Error",
                 message=str(error))
@@ -593,7 +592,7 @@ class Main:
             else:
                 break
         else:
-            tk_messagebox.showerror(
+            tk.messagebox.showerror(
                 parent=self.treeview,
                 title="Error",
                 message="Could not generate a unique name for the copy.")
@@ -614,13 +613,13 @@ class Main:
             return
         item = self.source[fullname]
         if item.is_text:
-            if not tk_messagebox.askokcancel(
+            if not tk.messagebox.askokcancel(
                     parent=self.treeview,
                     title="Delete text?",
                     message=f"Really delete text '{item.fullname}'?"):
                 return
         elif item.is_section:
-            if not tk_messagebox.askokcancel(
+            if not tk.messagebox.askokcancel(
                     parent=self.treeview,
                     title="Delete section?",
                     message=f"Really delete section '{item.fullname}' and all its contents?"):
@@ -673,7 +672,7 @@ class Main:
         except IndexError:
             return
         anchor = self.source[fullname]
-        name = tk_simpledialog.askstring(
+        name = tk.simpledialog.askstring(
             parent=self.treeview,
             title="New section",
             prompt="Give name of the new text")
@@ -682,7 +681,7 @@ class Main:
         try:
             text = self.source.create_text(name, anchor)
         except ValueError as error:
-            tk_messagebox.showerror(
+            tk.messagebox.showerror(
                 parent=self.treeview,
                 title="Error",
                 message=str(error))
@@ -703,7 +702,7 @@ class Main:
         except IndexError:
             return
         anchor = self.source[fullname]
-        name = tk_simpledialog.askstring(
+        name = tk.simpledialog.askstring(
             parent=self.treeview,
             title="New text",
             prompt="Give name of the new section")
@@ -712,7 +711,7 @@ class Main:
         try:
             section = self.source.create_section(anchor, name)
         except ValueError as error:
-            tk_messagebox.showerror(
+            tk.messagebox.showerror(
                 parent=self.treeview,
                 title="Error",
                 message=str(error))

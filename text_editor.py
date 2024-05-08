@@ -9,9 +9,9 @@ import string
 import webbrowser
 
 import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox as tk_messagebox
-from tkinter import simpledialog as tk_simpledialog
+import tkinter.ttk
+import tkinter.simpledialog
+import tkinter.messagebox
 
 import constants
 import utils
@@ -45,6 +45,7 @@ class TextEditor(TextViewer):
 
     def menubar_setup(self):
         self.menubar = tk.Menu(self.toplevel, background="gold")
+        self.menubar_selection_change = set()
         self.toplevel["menu"] = self.menubar
         self.menubar.add_command(label="Au",
                                  font=constants.FONT_LARGE_BOLD,
@@ -66,30 +67,18 @@ class TextEditor(TextViewer):
         self.menu_edit.add_command(label="Cut", command=self.buffer_cut)
         self.menu_edit.add_command(label="Paste", command=self.buffer_paste)
 
-        self.menu_status = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_status, label="Status")
-        self.status_var = tk.StringVar() # Also referred to by 'info_setup'.
-        for status in constants.STATUSES:
-            self.menu_status.add_radiobutton(label=str(status),
-                                             variable=self.status_var,
-                                             command=self.set_status)
         self.menu_format = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_format, label="Format")
-        self.menu_format.add_command(label="Bold",
-                                     command=self.bold_add,
-                                     state=tk.DISABLED)
-        self.menu_format.add_command(label="Italic", 
-                                     command=self.italic_add,
-                                     state=tk.DISABLED)
-        self.menu_format.add_command(label="Quote",
-                                     command=self.quote_add,
-                                     state=tk.DISABLED)
+        self.menubar.add_cascade(menu=self.menu_format,
+                                 label="Format",
+                                 state=tk.DISABLED)
+        self.menubar_selection_change.add(self.menubar.index(tk.END))
+        self.menu_format.add_command(label="Bold", command=self.bold_add)
+        self.menu_format.add_command(label="Italic", command=self.italic_add)
+        self.menu_format.add_command(label="Quote", command=self.quote_add)
         for level in range(1, constants.MAX_H_LEVEL + 1):
             self.menu_format.add_command(label=f"Heading {level}",
                                      command=functools.partial(self.heading_add,
-                                                               level=level),
-                                     state=tk.DISABLED)
-            
+                                                               level=level))
 
         self.menu_list = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_list, label="List")
@@ -100,20 +89,27 @@ class TextEditor(TextViewer):
                                    command=functools.partial(self.list_add,
                                                              ordered=False))
 
-        self.menu_xref = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_xref, label="Xref")
-        self.menu_xref.add_command(label="Link",
-                                   command=self.link_add,
-                                   state=tk.DISABLED)
-        self.menu_xref.add_command(label="Indexed",
-                                   command=self.indexed_add,
-                                   state=tk.DISABLED)
-        self.menu_xref.add_command(label="Reference",
-                                   command=self.reference_add,
-                                   state=tk.DISABLED)
-        self.menu_xref.add_command(label="Footnote",
-                                   command=self.footnote_add,
-                                   state=tk.DISABLED)
+        self.menubar.add_command(label="Reference", command=self.reference_add)
+        self.menubar.add_command(label="Link",
+                                 command=self.link_add,
+                                 state=tk.DISABLED)
+        self.menubar_selection_change.add(self.menubar.index(tk.END))
+        self.menubar.add_command(label="Indexed",
+                                 command=self.indexed_add,
+                                 state=tk.DISABLED)
+        self.menubar_selection_change.add(self.menubar.index(tk.END))
+        self.menubar.add_command(label="Footnote",
+                                 command=self.footnote_add,
+                                 state=tk.DISABLED)
+        self.menubar_selection_change.add(self.menubar.index(tk.END))
+
+        self.menu_status = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_status, label="Status")
+        self.status_var = tk.StringVar() # Also referred to by 'info_setup'.
+        for status in constants.STATUSES:
+            self.menu_status.add_radiobutton(label=str(status),
+                                             variable=self.status_var,
+                                             command=self.set_status)
 
     def view_configure_tag_bindings(self, view=None):
         "Configure the tag bindings used in the 'tk.Text' instance."
@@ -134,18 +130,18 @@ class TextEditor(TextViewer):
         self.view.bind("<<Selection>>", self.selection_change)
 
     def info_setup(self):
-        self.info_frame = ttk.Frame(self.frame, padding=2)
+        self.info_frame = tk.ttk.Frame(self.frame, padding=2)
         self.info_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
         self.frame.rowconfigure(1, minsize=22)
 
         self.chars_var = tk.StringVar()
-        chars_label = ttk.Label(self.info_frame)
+        chars_label = tk.ttk.Label(self.info_frame)
         chars_label.grid(row=0, column=0, padx=4, sticky=tk.W)
         self.info_frame.columnconfigure(0, weight=1)
         chars_label["textvariable"] = self.chars_var
         self.chars_var.set(f"{self.character_count} characters")
 
-        status_label = ttk.Label(self.info_frame)
+        status_label = tk.ttk.Label(self.info_frame)
         status_label.grid(row=0, column=1, padx=4, sticky=tk.E)
         status_label["textvariable"] = self.status_var # Defined above in 'menu_status'.
         self.status_var.set(str(self.text.status))
@@ -224,15 +220,11 @@ class TextEditor(TextViewer):
         try:
             self.view.index(tk.SEL_FIRST)
         except tk.TclError:
-            for pos in range(0, self.menu_format.index(tk.END) + 1):
-                self.menu_format.entryconfigure(pos, state=tk.DISABLED)
-            for pos in range(0, self.menu_xref.index(tk.END) + 1):
-                self.menu_xref.entryconfigure(pos, state=tk.DISABLED)
+            for pos in self.menubar_selection_change:
+                self.menubar.entryconfigure(pos, state=tk.DISABLED)
         else:
-            for pos in range(0, self.menu_format.index(tk.END) + 1):
-                self.menu_format.entryconfigure(pos, state=tk.NORMAL)
-            for pos in range(0, self.menu_xref.index(tk.END) + 1):
-                self.menu_xref.entryconfigure(pos, state=tk.NORMAL)
+            for pos in self.menubar_selection_change:
+                self.menubar.entryconfigure(pos, state=tk.NORMAL)
 
     def get_ignore_modified_event(self):
         "Always True first time accessed."
@@ -284,12 +276,12 @@ class TextEditor(TextViewer):
     def bold_remove(self, event):
         if constants.BOLD not in self.view.tag_names(tk.CURRENT):
             return
-        first, last = self.view.tag_prevrange(constants.BOLD, tk.CURRENT)
-        if not tk_messagebox.askokcancel(
+        if not tk.messagebox.askokcancel(
                 parent=self.toplevel,
                 title="Remove bold?",
-                message=f"Really remove bold?"):
+                message="Really remove bold?"):
             return
+        first, last = self.view.tag_prevrange(constants.BOLD, tk.CURRENT)
         self.view.tag_remove(constants.BOLD, first, last)
         self.set_modified()
 
@@ -305,12 +297,12 @@ class TextEditor(TextViewer):
         if constants.ITALIC not in self.view.tag_names(tk.CURRENT):
             return
         first, last = self.view.tag_prevrange(constants.ITALIC, tk.CURRENT)
-        if not tk_messagebox.askokcancel(
+        if not tk.messagebox.askokcancel(
                 parent=self.toplevel,
                 title="Remove italic?",
-                message=f"Really remove italic?"):
+                message="Really remove italic?"):
             return
-        self.view.tag_remove(constants.ITALIC, *range)
+        self.view.tag_remove(constants.ITALIC, first, last)
         self.set_modified()
 
     def quote_add(self):
@@ -329,7 +321,7 @@ class TextEditor(TextViewer):
         if constants.QUOTE not in self.view.tag_names(tk.CURRENT):
             return
         first, last = self.view.tag_prevrange(constants.QUOTE, tk.CURRENT)
-        if not tk_messagebox.askokcancel(
+        if not tk.messagebox.askokcancel(
                 parent=self.toplevel,
                 title="Remove quote?",
                 message=f"Really remove quote?"):
@@ -357,7 +349,7 @@ class TextEditor(TextViewer):
         else:
             return
         first, last = self.view.tag_prevrange(tag, tk.CURRENT)
-        if not tk_messagebox.askokcancel(
+        if not tk.messagebox.askokcancel(
                 parent=self.toplevel,
                 title="Remove heading?",
                 message=f"Really remove heading?"):
@@ -466,10 +458,10 @@ class TextEditor(TextViewer):
             first, last = self.get_selection()
         except ValueError:
             return
-        url = tk_simpledialog.askstring(
+        url = tk.simpledialog.askstring(
             parent=self.toplevel,
             title="Link URL?",
-            prompt="Give URL for link")
+            prompt="URL for link")
         if not url:
             return
         try:
@@ -493,7 +485,7 @@ class TextEditor(TextViewer):
         except ValueError:
             return
         term = self.view.get(first, last)
-        canonical = tk_simpledialog.askstring(
+        canonical = tk.simpledialog.askstring(
             parent=self.toplevel,
             title="Canonical?",
             prompt="Give canonical term",
@@ -504,6 +496,20 @@ class TextEditor(TextViewer):
             canonical = term
         self.view.tag_add(constants.INDEXED, first, last)
         self.view.tag_add(constants.INDEXED_PREFIX + canonical, first, last)
+        self.set_modified()
+
+    def indexed_remove(self, event):
+        term = self.get_indexed()
+        if not term:
+            return
+        if not tk.messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Remove indexed?",
+                message=f"Really remove indexing for '{term}'?"):
+            return
+        first, last = self.view.tag_prevrange(constants.INDEXED, tk.CURRENT)
+        self.view.tag_remove(constants.INDEXED, first, last)
+        self.view.tag_remove(f"{constants.INDEXED_PREFIX}{term}", first, last)
         self.set_modified()
 
     def indexed_action(self, event):
@@ -523,10 +529,25 @@ class TextEditor(TextViewer):
         self.set_modified()
 
     def reference_add(self):
-        raise NotImplementedError
+        add = ReferenceAdd(self.view, self.main.references_viewer.references)
+        if not add.result:
+            return
+        tag = constants.REFERENCE_PREFIX + add.result
+        self.view.insert(tk.INSERT, add.result, (constants.REFERENCE, tag))
 
-    def reference_remove(self, event):
-        raise NotImplementedError
+    def reference_action(self, event):
+        reference = self.get_reference()
+        if not reference:
+            return
+        if not tk.messagebox.askokcancel(
+                parent=self.toplevel,
+                title="Remove reference?",
+                message=f"Really remove reference '{reference}'?"):
+            return
+        tag = f"{constants.REFERENCE_PREFIX}{reference}"
+        first, last = self.view.tag_prevrange(tag, tk.CURRENT)
+        self.view.delete(first, last)
+        self.set_modified()
 
     def footnote_add(self):
         try:
@@ -561,7 +582,7 @@ class TextEditor(TextViewer):
             return
         tag = constants.FOOTNOTE_REF_PREFIX + label
         first, last = self.view.tag_nextrange(tag, "1.0")
-        if not tk_messagebox.askokcancel(
+        if not tk.messagebox.askokcancel(
                 parent=self.toplevel,
                 title="Remove footnote?",
                 message=f"Really remove footnote (text will remain)?"):
@@ -916,7 +937,7 @@ class TextEditor(TextViewer):
 
     def close(self, event=None, force=False):
         if self.is_modified and not force:
-            if not tk_messagebox.askokcancel(
+            if not tk.messagebox.askokcancel(
                     parent=self.toplevel,
                     title="Close?",
                     message="Modifications will not be saved. Really close?"):
@@ -927,8 +948,8 @@ class TextEditor(TextViewer):
         self.toplevel.destroy()
 
 
-class IndexedEdit(tk_simpledialog.Dialog):
-    "Simple dialog window for editing the canonical term for an indexed term."
+class IndexedEdit(tk.simpledialog.Dialog):
+    "Dialog window for editing the canonical term for an indexed term."
 
     def __init__(self, main, toplevel, canonical):
         self.main = main
@@ -937,7 +958,7 @@ class IndexedEdit(tk_simpledialog.Dialog):
         super().__init__(toplevel, title="Edit indexed")
 
     def body(self, body):
-        label = ttk.Label(body, text="Canonical")
+        label = tk.ttk.Label(body, text="Canonical")
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
         self.canonical_entry = tk.Entry(body, width=50)
         self.canonical_entry.insert(0, self.canonical)
@@ -957,13 +978,13 @@ class IndexedEdit(tk_simpledialog.Dialog):
 
     def buttonbox(self):
         box = tk.Frame(self)
-        w = ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        w = tk.ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Show", width=10, command=self.show)
+        w = tk.ttk.Button(box, text="Show", width=10, command=self.show)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Remove", width=10, command=self.remove)
+        w = tk.ttk.Button(box, text="Remove", width=10, command=self.remove)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
+        w = tk.ttk.Button(box, text="Cancel", width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
@@ -973,8 +994,8 @@ class IndexedEdit(tk_simpledialog.Dialog):
         self.main.indexed_viewer.highlight(self.canonical)
 
 
-class LinkEdit(tk_simpledialog.Dialog):
-    "Simple dialog window for editing the URL and title for a link."
+class LinkEdit(tk.simpledialog.Dialog):
+    "Dialog window for editing the URL and title for a link."
 
     def __init__(self, toplevel, link):
         self.link = link
@@ -982,14 +1003,14 @@ class LinkEdit(tk_simpledialog.Dialog):
         super().__init__(toplevel, title="Edit link")
 
     def body(self, body):
-        label = ttk.Label(body, text="URL")
+        label = tk.ttk.Label(body, text="URL")
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
         self.url_entry = tk.Entry(body, width=50)
         if self.link["url"]:
             self.url_entry.insert(0, self.link["url"])
         self.url_entry.grid(row=0, column=1)
 
-        label = ttk.Label(body, text="Title")
+        label = tk.ttk.Label(body, text="Title")
         label.grid(row=1, column=0, padx=4, sticky=tk.E)
         self.title_entry = tk.Entry(body, width=50)
         if self.link["title"]:
@@ -1013,13 +1034,13 @@ class LinkEdit(tk_simpledialog.Dialog):
 
     def buttonbox(self):
         box = tk.Frame(self)
-        w = ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        w = tk.ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Visit", width=10, command=self.visit)
+        w = tk.ttk.Button(box, text="Visit", width=10, command=self.visit)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Remove", width=10, command=self.remove)
+        w = tk.ttk.Button(box, text="Remove", width=10, command=self.remove)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
+        w = tk.ttk.Button(box, text="Cancel", width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
@@ -1027,3 +1048,53 @@ class LinkEdit(tk_simpledialog.Dialog):
 
     def visit(self):
         webbrowser.open_new_tab(self.url_entry.get())
+
+
+class ReferenceAdd(tk.simpledialog.Dialog):
+    "Dialog window for selecting a reference to add."
+
+    def __init__(self, toplevel, references):
+        self.result = None
+        self.selected = None
+        self.references = references
+        super().__init__(toplevel, title="Add reference")
+
+    def body(self, body):
+        body.rowconfigure(0, weight=1)
+        body.columnconfigure(0, weight=1)
+        self.treeview = tk.ttk.Treeview(body,
+                                        height=min(20, len(self.references)),
+                                        columns=("title", ),
+                                        selectmode="browse")
+        self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.treeview.heading("#0", text="Reference id")
+        self.treeview.column("#0",
+                             anchor=tk.W,
+                             minwidth=8*constants.FONT_NORMAL_SIZE,
+                             width=12*constants.FONT_NORMAL_SIZE)
+        self.treeview.heading("title", text="Title", anchor=tk.W)
+        self.treeview.column("title",
+                             minwidth=16*constants.FONT_NORMAL_SIZE,
+                             width=20*constants.FONT_NORMAL_SIZE,
+                             anchor=tk.W,
+                             stretch=True)
+        self.treeview_scroll_y = tk.ttk.Scrollbar(body,
+                                                  orient=tk.VERTICAL,
+                                                  command=self.treeview.yview)
+        self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
+
+        self.treeview.bind("<<TreeviewSelect>>", self.select)
+        for reference in self.references:
+            self.treeview.insert("",
+                                 tk.END,
+                                 reference["id"],
+                                 text=str(reference),
+                                 values=(reference["title"],))
+        return self.treeview
+
+    def select(self, event):
+        self.selected = self.treeview.selection()[0]
+
+    def apply(self):
+        self.result = self.selected
