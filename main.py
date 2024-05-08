@@ -106,7 +106,7 @@ class Main:
 
         # Currently selected text, and cursor locations in all viewers.
         config["source"]["selected"] = self.treeview.focus()
-        config["source"]["cursor"] = dict([(t.fullname, t.viewer.view.index(tk.INSERT))
+        config["source"]["cursor"] = dict([(t.fullname, t.viewer.cursor)
                                            for t in self.source.all_texts])
 
         # Save the current cut-and-paste buffer.
@@ -380,7 +380,7 @@ class Main:
             self.treeview_set_info(text)
         for text in self.source.all_texts:
             try:
-                text.viewer.view.mark_set(tk.INSERT, self.config["source"]["cursor"][text.fullname])
+                text.viewer.cursor = self.config["source"]["cursor"][text.fullname]
             except KeyError:
                 pass
 
@@ -655,10 +655,12 @@ class Main:
             editor = self.editors[text.fullname]
         except KeyError:
             editor = TextEditor(self, text)
+            editor.cursor = text.viewer.cursor
             self.editors[text.fullname] = editor
         else:
             editor.toplevel.lift()
         self.set_menubar_state()
+        editor.view.update()
         editor.view.focus_set()
         return "break"
 

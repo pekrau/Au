@@ -50,8 +50,8 @@ class BaseViewer:
         self.view.configure(yscrollcommand=self.scroll_y.set)
 
     def display_title(self):
-        self.view.insert(tk.INSERT, str(self), constants.TITLE)
-        self.view.insert(tk.INSERT, "\n\n")
+        self.title = f"{self}\n"
+        self.view.insert(tk.INSERT, self.title, (constants.TITLE,))
 
     def view_configure_tags(self, view=None):
         "Configure the tags used in the 'tk.Text' instance."
@@ -60,7 +60,8 @@ class BaseViewer:
         view.tag_configure(constants.TITLE,
                            font=constants.TITLE_FONT,
                            lmargin1=constants.TITLE_LEFT_MARGIN,
-                           lmargin2=constants.TITLE_LEFT_MARGIN)
+                           lmargin2=constants.TITLE_LEFT_MARGIN,
+                           spacing3=constants.TITLE_SPACING)
         view.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         view.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         view.tag_configure(constants.LINK,
@@ -82,36 +83,41 @@ class BaseViewer:
         "Configure the key bindings used in the 'tk.Text' instance."
         if view is None:
             view = self.view
-        view.bind("<Home>", self.move_cursor_home)
-        view.bind("<End>", self.move_cursor_end)
+        view.bind("<Home>", self.cursor_home)
+        view.bind("<End>", self.cursor_end)
         view.bind("<Key>", self.key_press)
         view.bind("<F1>", self.debug_tags)
         view.bind("<F2>", self.debug_selected)
         view.bind("<F3>", self.debug_buffer_paste)
         view.bind("<F4>", self.debug_dump)
 
-    def move_cursor(self, position):
-        if position is None:
-            self.move_cursor_home()
-        else:
-            position = self.view.index(position + self.cursor_offset())
-            self.view.mark_set(tk.INSERT, position)
-            self.view.see(position)
-            self.view.update()
+    def cursor_home(self, event=None):
+        self.view.mark_set(tk.INSERT, "1.0")
+        self.view.see(tk.INSERT)
 
-    def move_cursor_home(self, event=None):
-        self.move_cursor("1.0")
+    def cursor_end(self, event=None):
+        self.view.mark_set(tk.INSERT, tk.END)
+        self.view.see(tk.INSERT)
 
-    def move_cursor_end(self, event=None):
-        self.move_cursor(tk.END)
+    def get_cursor(self):
+        "Get the position of cursor in absolute number of characters."
+        result = len(self.view.get("1.0", tk.INSERT))
+        try:
+            result -= len(self.title)
+        except AttributeError:
+            pass
+        return result
 
-    def cursor_offset(self, sign="+"):
-        "Return the offset to convert the cursor position to the one to use."
-        return f"{sign}{len(str(self))+2}c"
+    def set_cursor(self, position):
+        "Set the position of the cursor by the absolute number of characters."
+        try:
+            position += len(self.title)
+        except AttributeError:
+            pass
+        self.view.mark_set(tk.INSERT, "1.0" + f"+{position}c")
+        self.view.see(tk.INSERT)
 
-    def cursor_normalized(self):
-        "Return the normalized cursor position."
-        return self.view.index(tk.INSERT + self.cursor_offset(sign="-"))
+    cursor = property(get_cursor, set_cursor)
 
     def key_press(self, event):
         "Stop all key presses that produce a character."
@@ -158,6 +164,7 @@ class BaseViewer:
     def debug_tags(self, event=None):
         ic("--- insert ---",
            self.view.index(tk.INSERT),
+           self.cursor,
            self.view.tag_names(tk.INSERT))
 
     def debug_selected(self, event=None):

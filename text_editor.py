@@ -33,15 +33,19 @@ class TextEditor(TextViewer):
             self.toplevel.geometry(self.text["geometry"])
         except KeyError:
             pass
+
         self.menubar_setup()
         self.view_create(self.toplevel)
         self.view_configure_tags()
         self.view_configure_tag_bindings()
         self.view_bind_keys()
-        # NOTE: Do not call 'render_title'.
         self.render(self.text.ast)
         self.info_setup()
         self.view.edit_modified(False)
+
+    def display_title(self):
+        "Do not display the title in the text edit area."
+        pass
 
     def menubar_setup(self):
         self.menubar = tk.Menu(self.toplevel, background="gold")
@@ -151,27 +155,27 @@ class TextEditor(TextViewer):
     def character_count(self):
         return len(self.view.get("1.0", tk.END))
 
-    def cursor_offset(self, sign=None):
-        "Return the offset to convert the cursor position to the one to use."
-        return ""
-
     def key_press(self, event):
-        pos = self.view.index(tk.INSERT)
-        tags = self.view.tag_names(pos)
-        # Do not allow modifying keys from encroaching on a list item bullet.
-        if constants.LIST_BULLET in tags and event.char:
-            return "break"
-        # Do not allow modifying keys from encroaching on a reference.
-        if constants.REFERENCE in tags and event.char:
-            return "break"
-        # Do not allow modifying keys from encroaching on a footnote reference.
-        if constants.FOOTNOTE_REF in tags and event.char:
-            return "break"
-        # Do not allow 'Return' when in list; for now.
-        if event.keysym == "Return":
-            for tag in tags:
-                if tag.startswith(constants.LIST_PREFIX):
-                    return "break"
+        "Forbid some key press actions."
+        tags = set(self.view.tag_names(tk.INSERT))
+        if event.char:
+            # For 'Backspace', check the position before.
+            if event.keysym == "BackSpace":
+                tags =self.view.tag_names(tk.INSERT + "-1c")
+            # Do not allow 'Return' when in list; temporary solution.
+            elif event.keysym == "Return":
+                for tag in tags:
+                    if tag.startswith(constants.LIST_PREFIX):
+                        return "break"
+            # Do not allow modifying keys from modifying a list item bullet.
+            if constants.LIST_BULLET in tags:
+                return "break"
+            # Do not allow modifying keys from modifying a reference.
+            if constants.REFERENCE in tags:
+                return "break"
+            # Do not allow modifying keys from modifying a footnote reference.
+            if constants.FOOTNOTE_REF in tags:
+                return "break"
         self.chars_var.set(f"{self.character_count} characters")
 
     def popup_menu(self, event):

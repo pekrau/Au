@@ -227,13 +227,18 @@ class FootnoteRenderMixin:
         self.tag_elide(tag)
         self.view.tag_add(tag, first, tk.INSERT)
 
-    def init_elided_tags(self):
+    @property
+    def elided_tags(self):
         """Horrible work-around for apparent Tk/Tcl bug that affects
         searches ot text with tags for elided parts.
         Keep track of all tags set as elided, so that they can be
         temporarily be unelided before a search, and restored after.
         """
-        self.elided_tags = set()
+        try:
+            return self._elided_tags
+        except AttributeError:
+            self._elided_tags = set()
+            return self._elided_tags
 
     def tag_toggle_elide(self, tag):
         if int(self.view.tag_cget(tag, "elide")):

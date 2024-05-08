@@ -18,7 +18,6 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
     def __init__(self, parent, main, text):
         self.footnotes = dict()     # Lookup local for the instance.
         self.highlighted = None
-        self.init_elided_tags()
         super().__init__(parent, main, text)
         self.status = constants.Status.lookup(self.text.frontmatter.get("status")) or constants.STARTED
 
