@@ -687,27 +687,27 @@ class TextEditor(TextViewer):
     def outfile(self):
         return self.outfile_stack[-1]
 
-    def output_line_indent(self, force=False):
+    def save_line_indent(self, force=False):
         if self.line_indented and not force:
             return
         self.outfile.write("".join(self.line_indents))
         self.line_indented = True
 
-    def output_characters(self, characters):
+    def save_characters(self, characters):
         if not characters:
             return
         segments = characters.split("\n")
         if len(segments) == 1:
-            self.output_line_indent()
+            self.save_line_indent()
             self.outfile.write(segments[0])
         else:
             for segment in segments[:-1]:
-                self.output_line_indent()
+                self.save_line_indent()
                 self.outfile.write(segment)
                 self.outfile.write("\n")
                 self.line_indented = False
             if segments[-1]:
-                self.output_line_indent()
+                self.save_line_indent()
                 self.outfile.write(segments[-1])
                 self.outfile.write("\n")
                 self.line_indented = False
@@ -715,7 +715,7 @@ class TextEditor(TextViewer):
     def markdown_text(self, item):
         if self.skip_text:
             return
-        self.output_characters(item[1])
+        self.save_characters(item[1])
 
     def markdown_mark(self, item):
         pass
@@ -740,16 +740,16 @@ class TextEditor(TextViewer):
             method(item)
 
     def markdown_tagon_italic(self, item):
-        self.output_characters("*")
+        self.save_characters("*")
 
     def markdown_tagoff_italic(self, item):
-        self.output_characters("*")
+        self.save_characters("*")
 
     def markdown_tagon_bold(self, item):
-        self.output_characters("**")
+        self.save_characters("**")
 
     def markdown_tagoff_bold(self, item):
-        self.output_characters("**")
+        self.save_characters("**")
 
     def markdown_tagon_quote(self, item):
         self.line_indents.append("> ")
@@ -758,23 +758,47 @@ class TextEditor(TextViewer):
         self.line_indents.pop()
 
     def markdown_tagon_h1(self, item):
-        self.output_characters("# ")
+        self.save_characters("# ")
 
     def markdown_tagoff_h1(self, item):
         pass
 
     def markdown_tagon_h2(self, item):
-        self.output_characters("# ")
+        self.save_characters("# ")
 
     def markdown_tagoff_h2(self, item):
+        pass
+
+    def markdown_tagon_h3(self, item):
+        self.save_characters("# ")
+
+    def markdown_tagoff_h3(self, item):
+        pass
+
+    def markdown_tagon_h4(self, item):
+        self.save_characters("# ")
+
+    def markdown_tagoff_h4(self, item):
+        pass
+
+    def markdown_tagon_h5(self, item):
+        self.save_characters("# ")
+
+    def markdown_tagoff_h5(self, item):
+        pass
+
+    def markdown_tagon_h6(self, item):
+        self.save_characters("# ")
+
+    def markdown_tagoff_h6(self, item):
         pass
 
     def markdown_tagon_thematic_break(self, item):
         self.skip_text = True
 
     def markdown_tagoff_thematic_break(self, item):
-        self.output_characters("---")
-        self.output_line_indent(force=True)
+        self.save_characters("---")
+        self.save_line_indent(force=True)
         self.outfile.write("\n")
         self.skip_text = False
 
@@ -793,10 +817,10 @@ class TextEditor(TextViewer):
     def markdown_tagon_list_bullet(self, item):
         data = self.list_stack[-1]
         if data["ordered"]:
-            self.output_characters(f"{data['count']}. ")
+            self.save_characters(f"{data['count']}. ")
             data["count"] += 1
         else:
-            self.output_characters("- ")
+            self.save_characters("- ")
         self.skip_text = True
 
     def markdown_tagoff_list_bullet(self, item):
@@ -807,14 +831,14 @@ class TextEditor(TextViewer):
             if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
                 break
-        self.output_characters("[")
+        self.save_characters("[")
 
     def markdown_tagoff_link(self, item):
         link = self.get_link(self.current_link_tag)
         if link["title"]:
-            self.output_characters(f"""]({link['url']} "{link['title']}")""")
+            self.save_characters(f"""]({link['url']} "{link['title']}")""")
         else:
-            self.output_characters(f"]({link['url']})")
+            self.save_characters(f"]({link['url']})")
         self.current_link_tag = None
 
     def markdown_tagon_indexed(self, item):
@@ -824,20 +848,20 @@ class TextEditor(TextViewer):
                 self.current_indexed_term = self.view.get(first, last)
                 self.current_indexed_tag = tag
                 break
-        self.output_characters("[#")
+        self.save_characters("[#")
 
     def markdown_tagoff_indexed(self, item):
         canonical = self.current_indexed_tag[len(constants.INDEXED_PREFIX):]
         if self.current_indexed_term == canonical:
-            self.output_characters("]")
+            self.save_characters("]")
         else:
-            self.output_characters(f"|{canonical}]")
+            self.save_characters(f"|{canonical}]")
 
     def markdown_tagon_reference(self, item):
-        self.output_characters("[@")
+        self.save_characters("[@")
 
     def markdown_tagoff_reference(self, item):
-        self.output_characters("]")
+        self.save_characters("]")
 
     def markdown_tagon_footnote_ref(self, item):
         for tag in self.view.tag_names(item[2]):
@@ -848,7 +872,7 @@ class TextEditor(TextViewer):
                 footnote["new_label"] = new_label
                 self.markdown_footnotes[old_label] = footnote
                 break
-        self.output_characters(f"[^{new_label}]")
+        self.save_characters(f"[^{new_label}]")
         self.skip_text = True
 
     def markdown_tagoff_footnote_ref(self, item):
