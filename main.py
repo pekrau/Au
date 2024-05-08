@@ -97,13 +97,17 @@ class Main:
 
     def config_save(self):
         "Save the current config. Get current state from the respective widgets."
-        config = dict(main=dict(geometry=self.root.geometry(),
-                                sash=[self.panedwindow.sash("coord", 0)[0],
-                                      self.panedwindow.sash("coord", 1)[0]]),
-                      meta=dict(
-                          selected=str(self.meta_notebook_lookup[self.meta_notebook.select()])),
-                      source=self.source.get_config())
+        config = dict()
+        config["main"] = dict(geometry=self.root.geometry(),
+                              sash=[self.panedwindow.sash("coord", 0)[0],
+                                    self.panedwindow.sash("coord", 1)[0]])
+        config["meta"] = dict(selected=str(self.meta_notebook_lookup[self.meta_notebook.select()]))
+        config["source"] = self.source.get_config()
+
+        # Currently selected text, and cursor locations in all viewers.
         config["source"]["selected"] = self.treeview.focus()
+        config["source"]["cursor"] = dict([(t.fullname, t.viewer.view.index(tk.INSERT))
+                                           for t in self.source.all_texts])
 
         # Save the current cut-and-paste buffer.
         config["paste"] = self.paste_buffer
@@ -365,11 +369,6 @@ class Main:
             self.texts_notebook.forget(self.texts_notebook_lookup.popitem()[0])
         for text in self.source.all_texts:
             text.viewer = viewer = TextViewer(self.texts_notebook, self, text)
-            # XXX
-            # try:
-            #     viewer.move_cursor(self.config["items"][filepath].get("cursor"))
-            # except KeyError:
-            #     pass
             self.texts_notebook.add(viewer.frame, text=viewer.name,
                                     state=text.shown and tk.NORMAL or tk.HIDDEN)
             tabs = self.texts_notebook.tabs()
@@ -379,6 +378,11 @@ class Main:
             viewer.view.bind("<Double-Button-1>", opener)
             viewer.view.bind("<Return>", opener)
             self.treeview_set_info(text)
+        for text in self.source.all_texts:
+            try:
+                text.viewer.view.mark_set(tk.INSERT, self.config["source"]["cursor"][text.fullname])
+            except KeyError:
+                pass
 
     def meta_notebook_create(self):
         "Create the meta notebook framework."
