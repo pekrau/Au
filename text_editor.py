@@ -15,11 +15,15 @@ import tkinter.messagebox
 
 import constants
 import utils
+
+from utils import Tr
 from text_viewer import TextViewer
 
 
 class TextEditor(TextViewer):
     "Editor window for Markdown text file."
+
+    TEXT_COLOR = constants.EDIT_COLOR
 
     def __init__(self, main, text):
         super().__init__(main.root, main, text)
@@ -57,61 +61,62 @@ class TextEditor(TextViewer):
                                  command=self.main.root.lift)
 
         self.menu_file = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Save",
+        self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
+        self.menu_file.add_command(label=Tr("Save"),
                                    command=self.save,
                                    accelerator="Ctrl-S")
-        self.menu_file.add_command(label="Close",
+        self.menu_file.add_command(label=Tr("Close"),
                                    command=self.close,
                                    accelerator="Ctrl-Q")
 
         self.menu_edit = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
-        self.menu_edit.add_command(label="Copy", command=self.buffer_copy)
-        self.menu_edit.add_command(label="Cut", command=self.buffer_cut)
-        self.menu_edit.add_command(label="Paste", command=self.buffer_paste)
+        self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
+        self.menu_edit.add_command(label=Tr("Copy"), command=self.buffer_copy)
+        self.menu_edit.add_command(label=Tr("Cut"), command=self.buffer_cut)
+        self.menu_edit.add_command(label=Tr("Paste"), command=self.buffer_paste)
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_format,
-                                 label="Format",
+                                 label=Tr("Format"),
                                  state=tk.DISABLED)
         self.menubar_selection_change.add(self.menubar.index(tk.END))
-        self.menu_format.add_command(label="Bold", command=self.bold_add)
-        self.menu_format.add_command(label="Italic", command=self.italic_add)
-        self.menu_format.add_command(label="Quote", command=self.quote_add)
+        self.menu_format.add_command(label=Tr("Bold"), command=self.bold_add)
+        self.menu_format.add_command(label=Tr("Italic"), command=self.italic_add)
+        self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
         for level in range(1, constants.MAX_H_LEVEL + 1):
-            self.menu_format.add_command(label=f"Heading {level}",
-                                     command=functools.partial(self.heading_add,
-                                                               level=level))
+            self.menu_format.add_command(label=f"{Tr('Heading')} {level}",
+                                         command=functools.partial(self.heading_add,
+                                                                   level=level))
 
         self.menu_list = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_list, label="List")
-        self.menu_list.add_command(label="Ordered",
+        self.menubar.add_cascade(menu=self.menu_list, label=Tr("List"))
+        self.menu_list.add_command(label=Tr("Ordered"),
                                    command=functools.partial(self.list_add,
                                                              ordered=True))
-        self.menu_list.add_command(label="Unordered",
+        self.menu_list.add_command(label=Tr("Unordered"),
                                    command=functools.partial(self.list_add,
                                                              ordered=False))
 
-        self.menubar.add_command(label="Reference", command=self.reference_add)
-        self.menubar.add_command(label="Link",
+        self.menubar.add_command(label=Tr("Reference"), command=self.reference_add)
+        self.menubar.add_command(label=Tr("Link"),
                                  command=self.link_add,
                                  state=tk.DISABLED)
         self.menubar_selection_change.add(self.menubar.index(tk.END))
-        self.menubar.add_command(label="Indexed",
+        self.menubar.add_command(label=Tr("Indexed"),
                                  command=self.indexed_add,
                                  state=tk.DISABLED)
         self.menubar_selection_change.add(self.menubar.index(tk.END))
-        self.menubar.add_command(label="Footnote",
+        self.menubar.add_command(label=Tr("Footnote"),
                                  command=self.footnote_add,
                                  state=tk.DISABLED)
         self.menubar_selection_change.add(self.menubar.index(tk.END))
 
         self.menu_status = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_status, label="Status")
+        self.menubar.add_cascade(menu=self.menu_status, label=Tr("Status"))
         self.status_var = tk.StringVar() # Also referred to by 'info_setup'.
         for status in constants.STATUSES:
-            self.menu_status.add_radiobutton(label=str(status),
+            self.menu_status.add_radiobutton(label=Tr(str(status)),
+                                             value=str(status),
                                              variable=self.status_var,
                                              command=self.set_status)
 
@@ -148,7 +153,7 @@ class TextEditor(TextViewer):
         status_label = tk.ttk.Label(self.info_frame)
         status_label.grid(row=0, column=1, padx=4, sticky=tk.E)
         status_label["textvariable"] = self.status_var # Defined above in 'menu_status'.
-        self.status_var.set(str(self.text.status))
+        self.status_var.set(Tr(str(self.text.status)))
         self.info_frame.columnconfigure(1, weight=1)
 
     @property
@@ -186,36 +191,36 @@ class TextEditor(TextViewer):
             first, last = self.get_selection(check_no_boundary=False)
         except ValueError:
             if self.main.paste_buffer:
-                menu.add_command(label="Paste", command=self.buffer_paste)
+                menu.add_command(label=Tr("Paste"), command=self.buffer_paste)
                 any_item = True
             tags = self.view.tag_names(tk.INSERT + "-1c")
             if any_item:
                 menu.add_separator()
             for tag in tags:
                 if tag.startswith(constants.LIST_ITEM_PREFIX):
-                    menu.add_command(label="Add list item",
+                    menu.add_command(label=Tr("Add list item"),
                                      command=functools.partial(self.list_item_add,
                                                                tags=tags))
-                    menu.add_command(label="Remove list item",
+                    menu.add_command(label=Tr("Remove list item"),
                                      command=functools.partial(self.list_item_remove,
                                                                tags=tags))
                     break
-            menu.add_command(label="Add ordered list",
+            menu.add_command(label=Tr("Add ordered list"),
                              command=functools.partial(self.list_add, ordered=True))
-            menu.add_command(label="Add unordered list",
+            menu.add_command(label=Tr("Add unordered list"),
                              command=functools.partial(self.list_add, ordered=False))
             any_item = True
         else:                   # There is current selection.
             if not self.selection_contains_boundary(first, last, complain=False):
-                menu.add_command(label="Copy", command=self.buffer_copy)
-                menu.add_command(label="Cut", command=self.buffer_cut)
+                menu.add_command(label=Tr("Copy"), command=self.buffer_copy)
+                menu.add_command(label=Tr("Cut"), command=self.buffer_cut)
                 menu.add_separator()
-                menu.add_command(label="Bold", command=self.bold_add)
-                menu.add_command(label="Italic", command=self.italic_add)
-                menu.add_command(label="Quote", command=self.quote_add)
+                menu.add_command(label=Tr("Bold"), command=self.bold_add)
+                menu.add_command(label=Tr("Italic"), command=self.italic_add)
+                menu.add_command(label=Tr("Quote"), command=self.quote_add)
                 menu.add_separator()
-                menu.add_command(label="Link", command=self.link_add)
-                menu.add_command(label="Index", command=self.indexed_add)
+                menu.add_command(label=Tr("Link"), command=self.link_add)
+                menu.add_command(label=Tr("Indexed"), command=self.indexed_add)
                 any_item = True
         if any_item:
             menu.tk_popup(event.x_root, event.y_root)
@@ -661,8 +666,7 @@ class TextEditor(TextViewer):
     def undump_tagon(self, entry, tags):
         if entry[1].startswith(constants.FOOTNOTE_REF_PREFIX):
             label = self.get_new_footnote_label()
-            tags[entry[1]] = dict(label=label,
-                                  first=self.view.index(tk.INSERT))
+            tags[entry[1]] = dict(label=label, first=self.view.index(tk.INSERT))
             self.skip_text = True
         elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
             ref_tag = constants.FOOTNOTE_REF_PREFIX + entry[1][len(constants.FOOTNOTE_DEF_PREFIX):]
@@ -962,7 +966,7 @@ class IndexedEdit(tk.simpledialog.Dialog):
         super().__init__(toplevel, title="Edit indexed")
 
     def body(self, body):
-        label = tk.ttk.Label(body, text="Canonical")
+        label = tk.ttk.Label(body, text=Tr("Canonical"))
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
         self.canonical_entry = tk.Entry(body, width=50)
         self.canonical_entry.insert(0, self.canonical)
@@ -982,13 +986,14 @@ class IndexedEdit(tk.simpledialog.Dialog):
 
     def buttonbox(self):
         box = tk.Frame(self)
-        w = tk.ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        w = tk.ttk.Button(box, text=Tr("OK"), width=10,
+                          command=self.ok, default=tk.ACTIVE)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.ttk.Button(box, text="Show", width=10, command=self.show)
+        w = tk.ttk.Button(box, text=Tr("Show"), width=10, command=self.show)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.ttk.Button(box, text="Remove", width=10, command=self.remove)
+        w = tk.ttk.Button(box, text=Tr("Remove"), width=10, command=self.remove)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.ttk.Button(box, text="Cancel", width=10, command=self.cancel)
+        w = tk.ttk.Button(box, text=Tr("Cancel"), width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
@@ -1007,14 +1012,14 @@ class LinkEdit(tk.simpledialog.Dialog):
         super().__init__(toplevel, title="Edit link")
 
     def body(self, body):
-        label = tk.ttk.Label(body, text="URL")
+        label = tk.ttk.Label(body, text=Tr("URL"))
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
         self.url_entry = tk.Entry(body, width=50)
         if self.link["url"]:
             self.url_entry.insert(0, self.link["url"])
         self.url_entry.grid(row=0, column=1)
 
-        label = tk.ttk.Label(body, text="Title")
+        label = tk.ttk.Label(body, text=Tr("Title"))
         label.grid(row=1, column=0, padx=4, sticky=tk.E)
         self.title_entry = tk.Entry(body, width=50)
         if self.link["title"]:
@@ -1038,13 +1043,14 @@ class LinkEdit(tk.simpledialog.Dialog):
 
     def buttonbox(self):
         box = tk.Frame(self)
-        w = tk.ttk.Button(box, text="OK", width=10, command=self.ok, default=tk.ACTIVE)
+        w = tk.ttk.Button(box, text=Tr("OK"), width=10,
+                          command=self.ok, default=tk.ACTIVE)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.ttk.Button(box, text="Visit", width=10, command=self.visit)
+        w = tk.ttk.Button(box, text=Tr("Visit"), width=10, command=self.visit)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.ttk.Button(box, text="Remove", width=10, command=self.remove)
+        w = tk.ttk.Button(box, text=Tr("Remove"), width=10, command=self.remove)
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.ttk.Button(box, text="Cancel", width=10, command=self.cancel)
+        w = tk.ttk.Button(box, text=Tr("Cancel"), width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
@@ -1071,12 +1077,12 @@ class ReferenceAdd(tk.simpledialog.Dialog):
                                         columns=("title", ),
                                         selectmode="browse")
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.treeview.heading("#0", text="Reference id")
+        self.treeview.heading("#0", text=Tr("Reference id"))
         self.treeview.column("#0",
                              anchor=tk.W,
                              minwidth=8*constants.FONT_NORMAL_SIZE,
                              width=12*constants.FONT_NORMAL_SIZE)
-        self.treeview.heading("title", text="Title", anchor=tk.W)
+        self.treeview.heading("title", text=Tr("Title"), anchor=tk.W)
         self.treeview.column("title",
                              minwidth=16*constants.FONT_NORMAL_SIZE,
                              width=20*constants.FONT_NORMAL_SIZE,

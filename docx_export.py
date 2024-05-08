@@ -1,4 +1,4 @@
-"DOCX compiler."
+"DOCX export."
 
 from icecream import ic
 
@@ -10,8 +10,8 @@ import constants
 import utils
 
 
-class Compiler:
-    "DOCX compiler."
+class Export:
+    "DOCX export."
 
     def __init__(self, source):
         self.source = source

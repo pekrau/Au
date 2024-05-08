@@ -14,6 +14,8 @@ import tkinter.font
 
 import constants
 import utils
+
+from utils import Tr
 from source import Source
 from text_viewer import TextViewer
 from text_editor import TextEditor
@@ -163,57 +165,59 @@ class Main:
         self.menubar.add_command(label="Au", font=constants.FONT_LARGE_BOLD)
 
         self.menu_file = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_file, label="File")
-        self.menu_file.add_command(label="Archive", command=self.archive)
-        self.menu_file.add_command(label="Quit",
+        self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
+        self.menu_file.add_command(label=Tr("Archive"), command=self.archive)
+        self.menu_file.add_command(label=Tr("Quit"),
                                    command=self.quit,
                                    accelerator="Ctrl-Q")
         self.root.bind("<Control-q>", self.quit)
 
         self.menu_edit = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_edit, label="Edit")
+        self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
         # The order here affects 'set_menubar_state'.
-        self.menu_edit.add_command(label="Create text", command=self.create_text)
-        self.menu_edit.add_command(label="Create section", command=self.create_section)
-        self.menu_edit.add_command(label="Rename", command=self.rename)
-        self.menu_edit.add_command(label="Copy", command=self.copy)
-        self.menu_edit.add_command(label="Delete", command=self.delete)
+        self.menu_edit.add_command(label=Tr("Create text"), command=self.create_text)
+        self.menu_edit.add_command(label=Tr("Create section"),
+                                   command=self.create_section)
+        self.menu_edit.add_command(label=Tr("Rename"), command=self.rename)
+        self.menu_edit.add_command(label=Tr("Copy"), command=self.copy)
+        self.menu_edit.add_command(label=Tr("Delete"), command=self.delete)
 
         self.menu_move = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_move, label="Rearrange")
+        self.menubar.add_cascade(menu=self.menu_move, label=Tr("Rearrange"))
         # The order here affects 'set_menubar_state'.
-        self.menu_move.add_command(label="Move up",
+        self.menu_move.add_command(label=Tr("Move up"),
                                       command=self.move_item_up,
                                       accelerator="Ctrl-Up")
-        self.menu_move.add_command(label="Move down",
+        self.menu_move.add_command(label=Tr("Move down"),
                                       command=self.move_item_down,
                                       accelerator="Ctrl-Down")
-        self.menu_move.add_command(label="Into section",
+        self.menu_move.add_command(label=Tr("Into section"),
                                       command=self.move_item_into_section,
                                       accelerator="Ctrl-Left")
-        self.menu_move.add_command(label="Out of section",
+        self.menu_move.add_command(label=Tr("Out of section"),
                                       command=self.move_item_out_of_section,
                                       accelerator="Ctrl-Right")
 
-        self.menu_compile = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_compile, label="Compile")
-        self.menu_compile.add_command(label="DOCX", command=self.source.compile_docx)
-        self.menu_compile.add_command(label="PDF", command=self.source.compile_pdf)
-        self.menu_compile.add_command(label="EPUB", command=self.source.compile_epub)
-        self.menu_compile.add_command(label="HTML", command=self.source.compile_html)
+        self.menu_export = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_export, label=Tr("Export"))
+        self.menu_export.add_command(label="DOCX", command=self.source.export_docx)
+        self.menu_export.add_command(label="PDF", command=self.source.export_pdf)
+        self.menu_export.add_command(label="EPUB", command=self.source.export_epub)
+        self.menu_export.add_command(label="HTML", command=self.source.export_html)
 
         self.menu_popup = tk.Menu(self.root)
-        self.menu_popup.add_command(label="Create text", command=self.create_text)
-        self.menu_popup.add_command(label="Create section", command=self.create_section)
-        self.menu_popup.add_command(label="Rename", command=self.rename)
-        self.menu_popup.add_command(label="Copy", command=self.copy)
-        self.menu_popup.add_command(label="Delete", command=self.delete)
+        self.menu_popup.add_command(label=Tr("Create text"), command=self.create_text)
+        self.menu_popup.add_command(label=Tr("Create section"),
+                                    command=self.create_section)
+        self.menu_popup.add_command(label=Tr("Rename"), command=self.rename)
+        self.menu_popup.add_command(label=Tr("Copy"), command=self.copy)
+        self.menu_popup.add_command(label=Tr("Delete"), command=self.delete)
         self.menu_popup.add_separator()
-        self.menu_popup.add_command(label="Move up", command=self.move_item_up)
-        self.menu_popup.add_command(label="Move down", command=self.move_item_down)
-        self.menu_popup.add_command(label="Into section",
+        self.menu_popup.add_command(label=Tr("Move up"), command=self.move_item_up)
+        self.menu_popup.add_command(label=Tr("Move down"), command=self.move_item_down)
+        self.menu_popup.add_command(label=Tr("Into section"),
                                     command=self.move_item_into_section)
-        self.menu_popup.add_command(label="Out of section",
+        self.menu_popup.add_command(label=Tr("Out of section"),
                                     command=self.move_item_out_of_section)
 
     def set_menubar_state(self):
@@ -240,10 +244,10 @@ class Main:
         self.treeview.tag_configure("section", background=constants.SECTION_COLOR)
         self.treeview.tag_configure("modified", background=constants.MODIFIED_COLOR)
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.treeview.heading("#0", text="Item")
-        self.treeview.heading("status", text="Status")
-        self.treeview.heading("chars", text="Chars")
-        self.treeview.heading("age", text="Age")
+        self.treeview.heading("#0", text=Tr("Item"))
+        self.treeview.heading("status", text=Tr("Status"))
+        self.treeview.heading("chars", text=Tr("Chars"))
+        self.treeview.heading("age", text=Tr("Age"))
         self.treeview.column("status",
                              anchor=tk.E,
                              minwidth=3*constants.FONT_NORMAL_SIZE,
@@ -337,7 +341,7 @@ class Main:
         else:
             tags.discard("modified")
         self.treeview.item(text.fullname, tags=tuple(tags))
-        self.treeview.set(text.fullname, "status", str(text.status))
+        self.treeview.set(text.fullname, "status", Tr(str(text.status)))
         self.treeview.set(text.fullname, "chars", text.viewer.character_count)
         self.treeview.set(text.fullname, "age", text.age)
 
@@ -393,32 +397,32 @@ class Main:
         self.meta_notebook_lookup = dict()
 
         self.title_viewer = TitleViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.title_viewer.frame, text="Title")
+        self.meta_notebook.add(self.title_viewer.frame, text=Tr("Title"))
         self.title_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.meta_notebook_lookup[self.title_viewer.tabid] = self.title_viewer
 
         self.references_viewer = ReferencesViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.references_viewer.frame, text="References")
+        self.meta_notebook.add(self.references_viewer.frame, text=Tr("References"))
         self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
 
         self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.indexed_viewer.frame, text="Indexed")
+        self.meta_notebook.add(self.indexed_viewer.frame, text=Tr("Indexed"))
         self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
         self.todo_viewer = TodoViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.todo_viewer.frame, text="To do")
+        self.meta_notebook.add(self.todo_viewer.frame, text=Tr("To do"))
         self.todo_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.meta_notebook_lookup[self.todo_viewer.tabid] = self.todo_viewer
 
         self.search_viewer = SearchViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.search_viewer.frame, text="Search")
+        self.meta_notebook.add(self.search_viewer.frame, text=Tr("Search"))
         self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.meta_notebook_lookup[self.search_viewer.tabid] = self.search_viewer
 
         self.help_viewer = HelpViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.help_viewer.frame, text="Help")
+        self.meta_notebook.add(self.help_viewer.frame, text=Tr("Help"))
         self.help_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.meta_notebook_lookup[self.help_viewer.tabid] = self.help_viewer
 

@@ -1,0 +1,59 @@
+en,sv
+item,post
+file,fil
+archive,arkiv
+quit,avsluta
+save,spara
+close,stäng
+edit,modifiera
+create text,skapa text
+create section,skapa sektion
+rename,ändra namn
+copy,kopiera
+delete,radera
+move up,flytta upp
+move down,flytta ner
+rearrange,flytta
+into section,in i sektion
+out of section,ut ur sektion
+chars,tecken
+age,ålder
+title,titel
+reference,referens
+references,referenser
+indexed,indexerad
+to do,att göra
+search,sök
+help,hjälp
+canonical,kanonisk
+ok,ok
+show,visa
+remove,ta bort
+cancel,avbryt
+visit,besök
+reference id,referens id
+cut,klipp
+paste,klistra
+bold,fetstil
+italic,kursiv
+quote,citat
+heading,rubrik
+ordered,numrerad
+unordere,onumrerad
+link,länk
+footnote,fotnot
+add list item,lägg till listelement
+remove list item,ta bort listelement
+add ordered list,lägg till numrerad lista
+add unordered list,lägg till onumrerad lista
+Import BibTeX,importera BibTeX
+add manually,lägg till manuellt
+started,påbörjad
+outline,skiss
+incomplete,ofullständig
+draft,utkast
+written,skriven
+revised,reviderad
+done,färdig
+proofs,korrektur
+final,avslutad

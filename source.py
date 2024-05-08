@@ -17,7 +17,7 @@ import yaml
 
 import constants
 import utils
-import docx_compiler
+import docx_export
 
 FRONTMATTER = re.compile(r"^---([\n\r].*?[\n\r])---[\n\r](.*)$", re.DOTALL)
 
@@ -159,20 +159,20 @@ class Source:
         self.lookup[section.fullname] = section
         return section
 
-    def filepath_compiled(self, extension):
-        "Filepath to be used for for compiled "
+    def filepath_export(self, extension):
+        "Filepath to be used for for export."
         return os.path.join(self.abspath, self.name + extension)
 
-    def compile_docx(self):
-        docx_compiler.Compiler(self).write()
+    def export_docx(self):
+        docx_export.Export(self).write()
 
-    def compile_pdf(self):
+    def export_pdf(self):
         raise NotImplementedError
 
-    def compile_epub(self):
+    def export_epub(self):
         raise NotImplementedError
 
-    def compile_html(self):
+    def export_html(self):
         raise NotImplementedError
 
     def archive(self, sources=None):

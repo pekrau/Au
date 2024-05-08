@@ -6,7 +6,14 @@ import os
 import time
 
 import constants
+import translation
 
+
+try:
+    Tr = translation.Translation(os.path.join(os.path.dirname(__file__),
+                                              constants.TRANSLATION_FILE))
+except OSError:
+    Tr = lambda t: t
 
 def get_now():
     "Get ISO formatted string for the current local time."

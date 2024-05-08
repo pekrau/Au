@@ -12,6 +12,7 @@ import bibtexparser
 
 import constants
 import utils
+from utils import Tr
 
 from source import Source
 from base_viewer import BaseViewer
@@ -34,13 +35,13 @@ class ReferencesViewer(BaseViewer):
         self.actions_frame.columnconfigure(1, weight=1)
 
         button = tk.ttk.Button(self.actions_frame,
-                               text="Import BibTeX",
+                               text=Tr("Import BibTeX"),
                                command=self.import_bibtex,
                                padding=4)
         button.grid(row=0, column=0, padx=4, pady=4)
 
         button = tk.ttk.Button(self.actions_frame,
-                               text="Add manually",
+                               text=Tr("Add manually"),
                                command=self.add_manually,
                                padding=4)
         button.grid(row=0, column=1, padx=4, pady=4)
