@@ -49,10 +49,6 @@ class BaseViewer:
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
 
-    def display_title(self):
-        self.title = f"{self}\n"
-        self.view.insert(tk.INSERT, self.title, (constants.TITLE,))
-
     def view_configure_tags(self, view=None):
         "Configure the tags used in the 'tk.Text' instance."
         if view is None:
@@ -67,6 +63,9 @@ class BaseViewer:
         view.tag_configure(constants.LINK,
                            foreground=constants.LINK_COLOR,
                            underline=True)
+        view.tag_configure(constants.XREF,
+                           foreground=constants.XREF_COLOR,
+                           underline=True)
         view.tag_configure(constants.LIST_BULLET, font=constants.FONT_BOLD)
         view.tag_configure(constants.HIGHLIGHT,
                            background=constants.HIGHLIGHT_COLOR)
@@ -78,6 +77,9 @@ class BaseViewer:
         view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
         view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
         view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
+        view.tag_bind(constants.XREF, "<Enter>", self.xref_enter)
+        view.tag_bind(constants.XREF, "<Leave>", self.xref_leave)
+        view.tag_bind(constants.XREF, "<Button-1>", self.xref_action)
 
     def view_bind_keys(self, view=None):
         "Configure the key bindings used in the 'tk.Text' instance."
@@ -90,6 +92,16 @@ class BaseViewer:
         view.bind("<F2>", self.debug_selected)
         view.bind("<F3>", self.debug_buffer_paste)
         view.bind("<F4>", self.debug_dump)
+
+    def display_wipe(self):
+        self.links = dict()
+        self.xrefs = dict()
+        self.highlighted = None
+        self.view.delete("1.0", tk.END)
+
+    def display_title(self):
+        self.title = f"{self}\n"
+        self.view.insert(tk.INSERT, self.title, (constants.TITLE,))
 
     def cursor_home(self, event=None):
         self.view.mark_set(tk.INSERT, "1.0")
@@ -124,15 +136,6 @@ class BaseViewer:
         if event.char:
             return "break"
 
-    def get_link(self, tag=None):
-        if tag is None:
-            for tag in self.view.tag_names(tk.CURRENT):
-                if tag.startswith(constants.LINK_PREFIX):
-                    break
-            else:
-                return None
-        return self.links.get(tag)
-
     def render_link(self, ast):
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
@@ -140,8 +143,6 @@ class BaseViewer:
         self.link_create(ast["dest"], ast["title"], first, self.view.index(tk.INSERT))
 
     def link_create(self, url, title, first, last):
-        # Links are not removed from 'links' during a session.
-        # The link count must remain strictly increasing.
         tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
         self.links[tag] = dict(tag=tag, url=url, title=title)
         self.view.tag_add(constants.LINK, first, last)
@@ -158,8 +159,64 @@ class BaseViewer:
 
     def link_action(self, event):
         link = self.get_link()
-        if link:
-            webbrowser.open_new_tab(link["url"])
+        if not link:
+            return
+        webbrowser.open_new_tab(link["url"])
+
+    def get_link(self, tag=None):
+        if tag is None:
+            for tag in self.view.tag_names(tk.CURRENT):
+                if tag.startswith(constants.LINK_PREFIX):
+                    break
+            else:
+                return None
+        return self.links.get(tag)
+
+    def xref_create(self, fullname, position, target_tag):
+        tag = f"{constants.XREF_PREFIX}{len(self.xrefs) + 1}"
+        self.view.insert(tk.INSERT, fullname, (constants.XREF, tag))
+        self.xrefs[tag] = dict(tag=target_tag, fullname=fullname, position=position)
+
+    def xref_enter(self, event):
+        xref = self.get_xref()
+        if not xref:
+            return
+        self.view.configure(cursor="hand1")
+
+    def xref_leave(self, event):
+        self.view.configure(cursor="")
+
+    def xref_action(self, event):
+        xref = self.get_xref()
+        if not xref:
+            return
+        text = self.main.source[xref["fullname"]]
+        assert text.is_text
+        self.main.texts_notebook.select(text.tabid)
+        text.viewer.highlight(xref["position"], tag=xref["tag"])
+
+    def get_xref(self, tag=None):
+        if tag is None:
+            for tag in self.view.tag_names(tk.CURRENT):
+                if tag.startswith(constants.XREF_PREFIX):
+                    break
+            else:
+                return None
+        return self.xrefs.get(tag)
+
+    def highlight(self, first, last=None, tag=None):
+        "Highlight the characters marked by the tag starting at the given position."
+        self.view.focus_set()
+        if self.highlighted:
+            self.view.tag_remove(constants.HIGHLIGHT, *self.highlighted)
+        if last is None:
+            if tag is None:
+                raise ValueError("Must provide either 'last' or 'tag'.")
+            first, last = self.view.tag_nextrange(tag, first)
+        self.view.tag_add(constants.HIGHLIGHT, first, last)
+        self.highlighted = (first, last)
+        self.view.see(first)
+        self.view.update()
 
     def debug_tags(self, event=None):
         ic("--- insert ---",
@@ -274,8 +331,7 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
     def display(self, reread_text=True):
         if reread_text:
             self.text.read()
-        self.links = dict()
-        self.view.delete("1.0", tk.END)
+        self.display_wipe()
         self.display_title()
         self.prev_line_blank = True
         self.render(self.text.ast)
@@ -330,9 +386,9 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         self.view.configure(cursor="")
 
     def reference_action(self, event):
-        reference = self.get_reference()
-        if reference:
-            self.main.references_viewer.highlight(reference)
+        refid = self.get_reference()
+        if refid:
+            self.main.references_viewer.highlight(refid)
 
     def get_reference(self):
         for tag in self.view.tag_names(tk.CURRENT):

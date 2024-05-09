@@ -16,7 +16,7 @@ class MetaViewer(BaseViewer):
     "Base class for meta contents viewers."
 
     def display(self):
-        self.view.delete("1.0", tk.END)
+        self.display_wipe()
         self.display_title()
 
 

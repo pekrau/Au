@@ -4,6 +4,7 @@ import os
 import time
 
 import constants
+import latex_utf8
 import translation
 
 
@@ -12,6 +13,10 @@ try:
                                               constants.TRANSLATION_FILE))
 except OSError:
     Tr = lambda t: t
+
+def cleanup(value):
+    "Convert LaTeX characters to UTF-8, remove newlines and normalize blanks."
+    return latex_utf8.from_latex_to_utf8(" ".join(value.split()))
 
 def get_now():
     "Get ISO formatted string for the current local time."

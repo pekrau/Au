@@ -16,7 +16,6 @@ from utils import Tr
 
 from source import Source
 from base_viewer import BaseViewer
-import latex_utf8
 
 
 class ReferencesViewer(BaseViewer):
@@ -76,17 +75,15 @@ class ReferencesViewer(BaseViewer):
         view.tag_configure(constants.REFERENCE, 
                            spacing1=constants.REFERENCE_SPACING,
                            lmargin2=constants.REFERENCE_INDENT)
-        view.tag_configure(constants.LINK,
+        view.tag_configure(constants.XREF,
                            font=constants.FONT_SMALL,
-                           foreground=constants.LINK_COLOR,
-                           spacing1=0,
+                           foreground=constants.XREF_COLOR,
                            lmargin1=2 * constants.REFERENCE_INDENT,
                            lmargin2=2 * constants.REFERENCE_INDENT,
                            underline=True)
 
     def display(self):
-        self.view.delete("1.0", tk.END)
-        self.links = dict()
+        self.display_wipe()
         self.references_pos = dict() # Key: reference id; value: position here.
         self.highlighted = None  # Currently highlighted range.
         texts_pos = dict()  # Position in the source text.
@@ -109,6 +106,7 @@ class ReferencesViewer(BaseViewer):
                 self.view.insert(tk.INSERT, " & ")
                 self.view.insert(tk.INSERT, reference["authors"][-1])
             self.view.insert(tk.INSERT, " ")
+
             if reference["type"] == "book":
                 self.view.insert(tk.INSERT, f"({reference['year']}). ")
                 self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ",
@@ -117,10 +115,7 @@ class ReferencesViewer(BaseViewer):
                     self.view.insert(tk.INSERT, f"{reference['publisher']}. ")
                 except KeyError:
                     pass
-                try:
-                    self.view.insert(tk.INSERT, f"ISBN {reference['isbn']}. ")
-                except KeyError:
-                    pass
+
             elif reference["type"] == "article":
                 self.view.insert(tk.INSERT, f"({reference['year']}). ")
                 self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
@@ -140,42 +135,43 @@ class ReferencesViewer(BaseViewer):
                                      f"pp. {reference['pages'].replace('--', '-')}. ")
                 except KeyError:
                     pass
+
+            # Attempt links for all types of references.
+            any_item = False
+            for key, label, template in constants.REFERENCE_LINKS:
                 try:
-                    self.view.insert(tk.INSERT, f"doi {reference['doi']} ")
+                    value = reference[key]
+                    if any_item:
+                        self.view.insert(tk.INSERT, ", ")
+                    start = self.view.index(tk.INSERT)
+                    self.view.insert(tk.INSERT, f"{label} {value}")
+                    self.link_create(template.format(value=value),
+                                     title=value,
+                                     first=start,
+                                     last=self.view.index(tk.INSERT))
+                    any_item = True
                 except KeyError:
                     pass
-            self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
+
+            # Done at this stage to avoid mark from being moved by insert.
             self.view.mark_set(reference["id"].replace(" ", "_"), first)
+            self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
 
             fullnames = texts_pos.get(reference["id"])
             if fullnames:
                 for fullname, positions in sorted(fullnames.items()):
                     self.view.insert(tk.INSERT, "\n")
-                    tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
-                    self.view.insert(tk.INSERT, fullname, (constants.LINK, tag))
                     positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
-                    self.links[tag] = (fullname, positions[0])
+                    self.xref_create(fullname, positions[0], constants.REFERENCE)
                     for i, position in enumerate(positions[1:], start=2):
-                        tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
                         self.view.insert(tk.INSERT, ", ")
-                        self.view.insert(tk.INSERT, str(i), (constants.LINK, tag))
-                        self.links[tag] = (fullname, position)
+                        self.xref_create(str(i), position, constants.REFERENCE)
             self.view.insert(tk.INSERT, "\n")
 
-    def link_action(self, event):
-        link = self.get_link()
-        if not link:
-            return
-        fullname, position = link
-        text = self.main.source[fullname]
-        assert text.is_text
-        self.main.texts_notebook.select(text.tabid)
-        text.viewer.highlight(position, tag=constants.REFERENCE)
-
-    def highlight(self, term):
+    def highlight(self, refid):
         "Highlight and show the reference; show this pane."
         try:
-            first = self.references_pos[term]
+            first = self.references_pos[refid]
         except KeyError:
             return
         if self.highlighted:
@@ -215,9 +211,7 @@ class ReferencesViewer(BaseViewer):
                 message="No BibTeX entry in data.")
             return
         entry = entries[0]
-        authors = entry.fields_dict["author"].value
-        authors = " ".join([s.strip() for s in authors.split("\n")])
-        authors = latex_utf8.from_latex_to_utf8(authors)
+        authors = utils.cleanup(entry.fields_dict["author"].value)
         authors = [a.strip() for a in authors.split(" and ")]
         name = authors[0].split(",")[0].strip() + " " + entry.fields_dict["year"].value
         try:
@@ -234,11 +228,11 @@ class ReferencesViewer(BaseViewer):
         abstract = ""
         for key, field in entry.fields_dict.items():
             if key == "abstract":
-                abstract = latex_utf8.from_latex_to_utf8(" ".join(field.value.split()))
+                abstract = utils.cleanup(field.value)
             elif key == "author":
                 pass
             else:
-                text[key] = latex_utf8.from_latex_to_utf8(field.value)
+                text[key] = utils.cleanup(field.value)
         text.write(abstract)
         self.references.append(text)
         self.references.sort(key=lambda r: r["id"])

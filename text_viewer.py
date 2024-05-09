@@ -17,7 +17,6 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
 
     def __init__(self, parent, main, text):
         self.footnotes = dict()     # Lookup local for the instance.
-        self.highlighted = None
         super().__init__(parent, main, text)
         self.status = constants.Status.lookup(self.text.frontmatter.get("status")) or constants.STARTED
 
@@ -47,18 +46,6 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
         self.footnotes = dict()
         self.highlighted = None
         super().display(reread_text=reread_text)
-
-    def highlight(self, first, last=None, tag=constants.INDEXED):
-        "Highlight the characters marked by the tag starting at the given position."
-        self.view.focus_set()
-        if self.highlighted:
-            self.view.tag_remove(constants.HIGHLIGHT, *self.highlighted)
-        if last is None:
-            first, last = self.view.tag_nextrange(tag, first)
-        self.view.tag_add(constants.HIGHLIGHT, first, last)
-        self.highlighted = (first, last)
-        self.view.see(first)
-        self.view.update()
 
     def footnote_enter(self, event=None):
         self.view.configure(cursor="hand2")

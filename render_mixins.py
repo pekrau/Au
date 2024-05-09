@@ -163,12 +163,12 @@ class BaseRenderMixin:
         data["count"] += 1
 
     def render_indexed(self, ast):
-        # Position here is not useful; will be affected by footnotes.
+        # Position at this time is not useful; will be affected by footnotes.
         tag = constants.INDEXED_PREFIX + ast["canonical"]
         self.view.insert(tk.INSERT, ast["term"], (constants.INDEXED, tag))
 
     def render_reference(self, ast):
-        # Position here is not useful; will be affected by footnotes.
+        # Position at this time is not useful; will be affected by footnotes.
         tag = constants.REFERENCE_PREFIX + ast["reference"]
         self.view.insert(tk.INSERT, ast["reference"], (constants.REFERENCE, tag))
 

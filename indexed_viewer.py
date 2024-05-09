@@ -23,17 +23,16 @@ class IndexedViewer(BaseViewer):
         view.tag_configure(constants.INDEXED,
                            font=constants.FONT_NORMAL,
                            spacing1=constants.INDEXED_SPACING)
-        view.tag_configure(constants.LINK,
+        view.tag_configure(constants.XREF,
                            font=constants.FONT_SMALL,
-                           foreground=constants.LINK_COLOR,
+                           foreground=constants.XREF_COLOR,
                            lmargin1=constants.INDEXED_INDENT,
+                           lmargin2=constants.INDEXED_INDENT,
                            underline=True)
 
     def display(self):
-        self.view.delete("1.0", tk.END)
-        self.links = dict()
+        self.display_wipe()
         self.indexed = dict()   # Key: term; value: position in this view.
-        self.highlighted = None # Currently highlighted range.
         texts_pos = dict()      # Position in source text; dict first, then sorted list.
         for text in self.main.source.all_texts:
             for term, positions in text.viewer.indexed.items():
@@ -41,28 +40,15 @@ class IndexedViewer(BaseViewer):
         texts_pos = sorted(texts_pos.items(), key=lambda i: i[0].lower())
         for term, fullnames in texts_pos:
             self.indexed[term] = self.view.index(tk.INSERT)
-            self.view.insert(tk.INSERT, term + "\n", (constants.INDEXED, ))
+            self.view.insert(tk.INSERT, term, (constants.INDEXED, ))
             for fullname, positions in sorted(fullnames.items()):
-                tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
-                self.view.insert(tk.INSERT, fullname, (constants.LINK, tag))
-                positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
-                self.links[tag] = (fullname, positions[0])
-                for i, position in enumerate(positions[1:], start=2):
-                    tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
-                    self.view.insert(tk.INSERT, ", ")
-                    self.view.insert(tk.INSERT, str(i), (constants.LINK, tag))
-                    self.links[tag] = (fullname, position)
                 self.view.insert(tk.INSERT, "\n")
-
-    def link_action(self, event):
-        link = self.get_link()
-        if not link:
-            return
-        fullname, position = link
-        text = self.main.source[fullname]
-        assert text.is_text
-        self.main.texts_notebook.select(text.tabid)
-        text.viewer.highlight(position, tag=constants.INDEXED)
+                positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
+                self.xref_create(fullname, positions[0], constants.INDEXED)
+                for i, position in enumerate(positions[1:], start=2):
+                    self.view.insert(tk.INSERT, ", ")
+                    self.xref_create(str(i), position, constants.INDEXED)
+                self.view.insert(tk.INSERT, "\n")
 
     def highlight(self, term):
         "Highlight and show the indexed term; show this pane."
