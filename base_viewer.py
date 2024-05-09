@@ -88,6 +88,8 @@ class BaseViewer:
         view.bind("<Home>", self.cursor_home)
         view.bind("<End>", self.cursor_end)
         view.bind("<Key>", self.key_press)
+        view.bind("<Control-c>", self.clipboad_copy)
+        view.bind("<Control-v>", self.clipboad_paste)
         view.bind("<F1>", self.debug_tags)
         view.bind("<F2>", self.debug_selected)
         view.bind("<F3>", self.debug_buffer_paste)
@@ -130,6 +132,22 @@ class BaseViewer:
         self.view.see(tk.INSERT)
 
     cursor = property(get_cursor, set_cursor)
+
+    def clipboad_copy(self, event):
+        "Copy any selected text to the clipboard."
+        try:
+            first = self.view.index(tk.SEL_FIRST)
+            last = self.view.index(tk.SEL_LAST)
+        except tk.TclError:
+            return
+        self.view.clipboard_clear()
+        self.view.clipboard_append(self.view.get(first, last))
+        return "break"
+
+    def clipboad_paste(self, event):
+        "Paste the clipboard contents into the text."
+        self.view.insert(tk.INTER, self.view.clipboard_get())
+        return "break"
 
     def key_press(self, event):
         "Stop all key presses that produce a character."
