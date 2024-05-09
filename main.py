@@ -133,16 +133,22 @@ class Main:
             self.panedwindow.sash("place", 0, sash[0], 1)
             self.panedwindow.sash("place", 1, sash[1], 1)
 
+        # Set cursor in all texts.
+        for text in self.source.all_texts:
+            try:
+                text.viewer.cursor = self.config["source"]["cursor"][text.fullname]
+            except KeyError:
+                pass
+
         # Set selected text tab in notebook.
         try:
             text = self.source[self.config["source"]["selected"]]
         except KeyError:
             pass
         else:
-            self.treeview.selection_set(text.fullname)
-            self.treeview.see(text.fullname)
-            self.treeview.focus(text.fullname)
+            self.select_text(text)
 
+        # Set selected meta tab in notebook.
         selected = self.config["meta"].get("selected")
         for viewer in self.meta_notebook_lookup.values():
             if str(viewer) == selected:
@@ -151,6 +157,13 @@ class Main:
                 except tk.TclError:
                     pass
                 break
+
+    def select_text(self, text, cursor=None):
+        self.treeview.selection_set(text.fullname)
+        self.treeview.see(text.fullname)
+        self.treeview.focus(text.fullname)
+        if cursor is not None:
+            text.viewer.cursor = cursor
 
     def root_resized(self, event):
         "Save configuration after root window resize."
@@ -383,11 +396,6 @@ class Main:
             viewer.view.bind("<Control-q>", self.quit)
             viewer.view.bind("<Return>", opener)
             self.treeview_set_info(text)
-        for text in self.source.all_texts:
-            try:
-                text.viewer.cursor = self.config["source"]["cursor"][text.fullname]
-            except KeyError:
-                pass
 
     def meta_notebook_create(self):
         "Create the meta notebook framework."
@@ -580,7 +588,7 @@ class Main:
             self.treeview.delete(fullname)
             self.add_treeview_entry(item, index=index)
             self.texts_notebook.tab(item.tabid, text=item.name)
-            item.viewer.redisplay()
+            item.viewer.display()
         elif item.is_section:
             self.treeview_populate()        # XXX Optimize!
             self.treeview.update()
@@ -673,14 +681,6 @@ class Main:
         editor.view.update()
         editor.view.focus_set()
         return "break"
-
-    def close_editor(self, text):
-        self.treeview_set_info(text)
-        self.editors.pop(text.fullname)
-        self.set_menubar_state()
-
-    def disallow_open_editors(self):
-        "If there are any open editors, then display error message and return True."
 
     def create_text(self):
         try:

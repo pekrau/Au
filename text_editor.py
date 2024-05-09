@@ -33,10 +33,6 @@ class TextEditor(TextViewer):
         self.toplevel.bind("<Control-s>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
-        try:
-            self.toplevel.geometry(self.text["geometry"])
-        except KeyError:
-            pass
 
         self.menubar_setup()
         self.view_create(self.toplevel)
@@ -712,6 +708,7 @@ class TextEditor(TextViewer):
         self.view.edit_modified(False)
         self.text.viewer.display()
         self.main.treeview_set_info(self.text)
+        self.text.viewer.cursor = self.cursor
         self.main.references_viewer.display() # XXX Optimize?
         self.main.indexed_viewer.display()    # XXX Optimize?
         self.main.search_viewer.clear()
@@ -896,7 +893,10 @@ class TextEditor(TextViewer):
                 return
         self.ignore_modified_event = True
         self.view.edit_modified(False)
-        self.main.close_editor(self.text)
+        self.main.treeview_set_info(self.text)
+        self.text.viewer.cursor = self.cursor
+        self.main.editors.pop(self.text.fullname)
+        self.main.set_menubar_state()
         self.toplevel.destroy()
 
 
