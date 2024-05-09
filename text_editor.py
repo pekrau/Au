@@ -83,10 +83,6 @@ class TextEditor(TextViewer):
         self.menu_format.add_command(label=Tr("Bold"), command=self.bold_add)
         self.menu_format.add_command(label=Tr("Italic"), command=self.italic_add)
         self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
-        for level in range(1, constants.MAX_H_LEVEL + 1):
-            self.menu_format.add_command(label=f"{Tr('Heading')} {level}",
-                                         command=functools.partial(self.heading_add,
-                                                                   level=level))
 
         self.menu_list = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_list, label=Tr("List"))
@@ -128,8 +124,6 @@ class TextEditor(TextViewer):
         view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
         view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
         view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
-        for tag in constants.H_LOOKUP.values():
-            view.tag_bind(tag, "<Button-1>", self.heading_remove)
         view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
     def view_bind_keys(self, view=None):
@@ -338,34 +332,6 @@ class TextEditor(TextViewer):
                 message=f"Really remove quote?"):
             return
         self.view.tag_remove(constants.QUOTE, first, last)
-        self.set_modified()
-
-    def heading_add(self, level):
-        try:
-            first, last = self.get_selection()
-        except ValueError:
-            return
-        self.view.tag_add(constants.H_LOOKUP[level], first, last)
-        if "\n\n" not in self.view.get(last, last + "+2c"):
-            self.view.insert(last, "\n\n")
-        if "\n\n" not in self.view.get(first + "-2c", first):
-            self.view.insert(first, "\n\n")
-        self.set_modified()
-
-    def heading_remove(self, event):
-        tags = self.view.tag_names(tk.CURRENT)
-        for tag in constants.H_LOOKUP.values():
-            if tag in tags:
-                break
-        else:
-            return
-        first, last = self.view.tag_prevrange(tag, tk.CURRENT)
-        if not tk.messagebox.askokcancel(
-                parent=self.toplevel,
-                title="Remove heading?",
-                message=f"Really remove heading?"):
-            return
-        self.view.tag_remove(tag, first, last)
         self.set_modified()
 
     def list_add(self, ordered):
@@ -823,30 +789,6 @@ class TextEditor(TextViewer):
 
     def markdown_tagoff_quote(self, item):
         self.line_indents.pop()
-
-    def markdown_tagon_h1(self, item):
-        self.save_characters("# ")
-
-    def markdown_tagoff_h1(self, item):
-        pass
-
-    def markdown_tagon_h2(self, item):
-        self.save_characters("## ")
-
-    def markdown_tagoff_h2(self, item):
-        pass
-
-    def markdown_tagon_h3(self, item):
-        self.save_characters("### ")
-
-    def markdown_tagoff_h3(self, item):
-        pass
-
-    def markdown_tagon_h4(self, item):
-        self.save_characters("#### ")
-
-    def markdown_tagoff_h4(self, item):
-        pass
 
     def markdown_tagon_thematic_break(self, item):
         self.skip_text = True

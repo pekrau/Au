@@ -51,6 +51,14 @@ class Source:
         return ""
 
     @property
+    def parent(self):
+        return None
+
+    @property
+    def depth(self):
+        return 0
+
+    @property
     def all_items(self):
         result = []
         for item in self.items:
@@ -233,6 +241,15 @@ class Item:
             return self.name
         else:
             return os.path.join(self.parent.fullname, self.name)
+
+    @property
+    def depth(self):
+        result = 0
+        parent = self.parent
+        while parent is not None:
+            result += 1
+            parent = parent.parent
+        return result
 
     @property
     def is_text(self):

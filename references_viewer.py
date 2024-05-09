@@ -72,6 +72,10 @@ class ReferencesViewer(BaseViewer):
         if view is None:
             view = self.view
         super().view_configure_tags(view=view)
+        view.tag_configure(constants.LINK,
+                           font=constants.FONT_SMALL,
+                           foreground=constants.LINK_COLOR,
+                           underline=True)
         view.tag_configure(constants.REFERENCE, 
                            spacing1=constants.REFERENCE_SPACING,
                            lmargin2=constants.REFERENCE_INDENT)

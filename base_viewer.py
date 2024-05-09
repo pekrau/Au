@@ -53,11 +53,12 @@ class BaseViewer:
         "Configure the tags used in the 'tk.Text' instance."
         if view is None:
             view = self.view
-        view.tag_configure(constants.TITLE,
-                           font=constants.TITLE_FONT,
-                           lmargin1=constants.TITLE_LEFT_MARGIN,
-                           lmargin2=constants.TITLE_LEFT_MARGIN,
-                           spacing3=constants.TITLE_SPACING)
+        for h in constants.H_LOOKUP.values():
+            view.tag_configure(h["tag"],
+                               font=h["font"],
+                               lmargin1=h["left_margin"],
+                               lmargin2=h["left_margin"],
+                               spacing3=h["spacing"])
         view.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         view.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         view.tag_configure(constants.LINK,
@@ -103,7 +104,11 @@ class BaseViewer:
 
     def display_title(self):
         self.title = f"{self}\n"
-        self.view.insert(tk.INSERT, self.title, (constants.TITLE,))
+        try:
+            h = constants.H_LOOKUP[self.text.depth]
+        except KeyError:
+            h = constants.H_LOOKUP[constants.MAX_H_LEVEL]
+        self.view.insert(tk.INSERT, self.title, (h["tag"], ))
 
     def cursor_home(self, event=None):
         self.view.mark_set(tk.INSERT, "1.0")
@@ -299,26 +304,6 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         if view is None:
             view = self.view
         super().view_configure_tags(view=view)
-        view.tag_configure(constants.H1,
-                           font=constants.H1_FONT,
-                           spacing1=constants.H1_SPACING,
-                           lmargin1=constants.H_LEFT_MARGIN,
-                           lmargin2=constants.H_LEFT_MARGIN)
-        view.tag_configure(constants.H2,
-                           font=constants.H2_FONT,
-                           spacing1=constants.H2_SPACING,
-                           lmargin1=constants.H_LEFT_MARGIN,
-                           lmargin2=constants.H_LEFT_MARGIN)
-        view.tag_configure(constants.H3,
-                           font=constants.H3_FONT,
-                           spacing1=constants.H3_SPACING,
-                           lmargin1=constants.H_LEFT_MARGIN,
-                           lmargin2=constants.H_LEFT_MARGIN)
-        view.tag_configure(constants.H4,
-                           font=constants.H4_FONT,
-                           spacing1=constants.H4_SPACING,
-                           lmargin1=constants.H_LEFT_MARGIN,
-                           lmargin2=constants.H_LEFT_MARGIN)
         view.tag_configure(constants.QUOTE,
                            lmargin1=constants.QUOTE_LEFT_INDENT,
                            lmargin2=constants.QUOTE_LEFT_INDENT,

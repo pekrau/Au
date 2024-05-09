@@ -47,12 +47,10 @@ class BaseRenderMixin:
             self.render(child)
 
     def render_heading(self, ast):
+        "Render as ordinary text."
         self.conditional_line_break()
-        first = self.view.index(tk.INSERT)
-        h = constants.H_LOOKUP[min(ast["level"], constants.MAX_H_LEVEL)]
         for child in ast["children"]:
             self.render(child)
-        self.view.tag_add(h, first, tk.INSERT)
 
     def render_paragraph(self, ast):
         self.conditional_line_break(flag=True)

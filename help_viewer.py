@@ -19,5 +19,4 @@ class HelpViewer(BaseTextViewer):
 
     def display_title(self):
         title = "Au " + ".".join([str(n) for n in constants.VERSION])
-        self.view.insert(tk.INSERT, title, constants.TITLE)
-        self.view.insert(tk.INSERT, "\n\n")
+        self.view.insert(tk.INSERT, title + "\n", (constants.H1["tag"], ))
