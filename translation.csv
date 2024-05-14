@@ -1,10 +1,12 @@
 en,sv
 item,post
 file,fil
-archive,arkiv
+archive,arkivera
 quit,avsluta
 save,spara
 close,stäng
+close?,stänga?
+modifications will not be saved.,förändringar sparas inte.
 edit,modifiera
 create text,skapa text
 create section,skapa sektion
@@ -21,6 +23,7 @@ age,ålder
 title,titel
 reference,referens
 references,referenser
+add reference,lägg till referens
 indexed,indexerad
 to do,att göra
 search,sök
@@ -29,6 +32,7 @@ canonical,kanonisk
 ok,ok
 show,visa
 remove,ta bort
+really,verkligen
 cancel,avbryt
 visit,besök
 reference id,referens id
@@ -39,14 +43,16 @@ italic,kursiv
 quote,citat
 heading,rubrik
 ordered,numrerad
-unordere,onumrerad
+unordered,onumrerad
 link,länk
+edit link,modifiera länk
 footnote,fotnot
-add list item,lägg till listelement
-remove list item,ta bort listelement
+list,lista
+add list item,lägg till listpunkt
+remove list item,ta bort listpunkt
 add ordered list,lägg till numrerad lista
 add unordered list,lägg till onumrerad lista
-Import BibTeX,importera BibTeX
+Import BibTeX,Importera BibTeX
 add manually,lägg till manuellt
 started,påbörjad
 outline,skiss
@@ -57,3 +63,7 @@ revised,reviderad
 done,färdig
 proofs,korrektur
 final,slutgiltig
+term,term
+clear,rensa
+character case is significant,stor/liten bokstav spelar roll
+allow regular expression,tillåt regexp

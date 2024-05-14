@@ -19,6 +19,7 @@ from utils import Tr
 from source import Source
 from text_viewer import TextViewer
 from text_editor import TextEditor
+from reference_editor import ReferenceEditor
 from help_viewer import HelpViewer
 from references_viewer import ReferencesViewer
 from indexed_viewer import IndexedViewer
@@ -48,7 +49,8 @@ class Main:
         self.source = Source(self.absdirpath)
         self.config_read()
         self.source.apply_config(self.config["source"])
-        self.editors = dict()   # Key: fullname; value: TextEditor instance
+        self.text_editors = dict()   # Key: fullname; value: TextEditor instance
+        self.reference_editors = dict() # Key: fullname; value: ReferenceEditor instance
 
         self.root = tk.Tk()
         constants.FONT_FAMILIES = frozenset(tk.font.families())
@@ -234,8 +236,10 @@ class Main:
                                     command=self.move_item_out_of_section)
 
     def set_menubar_state(self):
-        "To avoid potential problems, some menu items require that no editors are open."
-        state = self.editors and tk.DISABLED or tk.NORMAL
+        """To avoid potential problems, some menu items are restricted
+        while any text editors are open.
+        """
+        state = self.text_editors and tk.DISABLED or tk.NORMAL
         self.menu_edit.entryconfigure(2, state=state) # Edit: Rename
         self.menu_edit.entryconfigure(3, state=state) # Edit: Copy
         self.menu_edit.entryconfigure(4, state=state) # Edit: Delete
@@ -285,7 +289,7 @@ class Main:
         self.treeview.bind("<Control-Left>", self.move_item_out_of_section)
 
         self.treeview.bind("<Button-3>", self.popup_menu)
-        self.treeview.bind("<Double-Button-1>", self.open_editor)
+        self.treeview.bind("<Double-Button-1>", self.open_text_editor)
         self.treeview.bind("<<TreeviewSelect>>", self.treeview_selected)
         self.treeview.bind("<<TreeviewOpen>>", self.treeview_open)
         self.treeview.bind("<<TreeviewClose>>", self.treeview_close)
@@ -344,7 +348,7 @@ class Main:
     def treeview_set_info(self, text, modified=None):
         if modified is None:
             try:
-                modified = self.editors[text.fullname].is_modified
+                modified = self.text_editors[text.fullname].is_modified
             except KeyError:
                 modified = False
         tags = set(self.treeview.item(text.fullname, "tags"))
@@ -391,10 +395,10 @@ class Main:
             tabs = self.texts_notebook.tabs()
             text.tabid = tabs[-1]
             self.texts_notebook_lookup[text.tabid] = text
-            opener = functools.partial(self.open_editor, text=text)
+            opener = functools.partial(self.open_text_editor, text=text)
             viewer.view.bind("<Double-Button-1>", opener)
-            viewer.view.bind("<Control-q>", self.quit)
             viewer.view.bind("<Return>", opener)
+            viewer.view.bind("<Control-q>", self.quit)
             self.treeview_set_info(text)
 
     def meta_notebook_create(self):
@@ -459,17 +463,15 @@ class Main:
                                    message=f"{count} items written to archive file.")
 
     def quit(self, event=None):
-        for editor in self.editors.values():
-            try:
-                if editor.is_modified:
-                    if not tk.messagebox.askokcancel(
-                            parent=self.root,
-                            title="Quit?",
-                            message="All unsaved changes will be lost. Really quit?"):
-                        return
-                    break
-            except KeyError:
-                pass
+        modified = [e.is_modified for e in self.text_editors.values()] + \
+            [e.is_modified for e in self.reference_editors.values()]
+        if modified:
+            modified = functools.reduce(lambda a,b: a or b, modified)
+        if modified and not tk.messagebox.askokcancel(
+                parent=self.root,
+                title="Quit?",
+                message="All unsaved changes will be lost. Really quit?"):
+            return
         self.config_save()
         self.root.destroy()
 
@@ -660,7 +662,7 @@ class Main:
         self.source.check_integrity()
         self.config_save()
 
-    def open_editor(self, event=None, text=None):
+    def open_text_editor(self, event=None, text=None):
         if text is None:
             try:
                 fullname = self.treeview.selection()[0]
@@ -670,14 +672,26 @@ class Main:
             if not text.is_text:
                 return "break"
         try:
-            editor = self.editors[text.fullname]
+            editor = self.text_editors[text.fullname]
         except KeyError:
             editor = TextEditor(self, text)
             editor.cursor = text.viewer.cursor
-            self.editors[text.fullname] = editor
+            self.text_editors[text.fullname] = editor
         else:
             editor.toplevel.lift()
         self.set_menubar_state()
+        editor.view.update()
+        editor.view.focus_set()
+        return "break"
+
+    def open_reference_editor(self, reference):
+        try:
+            editor = self.reference_editors[reference.fullname]
+        except KeyError:
+            editor = ReferenceEditor(self, reference)
+            self.reference_editors[reference.fullname] = editor
+        else:
+            editor.toplevel.lift()
         editor.view.update()
         editor.view.focus_set()
         return "break"

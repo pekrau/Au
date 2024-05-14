@@ -2,6 +2,7 @@
 
 from icecream import ic
 
+import functools
 import os
 
 import tkinter as tk
@@ -140,12 +141,12 @@ class ReferencesViewer(BaseViewer):
                 except KeyError:
                     pass
 
-            # Attempt links for all types of references.
-            any_item = False
+            # Links for all types of references.
+            first = True
             for key, label, template in constants.REFERENCE_LINKS:
                 try:
                     value = reference[key]
-                    if any_item:
+                    if not first:
                         self.view.insert(tk.INSERT, ", ")
                     start = self.view.index(tk.INSERT)
                     self.view.insert(tk.INSERT, f"{label} {value}")
@@ -153,11 +154,17 @@ class ReferencesViewer(BaseViewer):
                                      title=value,
                                      first=start,
                                      last=self.view.index(tk.INSERT))
-                    any_item = True
+                    first = False
                 except KeyError:
                     pass
 
-            # Done at this stage to avoid mark from being moved by insert.
+            # Edit button for reference.
+            command = functools.partial(self.main.open_reference_editor,
+                                        reference=reference)
+            button = tk.ttk.Button(self.view, text=Tr("Edit"), command=command)
+            self.view.window_create(tk.INSERT, window=button, padx=6)
+
+            # This is done at this stage to avoid mark from being moved by insert.
             self.view.mark_set(reference["id"].replace(" ", "_"), first)
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
 
@@ -237,7 +244,9 @@ class ReferencesViewer(BaseViewer):
                 pass
             else:
                 text[key] = utils.cleanup(field.value)
-        text.write(abstract)
+        if abstract:
+            text.write("**Abstract** ")
+            text.write(abstract)
         self.references.append(text)
         self.references.sort(key=lambda r: r["id"])
         self.references_lookup[text["id"]] = text

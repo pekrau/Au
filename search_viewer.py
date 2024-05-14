@@ -10,6 +10,7 @@ import tkinter.ttk
 import constants
 import utils
 from base_viewer import BaseViewer
+from utils import Tr
 
 
 class SearchViewer(BaseViewer):
@@ -32,21 +33,22 @@ class SearchViewer(BaseViewer):
                                padx=4)
         self.search_entry.bind("<Return>", self.search)
 
-        button = tk.ttk.Button(self.entry_frame, text="Search", command=self.search)
+        button = tk.ttk.Button(self.entry_frame, text=Tr("Search"), command=self.search)
         button.grid(row=0, column=2, padx=4, pady=4)
-        button = tk.ttk.Button(self.entry_frame, text="Clear", command=self.clear)
+        button = tk.ttk.Button(self.entry_frame, text=Tr("Clear"), command=self.clear)
         button.grid(row=1, column=2, padx=4, pady=4)
 
-        self.search_nocase_var = tk.IntVar(value=1)
-        self.search_nocase = tk.ttk.Checkbutton(self.entry_frame,
-                                                text="Ignore character case",
-                                                variable=self.search_nocase_var)
-        self.search_nocase.grid(row=1, column=1, sticky=tk.W)
+        self.search_case_var = tk.IntVar(value=1)
+        self.search_case = tk.ttk.Checkbutton(self.entry_frame,
+                                              text=Tr("Character case is significant"),
+                                              variable=self.search_case_var)
+        self.search_case.grid(row=1, column=1, sticky=tk.W)
 
         self.search_regexp_var = tk.IntVar(value=0)
         self.search_regexp = tk.ttk.Checkbutton(
             self.entry_frame,
-            text="Allow regular expression\n. ^ [c1...] (...) * + ? e1|e2",
+            text=Tr("Allow regular expression") +
+            "\n. ^ [c1...] (...) * + ? e1|e2",
             variable=self.search_regexp_var)
         self.search_regexp.grid(row=2, column=1, sticky=tk.W)
 
@@ -96,7 +98,7 @@ class SearchViewer(BaseViewer):
             return
         self.display()
         tag_counter = 0
-        nocase = self.search_nocase_var.get()
+        case = self.search_case_var.get()
         regexp = self.search_regexp_var.get()
         count_var = tk.IntVar()
         for text in self.main.source.all_texts:
@@ -105,7 +107,7 @@ class SearchViewer(BaseViewer):
             text.viewer.tags_inhibit_elide() # Bug workaround. See above.
             first = view.search(term, 
                                 "1.0",
-                                nocase=nocase,
+                                nocase=not case,
                                 regexp=regexp, 
                                 stopindex=tk.END,
                                 count=count_var)
@@ -115,7 +117,7 @@ class SearchViewer(BaseViewer):
                 found.append((first, length))
                 first = view.search(term,
                                     first + f"+{length}c",
-                                    nocase=nocase,
+                                    nocase=not case,
                                     regexp=regexp,
                                     stopindex=tk.END,
                                     count=count_var)
