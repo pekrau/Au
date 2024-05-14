@@ -422,7 +422,7 @@ class Main:
         self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
 
         self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.indexed_viewer.frame, text=Tr("Indexed"))
+        self.meta_notebook.add(self.indexed_viewer.frame, text=Tr("Index"))
         self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.indexed_viewer.view.bind("<Control-q>", self.quit)
         self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer

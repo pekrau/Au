@@ -22,7 +22,9 @@ class TextEditor(BaseEditor):
     TEXT_COLOR = constants.EDIT_COLOR
 
     def __init__(self, main, text):
-        super().__init__(main.root, main, text)
+        self.main = main
+        self.text = text
+        # super().__init__(main.root, main, text)
         self.toplevel_setup()
         self.menubar_setup()
         self.view_create(self.toplevel)
@@ -206,12 +208,13 @@ class TextEditor(BaseEditor):
             tag = constants.FOOTNOTE_REF_PREFIX + entry[1][len(constants.FOOTNOTE_DEF_PREFIX):]
             tags[entry[1]]["label"] = tags[tag]["label"]
 
-    def save_before_dump(self):
-        "Perform save operations before doing dump-to-Markdown; status and footnotes."
+    def save_prepare(self):
+        "Prepare for saving; before doing dump-to-Markdown."
+        super().save_prepare()
         self.text.status = constants.Status.lookup(self.status_var.get().lower())
         self.markdown_footnotes = dict()
 
-    def save_after_dump(self):
+    def save_postdump(self):
         "Perform save operations after having done dump-to-Markdown; footnotes."
         footnotes = list(self.markdown_footnotes.values())
         footnotes.sort(key=lambda f: int(f["new_label"]))

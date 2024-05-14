@@ -484,12 +484,7 @@ class BaseEditor(TextViewer):
         """
         if not self.is_modified:
             return
-        self.save_before_dump()
-        self.outfile_stack = [io.StringIO()]
-        self.line_indents = []
-        self.line_indented = False
-        self.skip_text = False
-        self.list_stack = []
+        self.save_prepare()
         for item in self.view.dump("1.0", tk.END):
             try:
                 method = getattr(self, f"markdown_{item[0]}")
@@ -497,18 +492,22 @@ class BaseEditor(TextViewer):
                 ic("Could not markdown item", item)
             else:
                 method(item)
-        self.save_after_dump()
+        self.save_postdump()
         self.text.write(self.outfile.getvalue())
         self.menubar.configure(background=self.original_menubar_background)
         self.ignore_modified_event = True
         self.view.edit_modified(False)
         self.save_finalize()
 
-    def save_before_dump(self):
-        "Perform save operations before doing dump-to-Markdown."
-        pass
+    def save_prepare(self):
+        "Prepare for saving; before doing dump-to-Markdown."
+        self.outfile_stack = [io.StringIO()]
+        self.line_indents = []
+        self.line_indented = False
+        self.skip_text = False
+        self.list_stack = []
 
-    def save_after_dump(self):
+    def save_postdump(self):
         "Perform save operations after having done dump-to-Markdown."
         pass
 
@@ -643,7 +642,7 @@ class BaseEditor(TextViewer):
             if not tk.messagebox.askokcancel(
                     parent=self.toplevel,
                     title=Tr("Close?"),
-                    message=f"{Tr('Modifications will not be saved.')} {Tr('Really')} {Tr('close?')}")):
+                    message=f"{Tr('Modifications will not be saved.')} {Tr('Really')} {Tr('close?')}"):
                 return
         self.ignore_modified_event = True
         self.view.edit_modified(False)

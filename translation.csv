@@ -7,7 +7,7 @@ save,spara
 close,stäng
 close?,stänga?
 modifications will not be saved.,förändringar sparas inte.
-edit,modifiera
+edit,editera
 create text,skapa text
 create section,skapa sektion
 rename,ändra namn
@@ -21,9 +21,14 @@ out of section,ut ur sektion
 chars,tecken
 age,ålder
 title,titel
+subtitle,undertitel
 reference,referens
 references,referenser
+author,författare
+authors,författare
+add author,lägg till författare
 add reference,lägg till referens
+index,index
 indexed,indexerad
 to do,att göra
 search,sök
@@ -45,7 +50,7 @@ heading,rubrik
 ordered,numrerad
 unordered,onumrerad
 link,länk
-edit link,modifiera länk
+edit link,editera länk
 footnote,fotnot
 list,lista
 add list item,lägg till listpunkt

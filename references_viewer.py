@@ -142,11 +142,11 @@ class ReferencesViewer(BaseViewer):
                     pass
 
             # Links for all types of references.
-            first = True
+            any_item = False
             for key, label, template in constants.REFERENCE_LINKS:
                 try:
                     value = reference[key]
-                    if not first:
+                    if any_item:
                         self.view.insert(tk.INSERT, ", ")
                     start = self.view.index(tk.INSERT)
                     self.view.insert(tk.INSERT, f"{label} {value}")
@@ -154,7 +154,7 @@ class ReferencesViewer(BaseViewer):
                                      title=value,
                                      first=start,
                                      last=self.view.index(tk.INSERT))
-                    first = False
+                    any_item = True
                 except KeyError:
                     pass
 
@@ -245,7 +245,7 @@ class ReferencesViewer(BaseViewer):
             else:
                 text[key] = utils.cleanup(field.value)
         if abstract:
-            text.write("**Abstract** ")
+            text.write("**Abstract**\n\n")
             text.write(abstract)
         self.references.append(text)
         self.references.sort(key=lambda r: r["id"])
