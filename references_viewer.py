@@ -112,16 +112,7 @@ class ReferencesViewer(BaseViewer):
                 self.view.insert(tk.INSERT, reference["authors"][-1])
             self.view.insert(tk.INSERT, " ")
 
-            if reference["type"] == "book":
-                self.view.insert(tk.INSERT, f"({reference['year']}). ")
-                self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ",
-                                 (constants.ITALIC, ))
-                try:
-                    self.view.insert(tk.INSERT, f"{reference['publisher']}. ")
-                except KeyError:
-                    pass
-
-            elif reference["type"] == "article":
+            if reference["type"] == "article":
                 self.view.insert(tk.INSERT, f"({reference['year']}). ")
                 self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
                 self.view.insert(tk.INSERT, reference["journal"], (constants.ITALIC, ))
@@ -141,6 +132,18 @@ class ReferencesViewer(BaseViewer):
                 except KeyError:
                     pass
 
+            elif reference["type"] == "book":
+                self.view.insert(tk.INSERT, f"({reference['year']}). ")
+                self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ",
+                                 (constants.ITALIC, ))
+                try:
+                    self.view.insert(tk.INSERT, f"{reference['publisher']}. ")
+                except KeyError:
+                    pass
+
+            elif reference["type"] == "link":
+                raise NotImplementedError
+
             # Links for all types of references.
             any_item = False
             for key, label, template in constants.REFERENCE_LINKS:
@@ -158,17 +161,23 @@ class ReferencesViewer(BaseViewer):
                 except KeyError:
                     pass
 
-            # Edit button for reference.
+            # Button for reference edit.
             command = functools.partial(self.main.open_reference_editor,
                                         reference=reference)
             button = tk.ttk.Button(self.view, text=Tr("Edit"), command=command)
-            self.view.window_create(tk.INSERT, window=button, padx=6)
+            self.view.window_create(tk.INSERT, window=button, padx=4)
+
+            # Button for reference delete; only if not referred to from texts.
+            fullnames = texts_pos.get(reference["id"])
+            if not fullnames:
+                command = functools.partial(self.reference_delete, reference=reference)
+                button = tk.ttk.Button(self.view, text=Tr("Delete"), command=command)
+                self.view.window_create(tk.INSERT, window=button, padx=4)
 
             # This is done at this stage to avoid mark from being moved by insert.
             self.view.mark_set(reference["id"].replace(" ", "_"), first)
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
 
-            fullnames = texts_pos.get(reference["id"])
             if fullnames:
                 for fullname, positions in sorted(fullnames.items()):
                     self.view.insert(tk.INSERT, "\n")
@@ -204,61 +213,33 @@ class ReferencesViewer(BaseViewer):
         self.references_lookup = dict([(r["id"], r) for r in self.references])
 
     def import_bibtex(self):
-        bibtex = BibtexImport(self.view)
+        bibtex = BibtexImport(self)
         if not bibtex.result:
             return
-        library = bibtexparser.parse_string(bibtex.result["bibtex"])
-        entries = list(library.entries)
-        if len(entries) > 1:
-            tk.messagebox.showerror(
-                parent=self.view,
-                title="Error",
-                message="More than one BibTeX entry in data.")
-            return
-        elif len(entries) == 0:
-            tk.messagebox.showerror(
-                parent=self.view,
-                title="Error",
-                message="No BibTeX entry in data.")
-            return
-        entry = entries[0]
-        authors = utils.cleanup(entry.fields_dict["author"].value)
-        authors = [a.strip() for a in authors.split(" and ")]
-        name = authors[0].split(",")[0].strip() + " " + entry.fields_dict["year"].value
-        try:
-            text = self.source.create_text(name)
-        except ValueError as error:
-            tk.messagebox.showerror(
-                parent=self.view,
-                title="Error",
-                message=str(error))
-            return
-        text["id"] = name
-        text["type"] = entry.entry_type
-        text["authors"] = authors
-        abstract = ""
-        for key, field in entry.fields_dict.items():
-            if key == "abstract":
-                abstract = utils.cleanup(field.value)
-            elif key == "author":
-                pass
-            else:
-                text[key] = utils.cleanup(field.value)
-        if abstract:
-            text.write("**Abstract**\n\n")
-            text.write(abstract)
-        self.references.append(text)
+        self.references.append(bibtex.result)
         self.references.sort(key=lambda r: r["id"])
-        self.references_lookup[text["id"]] = text
+        self.references_lookup[bibtex.result["id"]] = bibtex.result
+        self.display()
+
+    def reference_delete(self, reference):
+        if not tk.messagebox.askokcancel(
+                parent=self.frame,
+                title=Tr("Delete?"),
+                message=Tr("Really delete reference?")):
+            return
+        self.references.remove(reference)
+        self.references_lookup.pop(reference["id"])
+        reference.delete()
         self.display()
 
 
 class BibtexImport(tk.simpledialog.Dialog):
     "Simple dialog window for importing a BibTeX entry."
 
-    def __init__(self, toplevel):
+    def __init__(self, viewer):
+        self.viewer = viewer
         self.result = None
-        super().__init__(toplevel, title="Import BibTeX")
+        super().__init__(viewer.frame, title=Tr("Import BibTeX"))
 
     def body(self, body):
         label = tk.ttk.Label(body, text="Id")
@@ -272,6 +253,51 @@ class BibtexImport(tk.simpledialog.Dialog):
         self.bibtex_text.grid(row=1, column=1)
         return self.bibtex_text
 
-    def apply(self):
-        self.result = dict(id=self.id_entry.get(),
-                           bibtex=self.bibtex_text.get("1.0", tk.END))
+    def validate(self):
+        library = bibtexparser.parse_string(self.bibtex_text.get("1.0", tk.END))
+        entries = list(library.entries)
+        if len(entries) > 1:
+            tk.messagebox.showerror(
+                parent=self.view,
+                title=Tr("Error"),
+                message=Tr("More than one BibTeX entry in data."))
+            return False
+        elif len(entries) == 0:
+            tk.messagebox.showerror(
+                parent=self.view,
+                title=Tr("Error"),
+                message=Tr("No BibTeX entry in data."))
+            return False
+        entry = entries[0]
+        authors = utils.cleanup(entry.fields_dict["author"].value)
+        authors = [a.strip() for a in authors.split(" and ")]
+        id = self.id_entry.get().strip()
+        if not id:
+            name = authors[0].split(",")[0].strip()
+            year = entry.fields_dict["year"].value
+            for char in [""] + list("abcdefghijklmnopqrstuvxyz"):
+                id = f"{name} {year}{char}"
+                if not self.viewer.source.get(id):
+                    break
+            else:
+                tk.messagebox.showerror(parent=self,
+                                        title=Tr("Error"),
+                                        message=Tr("Could not create id for reference."))
+                return False
+        text = self.viewer.source.create_text(id)
+        text["id"] = id
+        text["type"] = entry.entry_type
+        text["authors"] = authors
+        abstract = ""
+        for key, field in entry.fields_dict.items():
+            if key == "abstract":
+                abstract = utils.cleanup(field.value)
+            elif key == "author":
+                pass
+            else:
+                text[key] = utils.cleanup(field.value)
+        if abstract:
+            text.write("**Abstract**\n\n")
+            text.write(abstract)
+        self.result = text
+        return True

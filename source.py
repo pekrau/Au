@@ -102,6 +102,9 @@ class Source:
         for item in self.all_items:
             self.lookup[item.fullname] = item
 
+    def get(self, fullname, default=None):
+        return self.lookup.get(fullname, default)
+
     def get_config(self):
         return dict(items=[i.get_config() for i in self.items])
 

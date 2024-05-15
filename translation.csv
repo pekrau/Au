@@ -13,6 +13,8 @@ create section,skapa sektion
 rename,ändra namn
 copy,kopiera
 delete,radera
+delete?,radera?
+really delete reference?,verkligen radera referensen?
 move up,flytta upp
 move down,flytta ner
 rearrange,flytta
@@ -59,6 +61,8 @@ remove list item,ta bort listpunkt
 add ordered list,lägg till numrerad lista
 add unordered list,lägg till onumrerad lista
 Import BibTeX,Importera BibTeX
+More than one BibTeX entry in data.,Mer än en BibTeX-post i data.
+No BibTeX entry in data.,Inga BibTeX-poster i data.
 add manually,lägg till manuellt
 started,påbörjad
 outline,skiss
@@ -73,3 +77,4 @@ term,term
 clear,rensa
 character case is significant,stor/liten bokstav spelar roll
 allow regular expression,tillåt regexp
+error,fel

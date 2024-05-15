@@ -456,7 +456,7 @@ class Main:
         try:
             count = self.source.archive(sources=self.references_viewer.source)
         except OSError as error:
-            tk.messagebox.showerror(title="Error",
+            tk.messagebox.showerror(title=Tr("Error"),
                                     message=f"Could not write .tgz file: {error}")
         else:
             tk.messagebox.showinfo(title="Archive file written.",
@@ -582,7 +582,7 @@ class Main:
         except ValueError as error:
             tk.messagebox.showerror(
                 parent=self.treeview,
-                title="Error",
+                title=Tr("Error"),
                 message=str(error))
             return
         if item.is_text:
@@ -618,7 +618,7 @@ class Main:
         else:
             tk.messagebox.showerror(
                 parent=self.treeview,
-                title="Error",
+                title=Tr("Error"),
                 message="Could not generate a unique name for the copy.")
             return
         self.treeview_populate()        # XXX Optimize!
@@ -713,7 +713,7 @@ class Main:
         except ValueError as error:
             tk.messagebox.showerror(
                 parent=self.treeview,
-                title="Error",
+                title=Tr("Error"),
                 message=str(error))
             return
         self.treeview_populate()        # XXX Optimize!
@@ -743,7 +743,7 @@ class Main:
         except ValueError as error:
             tk.messagebox.showerror(
                 parent=self.treeview,
-                title="Error",
+                title=Tr("Error"),
                 message=str(error))
             return
         self.treeview_populate()        # XXX Optimize!
@@ -775,12 +775,12 @@ if __name__ == "__main__":
         if not os.path.isabs(dirpath):
             absdirpath = os.path.normpath(os.path.join(os.getcwd(), dirpath))
             if not os.path.exists(absdirpath):
-                sys.exit(f"Error: '{absdirpath}' does not exist.")
+                sys.exit(f"{Tr('Error')}: '{absdirpath}' does not exist.")
             if not os.path.isdir(absdirpath):
-                sys.exit(f"Error: '{absdirpath}' is not a directory.")
+                sys.exit(f"{Tr('Error')}: '{absdirpath}' is not a directory.")
     elif len(sys.argv) == 1:
         absdirpath = os.getcwd()
     else:
-        sys.exit("Error: at most one directory path can be provided.")
+        sys.exit(f"{Tr('Error')}: at most one directory path can be provided.")
     main = Main(absdirpath)
     main.mainloop()
