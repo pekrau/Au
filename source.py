@@ -575,6 +575,9 @@ class Text(Item):
         except KeyError:
             return default
 
+    def pop(self, key, default=None):
+        return self.frontmatter.pop(key, default)
+
     def get_status(self):
         return constants.Status.lookup(self.get("status"), constants.STARTED)
 
@@ -627,14 +630,15 @@ class Text(Item):
         self.source = None
         self.parent = None
 
-    def write(self, content):
+    def write(self, content=None):
         "Write the text, with current frontmatter and the given Markdown content."
         with open(self.abspath, "w") as outfile:
             outfile.write("---\n")
             outfile.write(yaml.dump(self.frontmatter))
             outfile.write("---\n")
-            outfile.write(content)
-        
+            if content:
+                outfile.write(content)
+
     def check_integrity(self):
         super().check_integrity()
         assert os.path.isfile(self.abspath)

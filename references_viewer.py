@@ -36,15 +36,15 @@ class ReferencesViewer(BaseViewer):
 
         button = tk.ttk.Button(self.actions_frame,
                                text=Tr("Import BibTeX"),
-                               command=self.import_bibtex,
-                               padding=4)
-        button.grid(row=0, column=0, padx=4, pady=4)
+                               padding=4,
+                               command=self.import_bibtex)
+        button.grid(row=0, column=0)
 
         button = tk.ttk.Button(self.actions_frame,
                                text=Tr("Add manually"),
-                               command=self.add_manually,
-                               padding=4)
-        button.grid(row=0, column=1, padx=4, pady=4)
+                               padding=4,
+                               command=self.add_manually)
+        button.grid(row=0, column=1)
 
         self.result_frame = tk.ttk.Frame(self.frame)
         self.result_frame.pack(fill=tk.BOTH, expand=True)
@@ -114,8 +114,16 @@ class ReferencesViewer(BaseViewer):
 
             if reference["type"] == "article":
                 self.view.insert(tk.INSERT, f"({reference['year']}). ")
-                self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
-                self.view.insert(tk.INSERT, reference["journal"], (constants.ITALIC, ))
+                try:
+                    self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
+                except KeyError:
+                    pass
+                try:
+                    self.view.insert(tk.INSERT,
+                                     reference["journal"],
+                                     (constants.ITALIC, ))
+                except KeyError:
+                    pass
                 try:
                     self.view.insert(tk.INSERT, f" {reference['volume']}")
                 except KeyError:
@@ -202,9 +210,6 @@ class ReferencesViewer(BaseViewer):
         self.view.see(first)
         self.main.meta_notebook.select(self.tabid)
 
-    def add_manually(self):
-        raise NotImplementedError
-
     def read(self):
         self.source = Source(os.path.join(self.main.absdirpath,
                                           constants.REFERENCES_DIRNAME))
@@ -214,12 +219,35 @@ class ReferencesViewer(BaseViewer):
 
     def import_bibtex(self):
         bibtex = BibtexImport(self)
-        if not bibtex.result:
+        if bibtex.result is None:
             return
-        self.references.append(bibtex.result)
-        self.references.sort(key=lambda r: r["id"])
-        self.references_lookup[bibtex.result["id"]] = bibtex.result
+        reference = bibtex.result
+        reference.read()
+        self.reference_add(reference)
         self.display()
+
+    def add_manually(self):
+        add_manually = AddManually(self)
+        if add_manually.result is None:
+            return
+        reference = add_manually.result
+        reference.read()
+        self.reference_add(reference)
+        self.display()
+        self.main.open_reference_editor(reference)
+
+    def get_unique_id(self, author, year):
+        name = author.split(",")[0].strip()
+        for char in [""] + list("abcdefghijklmnopqrstuvxyz"):
+            id = f"{name} {year}{char}"
+            if self.source.get(id) is None:
+                return id
+        return None
+
+    def reference_add(self, reference):
+        self.references.append(reference)
+        self.references.sort(key=lambda r: r["id"])
+        self.references_lookup[reference["id"]] = reference
 
     def reference_delete(self, reference):
         if not tk.messagebox.askokcancel(
@@ -234,7 +262,7 @@ class ReferencesViewer(BaseViewer):
 
 
 class BibtexImport(tk.simpledialog.Dialog):
-    "Simple dialog window for importing a BibTeX entry."
+    "Dialog window for importing a BibTeX entry."
 
     def __init__(self, viewer):
         self.viewer = viewer
@@ -242,12 +270,7 @@ class BibtexImport(tk.simpledialog.Dialog):
         super().__init__(viewer.frame, title=Tr("Import BibTeX"))
 
     def body(self, body):
-        label = tk.ttk.Label(body, text="Id")
-        label.grid(row=0, column=0, padx=4, sticky=tk.E)
-        self.id_entry = tk.Entry(body, width=50)
-        self.id_entry.grid(row=0, column=1)
-
-        label = tk.ttk.Label(body, text="BibTeX")
+        label = tk.ttk.Label(body, text=Tr("BibTeX"))
         label.grid(row=1, column=0, padx=4, sticky=(tk.E, tk.N))
         self.bibtex_text = tk.Text(body, width=50)
         self.bibtex_text.grid(row=1, column=1)
@@ -271,33 +294,87 @@ class BibtexImport(tk.simpledialog.Dialog):
         entry = entries[0]
         authors = utils.cleanup(entry.fields_dict["author"].value)
         authors = [a.strip() for a in authors.split(" and ")]
-        id = self.id_entry.get().strip()
-        if not id:
-            name = authors[0].split(",")[0].strip()
-            year = entry.fields_dict["year"].value
-            for char in [""] + list("abcdefghijklmnopqrstuvxyz"):
-                id = f"{name} {year}{char}"
-                if not self.viewer.source.get(id):
-                    break
-            else:
-                tk.messagebox.showerror(parent=self,
-                                        title=Tr("Error"),
-                                        message=Tr("Could not create id for reference."))
-                return False
-        text = self.viewer.source.create_text(id)
-        text["id"] = id
-        text["type"] = entry.entry_type
-        text["authors"] = authors
-        abstract = ""
+        year = entry.fields_dict["year"].value.strip()
+        id = self.viewer.get_unique_id(authors[0], year)
+        if id is None:
+            tk.messagebox.showerror(parent=self,
+                                    title=Tr("Error"),
+                                    message=Tr("Could not create unique id for reference."))
+            return False
+        self.result = dict(id=id, type=entry.entry_type, authors=authors, year=year)
         for key, field in entry.fields_dict.items():
-            if key == "abstract":
-                abstract = utils.cleanup(field.value)
-            elif key == "author":
-                pass
-            else:
-                text[key] = utils.cleanup(field.value)
-        if abstract:
-            text.write("**Abstract**\n\n")
-            text.write(abstract)
-        self.result = text
+            if key == "author":
+                continue
+            value = utils.cleanup(field.value).strip()
+            if value:
+                self.result[key] = value
         return True
+
+    def apply(self):
+        text = self.viewer.source.create_text(self.result["id"])
+        abstract = self.result.pop("abstract", None)
+        for key, value in self.result.items():
+            text[key] = value
+        if abstract:
+            text.write("**Abstract**\n\n" + abstract)
+        else:
+            text.write()
+        self.result = text
+
+
+class AddManually(tk.simpledialog.Dialog):
+    "Dialog window for creating a reference entry manually."
+
+    def __init__(self, viewer):
+        self.viewer = viewer
+        self.result = None
+        super().__init__(viewer.frame, title=Tr("Add manually"))
+
+    def body(self, body):
+        label = tk.ttk.Label(body, text=Tr("Author"))
+        label.grid(row=0, column=0, padx=4, sticky=tk.E)
+        self.author_entry = tk.Entry(body, width=40)
+        self.author_entry.grid(row=0, column=1, sticky=(tk.W, tk.E))
+
+        label = tk.ttk.Label(body, text=Tr("Year"))
+        label.grid(row=1, column=0, padx=4, sticky=tk.E)
+        self.year_entry = tk.Entry(body, width=8)
+        self.year_entry.grid(row=1, column=1, sticky=(tk.W, tk.E))
+        self.year_entry.bind("<Return>", self.ok)
+
+        frame = tk.Frame(body)
+        frame.grid(row=2, column=1, sticky=(tk.W, tk.E))
+        self.type_var = tk.StringVar(value="article")
+        tk.ttk.Radiobutton(frame,
+                           text=Tr("Article"),
+                           value="article",
+                           variable=self.type_var).pack(anchor=tk.NW, padx=4)
+        tk.ttk.Radiobutton(frame,
+                           text=Tr("Book"), 
+                           value="book",
+                           variable=self.type_var).pack(anchor=tk.NW, padx=4)
+        tk.ttk.Radiobutton(frame,
+                           text=Tr("Link"),
+                           value="link",
+                           variable=self.type_var).pack(anchor=tk.NW, padx=4)
+
+        return self.author_entry
+    
+    def validate(self):
+        author = self.author_entry.get().strip()
+        year = self.year_entry.get().strip()
+        id = self.viewer.get_unique_id(author, year)
+        if id is None:
+            tk.messagebox.showerror(parent=self,
+                                    title=Tr("Error"),
+                                    message=Tr("Could not create unique id for reference."))
+            return False
+        self.result = dict(id=id, type=self.type_var.get(), authors=[author], year=year)
+        return True
+
+    def apply(self):
+        text = self.viewer.source.create_text(self.result["id"])
+        for key, value in self.result.items():
+            text[key] = value
+        text.write()
+        self.result = text

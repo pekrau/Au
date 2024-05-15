@@ -28,9 +28,13 @@ reference,referens
 references,referenser
 author,författare
 authors,författare
+year,år
+article,artikel
+book,bok
 add,lägg till
 add author,lägg till författare
 add reference,lägg till referens
+language,språk
 index,index
 indexed,indexerad
 to do,att göra

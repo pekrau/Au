@@ -1,4 +1,4 @@
-"Authoring editor based on Tkinter."
+"Authoring editor tool based on Tkinter."
 
 from icecream import ic
 
@@ -66,6 +66,7 @@ class Main:
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
         self.root.bind("<Configure>", self.root_resized)
         self.root.bind("<Control-q>", self.quit)
+        self.root.bind("<Control-Q>", self.quit)
         self.root.after(constants.AGES_UPDATE_DELAY, self.treeview_update_ages)
 
         # Must be 'tk.PanedWindow', not 'tk.ttk.PanedWindow',
@@ -399,6 +400,7 @@ class Main:
             viewer.view.bind("<Double-Button-1>", opener)
             viewer.view.bind("<Return>", opener)
             viewer.view.bind("<Control-q>", self.quit)
+            viewer.view.bind("<Control-Q>", self.quit)
             self.treeview_set_info(text)
 
     def meta_notebook_create(self):
@@ -413,18 +415,21 @@ class Main:
         self.meta_notebook.add(self.title_viewer.frame, text=Tr("Title"))
         self.title_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.title_viewer.view.bind("<Control-q>", self.quit)
+        self.title_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.title_viewer.tabid] = self.title_viewer
 
         self.references_viewer = ReferencesViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.references_viewer.frame, text=Tr("References"))
         self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.references_viewer.view.bind("<Control-q>", self.quit)
+        self.references_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
 
         self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.indexed_viewer.frame, text=Tr("Index"))
         self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.indexed_viewer.view.bind("<Control-q>", self.quit)
+        self.indexed_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
         self.todo_viewer = TodoViewer(self.meta_notebook, self)
@@ -436,12 +441,14 @@ class Main:
         self.meta_notebook.add(self.search_viewer.frame, text=Tr("Search"))
         self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.search_viewer.view.bind("<Control-q>", self.quit)
+        self.search_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.search_viewer.tabid] = self.search_viewer
 
         self.help_viewer = HelpViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.help_viewer.frame, text=Tr("Help"))
         self.help_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.help_viewer.view.bind("<Control-q>", self.quit)
+        self.help_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.help_viewer.tabid] = self.help_viewer
 
     def meta_notebook_populate(self):

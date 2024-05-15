@@ -62,10 +62,6 @@ class TextEditor(BaseEditor):
         super().view_configure_tag_bindings(view=view)
         view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
-    @property
-    def character_count(self):
-        return len(self.view.get("1.0", tk.END))
-
     def popup_menu_add(self, menu):
         "Add items to the popup menu."
         menu.add_command(label=Tr("Indexed"), command=self.indexed_add)

@@ -1,4 +1,4 @@
-"Reference editor; also to view abstract and notes."
+"Reference editor; also for viewing abstract and notes."
 
 from icecream import ic
 
@@ -26,16 +26,12 @@ class ReferenceEditor(BaseEditor):
         self.toplevel_setup()
         self.menubar_setup()
         self.metadata_create(self.toplevel)
-        if self.text is None:
-            self.metadata_new()
-        else:
-            self.metadata_populate()
+        self.metadata_populate()
         self.view_create(self.toplevel)
         self.view_configure_tags()
         self.view_configure_tag_bindings()
         self.view_bind_keys()
-        if self.text is not None:
-            self.render(self.text.ast)
+        self.render(self.text.ast)
         self.view.edit_modified(False)
         self.cursor_home()
 
@@ -43,10 +39,7 @@ class ReferenceEditor(BaseEditor):
         self.metadata_frame = tk.ttk.Frame(parent)
         self.metadata_frame.pack(fill=tk.BOTH, expand=True)
         self.metadata_frame.columnconfigure(1, weight=1)
-        if self.text is None:
-            self.authors = list()
-        else:
-            self.authors = list(self.text["authors"])
+        self.authors = list(self.text["authors"])
 
     def metadata_populate(self):
         "Output entry fields for the given reference."
@@ -58,9 +51,10 @@ class ReferenceEditor(BaseEditor):
             row += 1
             label = tk.Label(self.metadata_frame, text=Tr(key.capitalize()), padx=4)
             label.grid(row=row, column=0, sticky=tk.E)
-            self.variables[key] = tk.StringVar(value=self.text.get(key, ""))
+            self.variables[key] = tk.StringVar(value=self.text.get(key) or "")
             entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
+            entry.bind("<Key>", self.entry_modified)
 
         row += 1
         label = tk.Label(self.metadata_frame, text=Tr("Authors"), padx=4)
@@ -70,9 +64,13 @@ class ReferenceEditor(BaseEditor):
             self.variables[key] = tk.StringVar(value=self.authors[pos])
             entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
-            button = tk.Button(self.metadata_frame, text=Tr("Remove"),
-                               command=functools.partial(self.remove_author, pos=pos))
-            button.grid(row=row, column=2)
+            entry.bind("<Key>", self.entry_modified)
+            if pos > 0:
+                button = tk.Button(
+                    self.metadata_frame,
+                    text=Tr("Remove"),
+                    command=functools.partial(self.remove_author, pos=pos))
+                button.grid(row=row, column=2)
             row += 1
 
         key = "author"
@@ -80,6 +78,7 @@ class ReferenceEditor(BaseEditor):
         entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
         entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
         entry.bind("<Return>", self.add_author)
+        entry.bind("<Key>", self.entry_modified)
         button = tk.Button(self.metadata_frame, text=Tr("Add"), command=self.add_author)
         button.grid(row=row, column=2)
 
@@ -87,52 +86,33 @@ class ReferenceEditor(BaseEditor):
             row += 1
             label = tk.Label(self.metadata_frame, text=Tr(key.capitalize()), padx=4)
             label.grid(row=row, column=0, sticky=tk.E)
-            self.variables[key] = tk.StringVar(value=self.text.get(key, ""))
+            self.variables[key] = tk.StringVar(value=self.text.get(key) or "")
             entry = tk.ttk.Entry(self.metadata_frame, 
                                  textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
+            entry.bind("<Key>", self.entry_modified)
 
-    def metadata_new(self):
-        "Output fields for a new reference."
-        self.variables = dict()
-        row = 0
-        label = tk.Label(self.metadata_frame, text=Tr("First author"), padx=4)
-        label.grid(row=row, column=0, sticky=tk.E)
-        key = "author"
-        self.variables[key] = tk.StringVar()
-        entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
-        entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
-
-        label = tk.Label(self.metadata_frame, text=Tr("Year"), padx=4)
-        label.grid(row=row, column=0, sticky=tk.E)
-        self.variables["year"] = tk.StringVar()
-        entry = tk.Entry(self.metadata_frame, textvariable=self.variables["year"])
-        entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
-
-        row += 1
-        label = tk.Label(self.metadata_frame, text=Tr("Type"), padx=4)
-        label.grid(row=row, column=0, sticky=tk.E)
-        frame = tk.Frame(self.metadata_frame)
-        frame.grid(row=row, column=1, sticky=(tk.W, tk.E))
-        self.variables["type"] = var = tk.StringVar(value="Article")
-        tk.ttk.Radiobutton(frame, text=Tr("Article"), variable=var).pack()
-        tk.ttk.Radiobutton(frame, text=Tr("Book"), variable=var).pack()
-        tk.ttk.Radiobutton(frame, text=Tr("Link"), variable=var).pack()
+    def entry_modified(self, event):
+        if not self.is_modified and event.char:
+            self.view.edit_modified(True)
+            self.view.event_generate("<<Modified>>")
 
     def save_prepare(self):
         "Prepare for saving; before doing dump-to-Markdown."
         super().save_prepare()
-        if self.text is None:
-            author = self.variables["author"].get()
-            year = self.variables["year"].get()
-            type = self.variables["type"].get()
-            # XXX
-        else:
-            for key in self.GENERAL_KEYS:
-                self.text[key] = self.variables[key].get()
-            self.text["authors"] = self.authors
-            for key in self.TYPE_KEYS.get(self.text["type"], []):
-                self.text[key] = self.variables[key].get()
+        for key in self.GENERAL_KEYS:
+            value = self.variables[key].get().strip()
+            if value:
+                self.text[key] = value
+            else:
+                self.text.pop(key)
+        self.text["authors"] = self.authors
+        for key in self.TYPE_KEYS.get(self.text["type"], []):
+            value = self.variables[key].get().strip()
+            if value:
+                self.text[key] = value
+            else:
+                self.text.pop(key)
 
     def save_finalize(self):
         self.main.references_viewer.display()

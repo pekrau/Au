@@ -25,11 +25,14 @@ class BaseEditor(TextViewer):
         self.toplevel = tk.Toplevel(self.main.root)
         self.toplevel.title(f"{Tr('Edit')}: {self.text.fullname}")
         self.toplevel.bind("<Control-s>", self.save)
+        self.toplevel.bind("<Control-S>", self.save)
         self.toplevel.bind("<Control-q>", self.close)
+        self.toplevel.bind("<Control-Q>", self.close)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
 
     def menubar_setup(self):
         self.menubar = tk.Menu(self.toplevel, background="gold")
+        self.original_menubar_background = self.menubar.cget("background")
         self.menubar_selection_change = set()
         self.toplevel["menu"] = self.menubar
         self.menubar.add_command(label="Au",
@@ -145,7 +148,7 @@ class BaseEditor(TextViewer):
     def is_modified(self):
         return self.view.edit_modified()
 
-    def set_modified(self):
+    def set_modified(self, event=None):
         self.ignore_modified_event = True
         self.view.edit_modified(True)
 
@@ -156,7 +159,6 @@ class BaseEditor(TextViewer):
             return False
         if not self.is_modified:
             return False
-        self.original_menubar_background = self.menubar.cget("background")
         self.menubar.configure(background=constants.MODIFIED_COLOR)
         return True
 

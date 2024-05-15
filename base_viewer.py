@@ -49,6 +49,10 @@ class BaseViewer:
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
 
+    @property
+    def character_count(self):
+        return len(self.view.get("1.0", tk.END))
+
     def view_configure_tags(self, view=None):
         "Configure the tags used in the 'tk.Text' instance."
         if view is None:
@@ -90,7 +94,9 @@ class BaseViewer:
         view.bind("<End>", self.cursor_end)
         view.bind("<Key>", self.key_press)
         view.bind("<Control-c>", self.clipboad_copy)
+        view.bind("<Control-C>", self.clipboad_copy)
         view.bind("<Control-v>", self.clipboad_paste)
+        view.bind("<Control-V>", self.clipboad_paste)
         view.bind("<F1>", self.debug_tags)
         view.bind("<F2>", self.debug_selected)
         view.bind("<F3>", self.debug_buffer_paste)
