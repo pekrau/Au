@@ -91,7 +91,7 @@ class ReferencesViewer(BaseViewer):
         self.display_wipe()
         self.references_pos = dict() # Key: reference id; value: position here.
         self.highlighted = None  # Currently highlighted range.
-        texts_pos = dict()  # Position in the source text.
+        texts_pos = dict()       # Position in the source text.
         for text in self.main.source.all_texts:
             for id, positions in text.viewer.references.items():
                 texts_pos.setdefault(id,dict())[text.fullname] = list(sorted(positions))
@@ -99,22 +99,18 @@ class ReferencesViewer(BaseViewer):
         for reference in self.references:
             first = self.view.index(tk.INSERT)
             self.references_pos[reference["id"]] = first
-            self.view.insert(tk.INSERT, reference["id"], (constants.BOLD, ))
 
-            # Get the texts that use this reference.
-            fullnames = texts_pos.get(reference["id"])
-
-            # Button for reference edit.
-            command = functools.partial(self.main.open_reference_editor,
-                                        reference=reference)
-            button = tk.ttk.Button(self.view, text=Tr("Edit"), command=command)
-            self.view.window_create(tk.INSERT, window=button, padx=6)
-
-            # Button for reference delete; only if not referred to from texts.
-            if not fullnames:
-                command = functools.partial(self.reference_delete, reference=reference)
-                button = tk.ttk.Button(self.view, text=Tr("Delete"), command=command)
-                self.view.window_create(tk.INSERT, window=button, padx=6)
+            tag = f"{constants.REFERENCE_PREFIX}{reference['id']}"
+            self.view.tag_configure(tag,
+                                    font=constants.FONT_BOLD,
+                                    foreground=constants.REFERENCE_COLOR)
+            self.view.tag_bind(tag, "<Enter>", self.reference_enter)
+            self.view.tag_bind(tag, "<Leave>", self.reference_leave)
+            self.view.tag_bind(tag, "<Button-1>",
+                               functools.partial(self.reference_action,
+                                                 reference=reference))
+            self.view.insert(tk.INSERT, reference["id"], (tag, ))
+            self.view.insert(tk.INSERT, "  ")
 
             self.view.insert(tk.INSERT, utils.shortname(reference["authors"][0]))
             number = min(len(reference["authors"]), constants.REFERENCE_MAX_AUTHORS)
@@ -176,7 +172,7 @@ class ReferencesViewer(BaseViewer):
                     if any_item:
                         self.view.insert(tk.INSERT, ", ")
                     start = self.view.index(tk.INSERT)
-                    self.view.insert(tk.INSERT, f"{label} {value}")
+                    self.view.insert(tk.INSERT, f"{label}:{value}")
                     self.link_create(template.format(value=value),
                                      title=value,
                                      first=start,
@@ -189,15 +185,29 @@ class ReferencesViewer(BaseViewer):
             self.view.mark_set(reference["id"].replace(" ", "_"), first)
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
 
-            if fullnames:
-                for fullname, positions in sorted(fullnames.items()):
-                    self.view.insert(tk.INSERT, "\n")
-                    positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
-                    self.xref_create(fullname, positions[0], constants.REFERENCE)
-                    for i, position in enumerate(positions[1:], start=2):
-                        self.view.insert(tk.INSERT, ", ")
-                        self.xref_create(str(i), position, constants.REFERENCE)
+            # Get the texts that use this reference.
+            fullnames = texts_pos.get(reference["id"]) or dict()
+            reference["orphan"] = not fullnames
+            for fullname, positions in sorted(fullnames.items()):
+                self.view.insert(tk.INSERT, "\n")
+                positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
+                self.xref_create(fullname, positions[0], constants.REFERENCE)
+                for i, position in enumerate(positions[1:], start=2):
+                    self.view.insert(tk.INSERT, ", ")
+                    self.xref_create(str(i), position, constants.REFERENCE)
             self.view.insert(tk.INSERT, "\n")
+
+    def x(self, *args, **kwargs):
+        ic(args, kwargs)
+
+    def reference_enter(self, event):
+        self.view.configure(cursor="hand2")
+
+    def reference_leave(self, event):
+        self.view.configure(cursor="")
+
+    def reference_action(self, event, reference=None):
+        self.main.open_reference_editor(self, reference)
 
     def highlight(self, refid):
         "Highlight and show the reference; show this pane."
@@ -237,7 +247,7 @@ class ReferencesViewer(BaseViewer):
         reference.read()
         self.reference_add(reference)
         self.display()
-        self.main.open_reference_editor(reference)
+        self.main.open_reference_editor(self, reference)
 
     def get_unique_id(self, author, year):
         name = author.split(",")[0].strip()
@@ -275,7 +285,7 @@ class BibtexImport(tk.simpledialog.Dialog):
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("BibTeX"))
         label.grid(row=1, column=0, padx=4, sticky=(tk.E, tk.N))
-        self.bibtex_text = tk.Text(body, width=50)
+        self.bibtex_text = tk.Text(body, width=80)
         self.bibtex_text.grid(row=1, column=1)
         return self.bibtex_text
 
@@ -336,12 +346,12 @@ class AddManually(tk.simpledialog.Dialog):
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("Author"))
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
-        self.author_entry = tk.Entry(body, width=40)
+        self.author_entry = tk.Entry(body)
         self.author_entry.grid(row=0, column=1, sticky=(tk.W, tk.E))
 
         label = tk.ttk.Label(body, text=Tr("Year"))
         label.grid(row=1, column=0, padx=4, sticky=tk.E)
-        self.year_entry = tk.Entry(body, width=8)
+        self.year_entry = tk.Entry(body)
         self.year_entry.grid(row=1, column=1, sticky=(tk.W, tk.E))
         self.year_entry.bind("<Return>", self.ok)
 

@@ -79,13 +79,11 @@ class SearchViewer(BaseViewer):
         super().view_configure_tags(view=view)
         view.tag_configure(constants.SEARCH, lmargin1=constants.SEARCH_INDENT)
 
-    def view_configure_tag_bindings(self, view=None):
+    def view_bind_tags(self):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
-        super().view_configure_tag_bindings(view=view)
-        view.tag_bind(constants.SEARCH, "<Enter>", self.link_enter)
-        view.tag_bind(constants.SEARCH, "<Leave>", self.link_leave)
+        super().view_bind_tags()
+        self.view.tag_bind(constants.SEARCH, "<Enter>", self.link_enter)
+        self.view.tag_bind(constants.SEARCH, "<Leave>", self.link_leave)
 
     def search(self, event=None):
         """Search the viewer texts.

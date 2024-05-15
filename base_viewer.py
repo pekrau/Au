@@ -24,7 +24,7 @@ class BaseViewer:
         self.main = main
         self.view_create(parent)
         self.view_configure_tags()
-        self.view_configure_tag_bindings()
+        self.view_bind_tags()
         self.view_bind_keys()
 
     def view_create(self, parent):
@@ -33,7 +33,6 @@ class BaseViewer:
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.frame.rowconfigure(0, weight=1)
         self.frame.columnconfigure(0, weight=1)
-
         self.view = tk.Text(self.frame,
                             background=self.TEXT_COLOR,
                             padx=constants.TEXT_PADX,
@@ -75,32 +74,26 @@ class BaseViewer:
         view.tag_configure(constants.HIGHLIGHT,
                            background=constants.HIGHLIGHT_COLOR)
 
-    def view_configure_tag_bindings(self, view=None):
+    def view_bind_tags(self):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
-        view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
-        view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
-        view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
-        view.tag_bind(constants.XREF, "<Enter>", self.xref_enter)
-        view.tag_bind(constants.XREF, "<Leave>", self.xref_leave)
-        view.tag_bind(constants.XREF, "<Button-1>", self.xref_action)
+        self.view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
+        self.view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
+        self.view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
+        self.view.tag_bind(constants.XREF, "<Enter>", self.xref_enter)
+        self.view.tag_bind(constants.XREF, "<Leave>", self.xref_leave)
+        self.view.tag_bind(constants.XREF, "<Button-1>", self.xref_action)
 
-    def view_bind_keys(self, view=None):
+    def view_bind_keys(self):
         "Configure the key bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
-        view.bind("<Home>", self.cursor_home)
-        view.bind("<End>", self.cursor_end)
-        view.bind("<Key>", self.key_press)
-        view.bind("<Control-c>", self.clipboad_copy)
-        view.bind("<Control-C>", self.clipboad_copy)
-        view.bind("<Control-v>", self.clipboad_paste)
-        view.bind("<Control-V>", self.clipboad_paste)
-        view.bind("<F1>", self.debug_tags)
-        view.bind("<F2>", self.debug_selected)
-        view.bind("<F3>", self.debug_buffer_paste)
-        view.bind("<F4>", self.debug_dump)
+        self.view.bind("<Home>", self.cursor_home)
+        self.view.bind("<End>", self.cursor_end)
+        self.view.bind("<Key>", self.key_press)
+        self.view.bind("<Control-c>", self.clipboard_copy)
+        self.view.bind("<Control-C>", self.clipboard_copy)
+        self.view.bind("<F1>", self.debug_tags)
+        self.view.bind("<F2>", self.debug_selected)
+        self.view.bind("<F3>", self.debug_clipboard)
+        self.view.bind("<F4>", self.debug_dump)
 
     def display_wipe(self):
         self.links = dict()
@@ -144,21 +137,37 @@ class BaseViewer:
 
     cursor = property(get_cursor, set_cursor)
 
-    def clipboad_copy(self, event):
-        "Copy any selected text to the clipboard."
+    def clipboard_copy(self, event=None):
+        """Copy the current selection into the clipboard.
+        Two variants: with formatting for intra-Au use,
+        and as pure text for cross-application use.
+        """
         try:
-            first = self.view.index(tk.SEL_FIRST)
-            last = self.view.index(tk.SEL_LAST)
-        except tk.TclError:
+            first, last = self.get_selection()
+        except ValueError:
             return
+        self.main.clipboard = self.get_dump(first, last)
         self.view.clipboard_clear()
         self.view.clipboard_append(self.view.get(first, last))
         return "break"
 
-    def clipboad_paste(self, event):
-        "Paste the clipboard contents into the text."
-        self.view.insert(tk.INTER, self.view.clipboard_get())
-        return "break"
+    def get_dump(self, first, last):
+        "Get the dump of the contents, cleanup and preprocess."
+        # Get rid of irrelevant marks.
+        dump = [e for e in self.view.dump(first, last)
+                if not (e[0] == "mark" and (e[1] in (tk.INSERT, tk.CURRENT) or
+                                            e[1].startswith("tk::")))]
+        # Get rid of tag SEL.
+        dump = [e for e in dump if not (e[0] == "tagon" and e[1] == tk.SEL)]
+        # Get link data to make a copy. Skip the position; not relevant.
+        result = []
+        for kind, value, pos in dump:
+            if kind == "tagoff" and value.startswith(constants.LINK_PREFIX):
+                link = self.get_link(value)
+                result.append((kind, value, link["url"], link["title"]))
+            else:
+                result.append((kind, value))
+        return result
 
     def key_press(self, event):
         "Stop all key presses that produce a character."
@@ -247,6 +256,48 @@ class BaseViewer:
         self.view.see(first)
         self.view.update()
 
+    def get_selection(self, allow_boundary=False, strip=False):
+        """Raise ValueError if no current selection.
+        Optionally allow tag region boundaries in the selection.
+        Optionally modify range to have non-blank beginning and end.
+        """
+        try:
+            first = self.view.index(tk.SEL_FIRST)
+            last = self.view.index(tk.SEL_LAST)
+        except tk.TclError:
+            raise ValueError("no current selection")
+        if strip:
+            while self.view.get(first) in string.whitespace:
+                if self.view.compare(first, ">=", last):
+                    break
+                first = self.view.index(first + "+1c")
+            while self.view.get(last + "-1c") in string.whitespace:
+                if self.view.compare(first, ">=", last):
+                    break
+                last = self.view.index(last + "-1c")
+        if not allow_boundary:
+            if self.selection_contains_boundary(first, last):
+                raise ValueError
+        return first, last
+
+    def selection_contains_boundary(self, first=None, last=None, complain=True):
+        try:
+            if first is None or last is None:
+                first, last = self.get_selection()
+        except ValueError:
+            return False
+        first_tags = set(self.view.tag_names(first))
+        first_tags.discard("sel")
+        last_tags = set(self.view.tag_names(last))
+        last_tags.discard("sel")
+        result = first_tags != last_tags
+        if result and complain:
+            tk.messagebox.showerror(
+                parent=self.toplevel,
+                title="Range boundary",
+                message="Selection contains a range boundary.")
+        return result
+
     def debug_tags(self, event=None):
         ic("--- insert ---",
            self.view.index(tk.INSERT),
@@ -263,8 +314,8 @@ class BaseViewer:
            self.view.tag_names(last),
            self.view.dump(first, last))
 
-    def debug_buffer_paste(self, event=None):
-        ic("--- paste buffer ---",  self.main.paste_buffer)
+    def debug_clipboard(self, event=None):
+        ic("--- clipboard ---",  self.main.clipboard)
 
     def debug_dump(self, event=None):
         dump = self.view.dump("1.0", tk.END)
@@ -325,17 +376,15 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
                            foreground=constants.REFERENCE_COLOR,
                            underline=True)
 
-    def view_configure_tag_bindings(self, view=None):
+    def view_bind_tags(self):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
-        super().view_configure_tag_bindings(view=view)
-        view.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
-        view.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
-        view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_action)
-        view.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
-        view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
-        view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_action)
+        super().view_bind_tags()
+        self.view.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
+        self.view.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
+        self.view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_action)
+        self.view.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
+        self.view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
+        self.view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_action)
 
     def display(self, reread_text=True):
         if reread_text:
@@ -346,48 +395,6 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         self.render(self.text.ast)
         self.locate_indexed()
         self.locate_references()
-
-    def get_selection(self, allow_boundary=False, strip=False):
-        """Raise ValueError if no current selection.
-        Optionally allow tag region boundaries in the selection.
-        Optionally modify range to have non-blank beginning and end.
-        """
-        try:
-            first = self.view.index(tk.SEL_FIRST)
-            last = self.view.index(tk.SEL_LAST)
-        except tk.TclError:
-            raise ValueError("no current selection")
-        if strip:
-            while self.view.get(first) in string.whitespace:
-                if self.view.compare(first, ">=", last):
-                    break
-                first = self.view.index(first + "+1c")
-            while self.view.get(last + "-1c") in string.whitespace:
-                if self.view.compare(first, ">=", last):
-                    break
-                last = self.view.index(last + "-1c")
-        if not allow_boundary:
-            if self.selection_contains_boundary(first, last):
-                raise ValueError
-        return first, last
-
-    def selection_contains_boundary(self, first=None, last=None, complain=True):
-        try:
-            if first is None or last is None:
-                first, last = self.get_selection()
-        except ValueError:
-            return False
-        first_tags = set(self.view.tag_names(first))
-        first_tags.discard("sel")
-        last_tags = set(self.view.tag_names(last))
-        last_tags.discard("sel")
-        result = first_tags != last_tags
-        if result and complain:
-            tk.messagebox.showerror(
-                parent=self.toplevel,
-                title="Range boundary",
-                message="Selection contains a range boundary.")
-        return result
 
     def reference_enter(self, event):
         self.view.configure(cursor="hand2")

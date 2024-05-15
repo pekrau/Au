@@ -35,12 +35,10 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
                            lmargin2=constants.FOOTNOTE_MARGIN,
                            rmargin=constants.FOOTNOTE_MARGIN)
 
-    def view_configure_tag_bindings(self, view=None):
-        if view is None:
-            view = self.view
-        super().view_configure_tag_bindings(view=view)
-        view.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
-        view.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
+    def view_bind_tags(self):
+        super().view_bind_tags()
+        self.view.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
+        self.view.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
     def display(self, reread_text=True):
         self.footnotes = dict()

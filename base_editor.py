@@ -42,18 +42,13 @@ class BaseEditor(TextViewer):
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
-        self.menu_file.add_command(label=Tr("Save"),
-                                   command=self.save,
-                                   accelerator="Ctrl-S")
-        self.menu_file.add_command(label=Tr("Close"),
-                                   command=self.close,
-                                   accelerator="Ctrl-Q")
+        self.menubar_file_setup()
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
-        self.menu_edit.add_command(label=Tr("Copy"), command=self.buffer_copy)
-        self.menu_edit.add_command(label=Tr("Cut"), command=self.buffer_cut)
-        self.menu_edit.add_command(label=Tr("Paste"), command=self.buffer_paste)
+        self.menu_edit.add_command(label=Tr("Copy"), command=self.clipboard_copy)
+        self.menu_edit.add_command(label=Tr("Cut"), command=self.clipboard_cut)
+        self.menu_edit.add_command(label=Tr("Paste"), command=self.clipboard_paste)
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_format,
@@ -78,17 +73,27 @@ class BaseEditor(TextViewer):
                                  state=tk.DISABLED)
         self.menubar_selection_change.add(self.menubar.index(tk.END))
 
-    def view_configure_tag_bindings(self, view=None):
-        "Configure the tag bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
-        super().view_configure_tag_bindings(view=view)
-        view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
-        view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
-        view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
+    def menubar_file_setup(self):
+        self.menu_file.add_command(label=Tr("Save"),
+                                   command=self.save,
+                                   accelerator="Ctrl-S")
+        self.menu_file.add_command(label=Tr("Close"),
+                                   command=self.close,
+                                   accelerator="Ctrl-Q")
 
-    def view_bind_keys(self, view=None):
-        super().view_bind_keys(view=view)
+    def view_bind_tags(self):
+        "Configure the tag bindings used in the 'tk.Text' instance."
+        super().view_bind_tags()
+        self.view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
+        self.view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
+        self.view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
+
+    def view_bind_keys(self):
+        super().view_bind_keys()
+        self.view.bind("<Control-x>", self.clipboard_cut)
+        self.view.bind("<Control-X>", self.clipboard_cut)
+        self.view.bind("<Control-v>", self.clipboard_paste)
+        self.view.bind("<Control-V>", self.clipboard_paste)
         self.view.bind("<<Modified>>", self.handle_modified)
         self.view.bind("<Button-3>", self.popup_menu)
         self.view.bind("<<Selection>>", self.selection_change)
@@ -348,43 +353,23 @@ class BaseEditor(TextViewer):
         self.view.tag_remove(tk.SEL, first, last)
         self.set_modified()
 
-    def buffer_copy(self):
-        "Copy the current selection into the paste buffer."
+    def clipboard_cut(self, event=None):
+        """Cut the current selection into the clipboard.
+        Two variants: with formatting for intra-Au use,
+        and as pure text for cross-application use.
+        """
         try:
             first, last = self.get_selection()
         except ValueError:
             return
         self.main.paste_buffer = self.get_dump(first, last)
-
-    def buffer_cut(self):
-        "Cut the current selection into the paste buffer."
-        try:
-            first, last = self.get_selection()
-        except ValueError:
-            return
-        self.main.paste_buffer = self.get_dump(first, last)
+        self.view.clipboard_clear()
+        self.view.clipboard_append(self.view.get(first, last))
         self.view.delete(first, last)
+        return "break"
 
-    def get_dump(self, first, last):
-        "Get the dump of the contents, cleanup and preprocess."
-        # Get rid of irrelevant marks.
-        dump = [e for e in self.view.dump(first, last)
-                if not (e[0] == "mark" and (e[1] in (tk.INSERT, tk.CURRENT) or
-                                            e[1].startswith("tk::")))]
-        # Get rid of tag SEL.
-        dump = [e for e in dump if not (e[0] == "tagon" and e[1] == tk.SEL)]
-        # Get link data to make a copy. Skip the position; not relevant.
-        result = []
-        for kind, value, pos in dump:
-            if kind == "tagoff" and value.startswith(constants.LINK_PREFIX):
-                link = self.get_link(value)
-                result.append((kind, value, link["url"], link["title"]))
-            else:
-                result.append((kind, value))
-        return result
-
-    def buffer_paste(self):
-        "Paste in contents from the paste buffer."
+    def clipboard_paste(self, event=None):
+        "Paste in contents from the clipboard."
         first = self.view.index(tk.INSERT)
         tags = dict()
         self.skip_text = False
@@ -396,6 +381,7 @@ class BaseEditor(TextViewer):
                 raise
             method(entry, tags)
         self.view.tag_remove(tk.SEL, first, tk.INSERT)
+        return "break"
 
     def undump_text(self, entry, tags):
         if self.skip_text:
@@ -441,8 +427,8 @@ class BaseEditor(TextViewer):
         try:
             first, last = self.get_selection(allow_boundary=True)
         except ValueError:      # No current selection.
-            if self.main.paste_buffer:
-                menu.add_command(label=Tr("Paste"), command=self.buffer_paste)
+            if self.main.clipboard:
+                menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
                 any_item = True
             tags = self.view.tag_names(tk.INSERT + "-1c")
             if any_item:
@@ -463,8 +449,8 @@ class BaseEditor(TextViewer):
             any_item = True
         else:                   # There is current selection.
             if not self.selection_contains_boundary(first, last, complain=False):
-                menu.add_command(label=Tr("Copy"), command=self.buffer_copy)
-                menu.add_command(label=Tr("Cut"), command=self.buffer_cut)
+                menu.add_command(label=Tr("Copy"), command=self.clipboard_copy)
+                menu.add_command(label=Tr("Cut"), command=self.clipboard_cut)
                 menu.add_separator()
                 menu.add_command(label=Tr("Bold"), command=self.bold_add)
                 menu.add_command(label=Tr("Italic"), command=self.italic_add)

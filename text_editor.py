@@ -29,7 +29,7 @@ class TextEditor(BaseEditor):
         self.menubar_setup()
         self.view_create(self.toplevel)
         self.view_configure_tags()
-        self.view_configure_tag_bindings()
+        self.view_bind_tags()
         self.view_bind_keys()
         self.render(self.text.ast)
         self.view.edit_modified(False)
@@ -55,12 +55,10 @@ class TextEditor(BaseEditor):
                                              variable=self.status_var,
                                              command=self.set_status)
 
-    def view_configure_tag_bindings(self, view=None):
+    def view_bind_tags(self):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
-        super().view_configure_tag_bindings(view=view)
-        view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
+        super().view_bind_tags()
+        self.view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
     def popup_menu_add(self, menu):
         "Add items to the popup menu."

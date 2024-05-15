@@ -20,8 +20,9 @@ class ReferenceEditor(BaseEditor):
                               "issn", "doi", "pmid"],
                      link=["url", "title", "accessed"])
 
-    def __init__(self, main, text):
+    def __init__(self, main, viewer, text):
         self.main = main
+        self.viewer = viewer
         self.text = text
         self.toplevel_setup()
         self.menubar_setup()
@@ -29,11 +30,16 @@ class ReferenceEditor(BaseEditor):
         self.metadata_populate()
         self.view_create(self.toplevel)
         self.view_configure_tags()
-        self.view_configure_tag_bindings()
+        self.view_bind_tags()
         self.view_bind_keys()
         self.render(self.text.ast)
         self.view.edit_modified(False)
         self.cursor_home()
+
+    def menubar_file_setup(self):
+        state = self.text.get("orphan") and tk.NORMAL or tk.DISABLED
+        self.menu_file.add_command(label=Tr("Delete"), state=state, command=self.delete)
+        super().menubar_file_setup()
 
     def metadata_create(self, parent):
         self.metadata_frame = tk.ttk.Frame(parent)
@@ -96,6 +102,19 @@ class ReferenceEditor(BaseEditor):
         if not self.is_modified and event.char:
             self.view.edit_modified(True)
             self.view.event_generate("<<Modified>>")
+
+    def delete(self):
+        if not tk.messagebox.askokcancel(
+                parent=self.frame,
+                title=Tr("Delete?"),
+                message=Tr("Really delete reference?")):
+            return
+        self.viewer.references.remove(self.text)
+        self.viewer.references_lookup.pop(self.text["id"])
+        self.main.reference_editors.pop(self.text.fullname)
+        self.text.delete()
+        self.viewer.display()
+        self.toplevel.destroy()
 
     def save_prepare(self):
         "Prepare for saving; before doing dump-to-Markdown."

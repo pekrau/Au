@@ -99,7 +99,7 @@ class Main:
             if "main" not in self.config:
                 raise ValueError # Invalid JSON content.
         except (OSError, json.JSONDecodeError, ValueError):
-            self.config = dict(main=dict(), paste=[], items=[])
+            self.config = dict(main=dict(), clipboard=[], items=[])
 
     def config_save(self):
         "Save the current config. Get current state from the respective widgets."
@@ -115,8 +115,8 @@ class Main:
         config["source"]["cursor"] = dict([(t.fullname, t.viewer.cursor)
                                            for t in self.source.all_texts])
 
-        # Save the current cut-and-paste buffer.
-        config["paste"] = self.paste_buffer
+        # Save the current clipboard.
+        config["clipboard"] = self.clipboard
 
         with open(self.configpath, "w") as outfile:            
             json.dump(config, outfile, indent=2)
@@ -124,8 +124,8 @@ class Main:
 
     def config_apply(self):
         "Apply configuration to windows and tabs."
-        # The paste buffer is global to all editors, to facilitate cut-and-paste.
-        self.paste_buffer = self.config.get("paste") or list()
+        # The clipboard is global to all editors, to facilitate cut-and-paste.
+        self.clipboard = self.config.get("clipboard") or list()
 
         try:
             sash = self.config["main"]["sash"]
@@ -691,11 +691,11 @@ class Main:
         editor.view.focus_set()
         return "break"
 
-    def open_reference_editor(self, reference):
+    def open_reference_editor(self, viewer, reference, event=None):
         try:
             editor = self.reference_editors[reference.fullname]
         except KeyError:
-            editor = ReferenceEditor(self, reference)
+            editor = ReferenceEditor(self, viewer, reference)
             self.reference_editors[reference.fullname] = editor
         else:
             editor.toplevel.lift()
