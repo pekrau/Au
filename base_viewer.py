@@ -255,7 +255,7 @@ class BaseViewer:
 
     def debug_selected(self, event=None):
         try:
-            first, last = self.get_selection(check_no_boundary=False)
+            first, last = self.get_selection(allow_boundary=True)
         except ValueError:
             return
         ic("--- selected ---",
@@ -347,8 +347,9 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         self.locate_indexed()
         self.locate_references()
 
-    def get_selection(self, check_no_boundary=True, strip=False):
-        """Raise ValueError if no current selection, or range boundary (if checked).
+    def get_selection(self, allow_boundary=False, strip=False):
+        """Raise ValueError if no current selection.
+        Optionally allow tag region boundaries in the selection.
         Optionally modify range to have non-blank beginning and end.
         """
         try:
@@ -365,7 +366,7 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
                 if self.view.compare(first, ">=", last):
                     break
                 last = self.view.index(last + "-1c")
-        if check_no_boundary:
+        if not allow_boundary:
             if self.selection_contains_boundary(first, last):
                 raise ValueError
         return first, last

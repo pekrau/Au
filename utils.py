@@ -18,6 +18,13 @@ def cleanup(value):
     "Convert LaTeX characters to UTF-8, remove newlines and normalize blanks."
     return latex_utf8.from_latex_to_utf8(" ".join(value.split()))
 
+def shortname(name):
+    "Return the person name in short form; given names as initials."
+    parts = [p.strip() for p in name.split(",")]
+    initials = [p.strip()[0] for p in parts.pop().split(" ")]
+    parts.append("".join([f"{i}." for i in initials]))
+    return ", ".join(parts)
+
 def get_now():
     "Get ISO formatted string for the current local time."
     return time.strftime(constants.TIME_ISO_FORMAT, time.localtime())

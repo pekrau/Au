@@ -373,7 +373,7 @@ class BaseEditor(TextViewer):
                                             e[1].startswith("tk::")))]
         # Get rid of tag SEL.
         dump = [e for e in dump if not (e[0] == "tagon" and e[1] == tk.SEL)]
-        # Get link data to make a copy. Loose the position.
+        # Get link data to make a copy. Skip the position; not relevant.
         result = []
         for kind, value, pos in dump:
             if kind == "tagoff" and value.startswith(constants.LINK_PREFIX):
@@ -435,12 +435,12 @@ class BaseEditor(TextViewer):
         self.view.mark_set(entry[1], tk.INSERT)
 
     def popup_menu(self, event):
-        "Create a popup menu according to current state and display."
+        "Display a popup menu according to the current state."
         menu = tk.Menu(self.view)
         any_item = False
         try:
-            first, last = self.get_selection(check_no_boundary=False)
-        except ValueError:
+            first, last = self.get_selection(allow_boundary=True)
+        except ValueError:      # No current selection.
             if self.main.paste_buffer:
                 menu.add_command(label=Tr("Paste"), command=self.buffer_paste)
                 any_item = True

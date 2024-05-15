@@ -100,16 +100,32 @@ class ReferencesViewer(BaseViewer):
             first = self.view.index(tk.INSERT)
             self.references_pos[reference["id"]] = first
             self.view.insert(tk.INSERT, reference["id"], (constants.BOLD, ))
-            self.view.insert(tk.INSERT, "  ")
-            self.view.insert(tk.INSERT, reference["authors"][0])
-            for author in reference["authors"][1:constants.REFERENCE_MAX_AUTHORS-1]:
+
+            # Get the texts that use this reference.
+            fullnames = texts_pos.get(reference["id"])
+
+            # Button for reference edit.
+            command = functools.partial(self.main.open_reference_editor,
+                                        reference=reference)
+            button = tk.ttk.Button(self.view, text=Tr("Edit"), command=command)
+            self.view.window_create(tk.INSERT, window=button, padx=6)
+
+            # Button for reference delete; only if not referred to from texts.
+            if not fullnames:
+                command = functools.partial(self.reference_delete, reference=reference)
+                button = tk.ttk.Button(self.view, text=Tr("Delete"), command=command)
+                self.view.window_create(tk.INSERT, window=button, padx=6)
+
+            self.view.insert(tk.INSERT, utils.shortname(reference["authors"][0]))
+            number = min(len(reference["authors"]), constants.REFERENCE_MAX_AUTHORS)
+            for author in reference["authors"][1:number-1]:
                 self.view.insert(tk.INSERT, ", ")
-                self.view.insert(tk.INSERT, author)
+                self.view.insert(tk.INSERT, utils.shortname(author))
             if len(reference["authors"]) > constants.REFERENCE_MAX_AUTHORS:
                 self.view.insert(tk.INSERT, " ...")
             if len(reference["authors"]) > 1:
                 self.view.insert(tk.INSERT, " & ")
-                self.view.insert(tk.INSERT, reference["authors"][-1])
+                self.view.insert(tk.INSERT, utils.shortname(reference["authors"][-1]))
             self.view.insert(tk.INSERT, " ")
 
             if reference["type"] == "article":
@@ -168,19 +184,6 @@ class ReferencesViewer(BaseViewer):
                     any_item = True
                 except KeyError:
                     pass
-
-            # Button for reference edit.
-            command = functools.partial(self.main.open_reference_editor,
-                                        reference=reference)
-            button = tk.ttk.Button(self.view, text=Tr("Edit"), command=command)
-            self.view.window_create(tk.INSERT, window=button, padx=4)
-
-            # Button for reference delete; only if not referred to from texts.
-            fullnames = texts_pos.get(reference["id"])
-            if not fullnames:
-                command = functools.partial(self.reference_delete, reference=reference)
-                button = tk.ttk.Button(self.view, text=Tr("Delete"), command=command)
-                self.view.window_create(tk.INSERT, window=button, padx=4)
 
             # This is done at this stage to avoid mark from being moved by insert.
             self.view.mark_set(reference["id"].replace(" ", "_"), first)

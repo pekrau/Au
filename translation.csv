@@ -29,8 +29,13 @@ references,referenser
 author,författare
 authors,författare
 year,år
+month,månad
 article,artikel
 book,bok
+journal,tidskrift
+volume,volym
+issue,utgåva
+pages,sidor
 add,lägg till
 add author,lägg till författare
 add reference,lägg till referens
