@@ -48,7 +48,7 @@ class ReferenceEditor(BaseEditor):
         self.authors = list(self.text["authors"])
 
     def metadata_populate(self):
-        "Output entry fields for the given reference."
+        "Create entry fields for the given reference."
         for item in self.metadata_frame.grid_slaves():
             item.grid_forget()
         self.variables = dict()
@@ -61,6 +61,8 @@ class ReferenceEditor(BaseEditor):
             entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
             entry.bind("<Key>", self.entry_modified)
+            entry.bind("<Control-q>", self.close)
+            entry.bind("<Control-Q>", self.close)
 
         row += 1
         label = tk.Label(self.metadata_frame, text=Tr("Authors"), padx=4)
@@ -71,6 +73,8 @@ class ReferenceEditor(BaseEditor):
             entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
             entry.bind("<Key>", self.entry_modified)
+            entry.bind("<Control-q>", self.close)
+            entry.bind("<Control-Q>", self.close)
             if pos > 0:
                 button = tk.Button(
                     self.metadata_frame,
@@ -97,6 +101,8 @@ class ReferenceEditor(BaseEditor):
                                  textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
             entry.bind("<Key>", self.entry_modified)
+            entry.bind("<Control-q>", self.close)
+            entry.bind("<Control-Q>", self.close)
 
     def entry_modified(self, event):
         if not self.is_modified and event.char:
@@ -136,6 +142,11 @@ class ReferenceEditor(BaseEditor):
     def save_finalize(self):
         self.main.references_viewer.display()
 
+    def close_finalize(self):
+        "Perform action at window closing time."
+        self.main.reference_editors.pop(self.text.fullname)
+        self.text.read()
+
     def add_author(self, event=None):
         name = self.variables["author"].get().strip()
         if not name:
@@ -151,8 +162,3 @@ class ReferenceEditor(BaseEditor):
             return
         self.view.edit_modified(True)
         self.metadata_populate()
-
-    def close_finalize(self):
-        "Perform action at window closing time."
-        self.main.reference_editors.pop(self.text.fullname)
-        self.text.read()

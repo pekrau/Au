@@ -367,7 +367,7 @@ class BaseEditor(TextViewer):
         self.view.clipboard_clear()
         self.view.clipboard_append(self.main.clipboard_chars)
         self.view.delete(first, last)
-        return "break"
+        return "break"          # When called by keyboard event.
 
     def clipboard_paste(self, event=None):
         """Paste in contents from the clipboard.
@@ -391,7 +391,7 @@ class BaseEditor(TextViewer):
             self.view.tag_remove(tk.SEL, first, tk.INSERT)
         else:
             self.view.insert(tk.INSERT, chars)
-        return "break"
+        return "break"          # When called by keyboard event.
 
     def undump_text(self, entry, tags):
         if self.skip_text:
@@ -628,16 +628,18 @@ class BaseEditor(TextViewer):
         self.current_link_tag = None
 
     def close(self, event=None, force=False):
+        ic("close", event, force)
         if self.is_modified and not force:
             if not tk.messagebox.askokcancel(
                     parent=self.toplevel,
                     title=Tr("Close?"),
                     message=f"{Tr('Modifications will not be saved.')} {Tr('Really')} {Tr('close?')}"):
-                return
+                return "break"  # When called by keyboard event.
         self.ignore_modified_event = True
         self.view.edit_modified(False)
         self.close_finalize()
         self.toplevel.destroy()
+        return "break"          # When called by keyboard event.
 
     def close_finalize(self):
         "Perform action at window closing time."
