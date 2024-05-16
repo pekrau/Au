@@ -16,7 +16,7 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
     TEXT_COLOR = constants.TEXT_COLOR
 
     def __init__(self, parent, main, text):
-        self.footnotes = dict()     # Lookup local for the instance.
+        self.footnotes = {}     # Lookup local for the instance.
         super().__init__(parent, main, text)
         self.status = constants.Status.lookup(self.text.frontmatter.get("status")) or constants.STARTED
 
@@ -41,7 +41,7 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
         self.view.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
     def display(self, reread_text=True):
-        self.footnotes = dict()
+        self.footnotes = {}
         self.highlighted = None
         super().display(reread_text=reread_text)
 

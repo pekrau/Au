@@ -89,12 +89,12 @@ class ReferencesViewer(BaseViewer):
 
     def display(self):
         self.display_wipe()
-        self.references_pos = dict() # Key: reference id; value: position here.
+        self.references_pos = {} # Key: reference id; value: position here.
         self.highlighted = None  # Currently highlighted range.
-        texts_pos = dict()       # Position in the source text.
+        texts_pos = {}           # Position in the source text.
         for text in self.main.source.all_texts:
             for id, positions in text.viewer.references.items():
-                texts_pos.setdefault(id,dict())[text.fullname] = list(sorted(positions))
+                texts_pos.setdefault(id, {})[text.fullname] = list(sorted(positions))
 
         for reference in self.references:
             first = self.view.index(tk.INSERT)
@@ -186,7 +186,7 @@ class ReferencesViewer(BaseViewer):
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
 
             # Get the texts that use this reference.
-            fullnames = texts_pos.get(reference["id"]) or dict()
+            fullnames = texts_pos.get(reference["id"]) or {}
             reference["orphan"] = not fullnames
             for fullname, positions in sorted(fullnames.items()):
                 self.view.insert(tk.INSERT, "\n")
@@ -197,8 +197,8 @@ class ReferencesViewer(BaseViewer):
                     self.xref_create(str(i), position, constants.REFERENCE)
             self.view.insert(tk.INSERT, "\n")
 
-    def x(self, *args, **kwargs):
-        ic(args, kwargs)
+        # This is already displayed, so needs to be updated.
+        self.main.title_viewer.references_var.set(len(self.references))
 
     def reference_enter(self, event):
         self.view.configure(cursor="hand2")
@@ -262,17 +262,6 @@ class ReferencesViewer(BaseViewer):
         self.references.sort(key=lambda r: r["id"])
         self.references_lookup[reference["id"]] = reference
 
-    def reference_delete(self, reference):
-        if not tk.messagebox.askokcancel(
-                parent=self.frame,
-                title=Tr("Delete?"),
-                message=Tr("Really delete reference?")):
-            return
-        self.references.remove(reference)
-        self.references_lookup.pop(reference["id"])
-        reference.delete()
-        self.display()
-
 
 class BibtexImport(tk.simpledialog.Dialog):
     "Dialog window for importing a BibTeX entry."
@@ -295,14 +284,14 @@ class BibtexImport(tk.simpledialog.Dialog):
         if len(entries) > 1:
             tk.messagebox.showerror(
                 parent=self.view,
-                title=Tr("Error"),
-                message=Tr("More than one BibTeX entry in data."))
+                title="Error",
+                message="More than one BibTeX entry in data.")
             return False
         elif len(entries) == 0:
             tk.messagebox.showerror(
                 parent=self.view,
-                title=Tr("Error"),
-                message=Tr("No BibTeX entry in data."))
+                title="Error",
+                message="No BibTeX entry in data.")
             return False
         entry = entries[0]
         authors = utils.cleanup(entry.fields_dict["author"].value)
@@ -311,8 +300,8 @@ class BibtexImport(tk.simpledialog.Dialog):
         id = self.viewer.get_unique_id(authors[0], year)
         if id is None:
             tk.messagebox.showerror(parent=self,
-                                    title=Tr("Error"),
-                                    message=Tr("Could not create unique id for reference."))
+                                    title="Error",
+                                    message="Could not create unique id for reference.")
             return False
         self.result = dict(id=id, type=entry.entry_type, authors=authors, year=year)
         for key, field in entry.fields_dict.items():
@@ -379,8 +368,8 @@ class AddManually(tk.simpledialog.Dialog):
         id = self.viewer.get_unique_id(author, year)
         if id is None:
             tk.messagebox.showerror(parent=self,
-                                    title=Tr("Error"),
-                                    message=Tr("Could not create unique id for reference."))
+                                    title="Error",
+                                    message="Could not create unique id for reference.")
             return False
         self.result = dict(id=id, type=self.type_var.get(), authors=[author], year=year)
         return True

@@ -85,7 +85,7 @@ class TextEditor(BaseEditor):
         canonical = tk.simpledialog.askstring(
             parent=self.toplevel,
             title="Canonical?",
-            prompt="Give canonical term",
+            prompt="Give canonical term:",
             initialvalue=term)
         if canonical is None:
             return
@@ -206,7 +206,7 @@ class TextEditor(BaseEditor):
         "Prepare for saving; before doing dump-to-Markdown."
         super().save_prepare()
         self.text.status = constants.Status.lookup(self.status_var.get().lower())
-        self.markdown_footnotes = dict()
+        self.markdown_footnotes = {}
 
     def save_postdump(self):
         "Perform save operations after having done dump-to-Markdown; footnotes."
@@ -227,6 +227,7 @@ class TextEditor(BaseEditor):
         "Perform final save operations; redisplaying text and setting info."
         self.text.viewer.display()
         self.main.treeview_set_info(self.text)
+        self.main.update_statistics()
         self.text.viewer.cursor = self.cursor
         self.main.references_viewer.display() # XXX Optimize?
         self.main.indexed_viewer.display()    # XXX Optimize?

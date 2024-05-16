@@ -62,6 +62,7 @@ class Source:
     def all_items(self):
         result = []
         for item in self.items:
+            result.append(item)
             result.extend(item.all_items)
         return result
 
@@ -98,7 +99,7 @@ class Source:
             else:
                 pass
 
-        self.lookup = dict()
+        self.lookup = {}
         for item in self.all_items:
             self.lookup[item.fullname] = item
 
@@ -465,8 +466,9 @@ class Section(Item):
 
     @property
     def all_items(self):
-        result = [self]
+        result = []
         for item in self.items:
+            result.append(item)
             result.extend(item.all_items)
         return result
 
@@ -563,7 +565,7 @@ class Text(Item):
 
     @property
     def all_items(self):
-        return [self]
+        return []
 
     @property
     def all_texts(self):
@@ -606,7 +608,7 @@ class Text(Item):
             self.frontmatter = yaml.safe_load(match.group(1))
             content = content[match.start(2):]
         else:
-            self.frontmatter = dict()
+            self.frontmatter = {}
         self.ast = parser.convert(content)
 
     def get_config(self):

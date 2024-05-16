@@ -38,7 +38,7 @@ class BaseRenderMixin:
         try:
             return self._lists_lookup
         except AttributeError:
-            self._lists_lookup = dict()
+            self._lists_lookup = {}
             return self._lists_lookup
 
     def render_document(self, ast):
@@ -183,7 +183,7 @@ class BaseRenderMixin:
 
     def locate_indexed(self):
         "Get the final positions of the indexed terms; affected by footnotes."
-        self.indexed = dict()
+        self.indexed = {}
         for tag in self.view.tag_names():
             if not tag.startswith(constants.INDEXED_PREFIX):
                 continue
@@ -195,7 +195,7 @@ class BaseRenderMixin:
 
     def locate_references(self):
         "Get the final positions of the references; affected by footnotes."
-        self.references = dict()
+        self.references = {}
         range = self.view.tag_nextrange(constants.REFERENCE, "1.0")
         while range:
             self.references.setdefault(self.view.get(*range), set()).add(range[0])

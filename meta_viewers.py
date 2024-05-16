@@ -30,16 +30,6 @@ class TitleViewer(MetaViewer):
         pass
 
 
-class ReferencesViewer(MetaViewer):
-    "View of the references list."
-
-    def __str__(self):
-        return "References"
-
-    def display_title(self):
-        pass
-
-
 class TodoViewer(MetaViewer):
     "View of the to-do list."
 

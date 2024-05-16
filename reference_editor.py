@@ -51,7 +51,7 @@ class ReferenceEditor(BaseEditor):
         "Create entry fields for the given reference."
         for item in self.metadata_frame.grid_slaves():
             item.grid_forget()
-        self.variables = dict()
+        self.variables = {}
         row = 0
         for key in self.GENERAL_KEYS:
             row += 1
@@ -112,8 +112,8 @@ class ReferenceEditor(BaseEditor):
     def delete(self):
         if not tk.messagebox.askokcancel(
                 parent=self.frame,
-                title=Tr("Delete?"),
-                message=Tr("Really delete reference?")):
+                title=Tr("Delete"),
+                message=Tr("Really delete reference") + "?"):
             return
         self.viewer.references.remove(self.text)
         self.viewer.references_lookup.pop(self.text["id"])

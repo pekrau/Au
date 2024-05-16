@@ -30,7 +30,7 @@ class Translation:
             raise ValueError(f"language 'source' not in the translation data.")
         if target not in self.terms[0]:
             raise ValueError(f"language 'target' not in the translation data.")
-        self.translation = dict()
+        self.translation = {}
         for term in self.terms:
             self.translation[term[source]] = term[target]
             self.translation[term[source].lower()] = term[target].lower()

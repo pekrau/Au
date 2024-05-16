@@ -96,13 +96,13 @@ class BaseViewer:
         self.view.bind("<F4>", self.debug_dump)
 
     def display_wipe(self):
-        self.links = dict()
-        self.xrefs = dict()
+        self.links = {}
+        self.xrefs = {}
         self.highlighted = None
         self.view.delete("1.0", tk.END)
 
     def display_title(self):
-        self.title = f"{self}\n"
+        self.title = str(self) + "\n"
         try:
             h = constants.H_LOOKUP[self.text.depth]
         except KeyError:

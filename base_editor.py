@@ -335,7 +335,7 @@ class BaseEditor(TextViewer):
         url = tk.simpledialog.askstring(
             parent=self.toplevel,
             title="Link URL?",
-            prompt="URL for link")
+            prompt="Give URL for link:")
         if not url:
             return
         try:
@@ -379,7 +379,7 @@ class BaseEditor(TextViewer):
         chars = self.view.clipboard_get()
         if chars == self.main.clipboard_chars:
             first = self.view.index(tk.INSERT)
-            tags = dict()
+            tags = {}
             self.skip_text = False
             for entry in dump:
                 try:
@@ -628,7 +628,6 @@ class BaseEditor(TextViewer):
         self.current_link_tag = None
 
     def close(self, event=None, force=False):
-        ic("close", event, force)
         if self.is_modified and not force:
             if not tk.messagebox.askokcancel(
                     parent=self.toplevel,
