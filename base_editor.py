@@ -356,31 +356,41 @@ class BaseEditor(TextViewer):
     def clipboard_cut(self, event=None):
         """Cut the current selection into the clipboard.
         Two variants: with formatting for intra-Au use,
-        and as pure text for cross-application use.
+        and as characters-only for cross-application use.
         """
         try:
             first, last = self.get_selection()
         except ValueError:
             return
-        self.main.paste_buffer = self.get_dump(first, last)
+        self.main.clipboard = self.get_dump(first, last)
+        self.main.clipboard_chars = self.view.get(first, last)
         self.view.clipboard_clear()
-        self.view.clipboard_append(self.view.get(first, last))
+        self.view.clipboard_append(self.main.clipboard_chars)
         self.view.delete(first, last)
         return "break"
 
     def clipboard_paste(self, event=None):
-        "Paste in contents from the clipboard."
-        first = self.view.index(tk.INSERT)
-        tags = dict()
-        self.skip_text = False
-        for entry in dump:
-            try:
-                method = getattr(self, f"undump_{entry[0]}")
-            except AttributeError:
-                ic("Could not undump", entry)
-                raise
-            method(entry, tags)
-        self.view.tag_remove(tk.SEL, first, tk.INSERT)
+        """Paste in contents from the clipboard.
+        If the system clipboard text is the same as that stored in
+        as characters only in this app, then use the intra-Au clipboard,
+        which contains formatting.
+        Otherwise the system clipboard text.
+        """
+        chars = self.view.clipboard_get()
+        if chars == self.main.clipboard_chars:
+            first = self.view.index(tk.INSERT)
+            tags = dict()
+            self.skip_text = False
+            for entry in dump:
+                try:
+                    method = getattr(self, f"undump_{entry[0]}")
+                except AttributeError:
+                    ic("Could not undump", entry)
+                    raise
+                method(entry, tags)
+            self.view.tag_remove(tk.SEL, first, tk.INSERT)
+        else:
+            self.view.insert(tk.INSERT, chars)
         return "break"
 
     def undump_text(self, entry, tags):
@@ -423,16 +433,11 @@ class BaseEditor(TextViewer):
     def popup_menu(self, event):
         "Display a popup menu according to the current state."
         menu = tk.Menu(self.view)
-        any_item = False
         try:
             first, last = self.get_selection(allow_boundary=True)
         except ValueError:      # No current selection.
-            if self.main.clipboard:
-                menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
-                any_item = True
+            menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
             tags = self.view.tag_names(tk.INSERT + "-1c")
-            if any_item:
-                menu.add_separator()
             for tag in tags:
                 if tag.startswith(constants.LIST_ITEM_PREFIX):
                     menu.add_command(label=Tr("Add list item"),
@@ -446,7 +451,6 @@ class BaseEditor(TextViewer):
                              command=functools.partial(self.list_add, ordered=True))
             menu.add_command(label=Tr("Add unordered list"),
                              command=functools.partial(self.list_add, ordered=False))
-            any_item = True
         else:                   # There is current selection.
             if not self.selection_contains_boundary(first, last, complain=False):
                 menu.add_command(label=Tr("Copy"), command=self.clipboard_copy)
@@ -457,13 +461,11 @@ class BaseEditor(TextViewer):
                 menu.add_command(label=Tr("Quote"), command=self.quote_add)
                 menu.add_separator()
                 menu.add_command(label=Tr("Link"), command=self.link_add)
-                self.popup_menu_add(menu)
-                any_item = True
-        if any_item:
-            menu.tk_popup(event.x_root, event.y_root)
+                self.popup_menu_add_selected(menu)
+        menu.tk_popup(event.x_root, event.y_root)
 
-    def popup_menu_add(self, menu):
-        "Add items to the popup menu."
+    def popup_menu_add_selected(self, menu):
+        "Add items to the popup menu for when text is selected."
         pass
 
     def save(self, event=None):

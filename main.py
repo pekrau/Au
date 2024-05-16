@@ -48,6 +48,8 @@ class Main:
         self.help_source = Source(os.path.join(os.path.dirname(__file__), "help"))
         self.source = Source(self.absdirpath)
         self.config_read()
+        self.clipboard = []
+        self.clipboard_chars = ""
         self.source.apply_config(self.config["source"])
         self.text_editors = dict()   # Key: fullname; value: TextEditor instance
         self.reference_editors = dict() # Key: fullname; value: ReferenceEditor instance
@@ -99,11 +101,11 @@ class Main:
             if "main" not in self.config:
                 raise ValueError # Invalid JSON content.
         except (OSError, json.JSONDecodeError, ValueError):
-            self.config = dict(main=dict(), clipboard=[], items=[])
+            self.config = dict(main={}, meta={}, source={})
 
     def config_save(self):
         "Save the current config. Get current state from the respective widgets."
-        config = dict()
+        config = {}
         config["main"] = dict(geometry=self.root.geometry(),
                               sash=[self.panedwindow.sash("coord", 0)[0],
                                     self.panedwindow.sash("coord", 1)[0]])
@@ -115,18 +117,12 @@ class Main:
         config["source"]["cursor"] = dict([(t.fullname, t.viewer.cursor)
                                            for t in self.source.all_texts])
 
-        # Save the current clipboard.
-        config["clipboard"] = self.clipboard
-
         with open(self.configpath, "w") as outfile:            
             json.dump(config, outfile, indent=2)
         self.config = config
 
     def config_apply(self):
         "Apply configuration to windows and tabs."
-        # The clipboard is global to all editors, to facilitate cut-and-paste.
-        self.clipboard = self.config.get("clipboard") or list()
-
         try:
             sash = self.config["main"]["sash"]
         except KeyError:

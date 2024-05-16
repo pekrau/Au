@@ -140,15 +140,16 @@ class BaseViewer:
     def clipboard_copy(self, event=None):
         """Copy the current selection into the clipboard.
         Two variants: with formatting for intra-Au use,
-        and as pure text for cross-application use.
+        and characters-only for cross-application use.
         """
         try:
             first, last = self.get_selection()
         except ValueError:
             return
         self.main.clipboard = self.get_dump(first, last)
+        self.main.clipboard_chars = self.view.get(first, last)
         self.view.clipboard_clear()
-        self.view.clipboard_append(self.view.get(first, last))
+        self.view.clipboard_append(self.main.clipboard_chars)
         return "break"
 
     def get_dump(self, first, last):

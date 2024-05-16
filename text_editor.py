@@ -60,8 +60,8 @@ class TextEditor(BaseEditor):
         super().view_bind_tags()
         self.view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
-    def popup_menu_add(self, menu):
-        "Add items to the popup menu."
+    def popup_menu_add_selected(self, menu):
+        "Add items to the popup menu for when text is selected."
         menu.add_command(label=Tr("Indexed"), command=self.indexed_add)
 
     def handle_modified(self, event=None):
