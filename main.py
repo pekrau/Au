@@ -23,7 +23,6 @@ from title_viewer import TitleViewer
 from references_viewer import ReferencesViewer
 from reference_editor import ReferenceEditor
 from indexed_viewer import IndexedViewer
-from todo_viewer import TodoViewer
 from search_viewer import SearchViewer
 from help_viewer import HelpViewer
 
@@ -431,11 +430,6 @@ class Main:
         self.indexed_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
-        self.todo_viewer = TodoViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.todo_viewer.frame, text=Tr("To do"))
-        self.todo_viewer.tabid = self.meta_notebook.tabs()[-1]
-        self.meta_notebook_lookup[self.todo_viewer.tabid] = self.todo_viewer
-
         self.search_viewer = SearchViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.search_viewer.frame, text=Tr("Search"))
         self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
@@ -466,7 +460,6 @@ class Main:
         self.references_viewer.display()
         self.indexed_viewer.display()
         self.search_viewer.display()
-        self.todo_viewer.display()
 
     def update_statistics(self):
         self.title_viewer.chapters_var.set(len(self.source.items))

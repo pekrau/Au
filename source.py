@@ -88,8 +88,6 @@ class Source:
                 continue
             if itemname == constants.REFERENCES_DIRNAME:
                 continue
-            if itemname == constants.TODO_DIRNAME:
-                continue
 
             itempath = os.path.join(self.absdirpath, itemname)
             if os.path.isdir(itempath):
