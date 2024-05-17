@@ -255,6 +255,7 @@ class Item:
 
     @property
     def is_text(self):
+        "To be implemented by inheriting classes."
         raise NotImplementedError
 
     @property
@@ -292,6 +293,7 @@ class Item:
             return self.parent.fullname
 
     def filename(self, newname=None):
+        "To be implemented by inheriting classes."
         raise NotImplementedError
 
     @property
@@ -335,12 +337,15 @@ class Item:
         return True
 
     def read(self):
+        "To be implemented by inheriting classes."
         raise NotImplementedError
         
     def get_config(self):
+        "To be implemented by inheriting classes."
         raise NotImplementedError
 
     def apply_config(self, config):
+        "To be implemented by inheriting classes."
         raise NotImplementedError
 
     def rename(self, newname):
@@ -439,6 +444,7 @@ class Item:
         return newabspath
 
     def delete(self):
+        "To be implemented by inheriting classes."
         raise NotImplementedError
 
     def check_integrity(self):

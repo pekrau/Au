@@ -122,13 +122,17 @@ QUOTE_FONT = "Verdana"
 LIST_PREFIX = "list-"
 LIST_ITEM_PREFIX = "list_item-"
 LIST_BULLET = "list_bullet"
-LIST_BULLETS = ["\u2022", "\u25e6", "\u2043", "\u2043"]
+LIST_BULLETS = ("\u2022", "\u25e6", "\u2043", "\u2043")
 LIST_INDENT = 20
 
 INDEXED = "indexed"
 INDEXED_PREFIX = "indexed-"
 INDEXED_SPACING = 8
 INDEXED_INDENT = 15
+
+LINK = "link"
+LINK_PREFIX = "link-"
+LINK_COLOR = "blue"
 
 REFERENCE = "reference"
 REFERENCE_PREFIX = "reference-"
@@ -141,10 +145,15 @@ REFERENCE_LINKS = [
     ("pmid", "PubMed", "https://pubmed.ncbi.nlm.nih.gov/{value}"),
     ("isbn", "ISBN", "https://isbnsearch.org/isbn/{value}")
 ]
-
-LINK = "link"
-LINK_PREFIX = "link-"
-LINK_COLOR = "blue"
+ARTICLE = "article"
+BOOK = "book"
+REFERENCE_TYPES = (ARTICLE, BOOK, LINK)
+REFERENCE_GENERAL_KEYS = ("title", "language", "year")
+REFERENCE_TYPE_KEYS = {ARTICLE: ("journal", "month", "volume", "number", "pages",
+                                 "issn", "doi", "pmid"),
+                       BOOK: ("publisher", "pages", "isbn"),
+                       LINK: ("url", "accessed")}
+REFERENCE_LANGUAGES = ("en", "sv")
 
 XREF = "xref"
 XREF_PREFIX = "xref-"

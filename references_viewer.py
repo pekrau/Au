@@ -122,9 +122,9 @@ class ReferencesViewer(BaseViewer):
             if len(reference["authors"]) > 1:
                 self.view.insert(tk.INSERT, " & ")
                 self.view.insert(tk.INSERT, utils.shortname(reference["authors"][-1]))
-            self.view.insert(tk.INSERT, " ")
+            self.view.insert(tk.INSERT, "  ")
 
-            if reference["type"] == "article":
+            if reference["type"] == constants.ARTICLE:
                 self.view.insert(tk.INSERT, f"({reference['year']}). ")
                 try:
                     self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
@@ -152,7 +152,7 @@ class ReferencesViewer(BaseViewer):
                 except KeyError:
                     pass
 
-            elif reference["type"] == "book":
+            elif reference["type"] == constants.BOOK:
                 self.view.insert(tk.INSERT, f"({reference['year']}). ")
                 self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ",
                                  (constants.ITALIC, ))
@@ -161,8 +161,24 @@ class ReferencesViewer(BaseViewer):
                 except KeyError:
                     pass
 
-            elif reference["type"] == "link":
-                raise NotImplementedError
+            elif reference["type"] == constants.LINK:
+                try:
+                    self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
+                except KeyError:
+                    pass
+                try:
+                    start = self.view.index(tk.INSERT)
+                    self.view.insert(tk.INSERT, reference["url"])
+                    self.link_create(url=reference["url"],
+                                     title=reference["title"],
+                                     first=start,
+                                     last=self.view.index(tk.INSERT))
+                except KeyError:
+                    pass
+                try:
+                    self.view.insert(tk.INSERT, f" Accessed {reference['accessed']}.")
+                except KeyError:
+                    pass
 
             # Links for all types of references.
             any_item = False
@@ -173,7 +189,7 @@ class ReferencesViewer(BaseViewer):
                         self.view.insert(tk.INSERT, ", ")
                     start = self.view.index(tk.INSERT)
                     self.view.insert(tk.INSERT, f"{label}:{value}")
-                    self.link_create(template.format(value=value),
+                    self.link_create(url=template.format(value=value),
                                      title=value,
                                      first=start,
                                      last=self.view.index(tk.INSERT))
@@ -346,19 +362,12 @@ class AddManually(tk.simpledialog.Dialog):
 
         frame = tk.Frame(body)
         frame.grid(row=2, column=1, sticky=(tk.W, tk.E))
-        self.type_var = tk.StringVar(value="article")
-        tk.ttk.Radiobutton(frame,
-                           text=Tr("Article"),
-                           value="article",
-                           variable=self.type_var).pack(anchor=tk.NW, padx=4)
-        tk.ttk.Radiobutton(frame,
-                           text=Tr("Book"), 
-                           value="book",
-                           variable=self.type_var).pack(anchor=tk.NW, padx=4)
-        tk.ttk.Radiobutton(frame,
-                           text=Tr("Link"),
-                           value="link",
-                           variable=self.type_var).pack(anchor=tk.NW, padx=4)
+        self.type_var = tk.StringVar(value=constants.ARTICLE)
+        for type in constants.REFERENCE_TYPES:
+            tk.ttk.Radiobutton(frame,
+                               text=Tr(type.capitalize()),
+                               value=type,
+                               variable=self.type_var).pack(anchor=tk.NW, padx=4)
 
         return self.author_entry
     

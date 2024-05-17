@@ -40,10 +40,9 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
         self.view.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
         self.view.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
-    def display(self, reread_text=True):
+    def display_wipe(self):
+        super().display_wipe()
         self.footnotes = {}
-        self.highlighted = None
-        super().display(reread_text=reread_text)
 
     def footnote_enter(self, event=None):
         self.view.configure(cursor="hand2")

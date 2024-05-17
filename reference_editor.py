@@ -7,18 +7,15 @@ import functools
 import tkinter as tk
 import tkinter.ttk
 
+import constants
+import utils
+
 from text_editor import BaseEditor
 from utils import Tr
 
 
 class ReferenceEditor(BaseEditor):
     "Edit a reference."
-
-    GENERAL_KEYS = ["title", "language", "year"]
-    TYPE_KEYS = dict(book=["publisher", "pages", "isbn"],
-                     article=["journal", "month", "volume", "number", "pages",
-                              "issn", "doi", "pmid"],
-                     link=["url", "title", "accessed"])
 
     def __init__(self, main, viewer, text):
         self.main = main
@@ -32,7 +29,7 @@ class ReferenceEditor(BaseEditor):
         self.view_configure_tags()
         self.view_bind_tags()
         self.view_bind_keys()
-        self.render(self.text.ast)
+        self.display(reread_text=False)
         self.view.edit_modified(False)
         self.cursor_home()
 
@@ -53,24 +50,32 @@ class ReferenceEditor(BaseEditor):
             item.grid_forget()
         self.variables = {}
         row = 0
-        for key in self.GENERAL_KEYS:
+        for key in constants.REFERENCE_GENERAL_KEYS:
             row += 1
             label = tk.Label(self.metadata_frame, text=Tr(key.capitalize()), padx=4)
             label.grid(row=row, column=0, sticky=tk.E)
             self.variables[key] = tk.StringVar(value=self.text.get(key) or "")
-            entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
+            # Special case for language field.
+            if key == "language":
+                entry = tk.ttk.Combobox(self.metadata_frame,
+                                        values=constants.REFERENCE_LANGUAGES,
+                                        textvariable=self.variables[key])
+            else:
+                entry = tk.ttk.Entry(self.metadata_frame,
+                                     textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
             entry.bind("<Key>", self.entry_modified)
             entry.bind("<Control-q>", self.close)
             entry.bind("<Control-Q>", self.close)
 
+        # Special case for authors field.
         row += 1
         label = tk.Label(self.metadata_frame, text=Tr("Authors"), padx=4)
         label.grid(row=row, column=0, sticky=tk.E)
         for pos, author in enumerate(self.authors):
             key = f"author {pos}"
             self.variables[key] = tk.StringVar(value=self.authors[pos])
-            entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
+            entry = tk.ttk.Entry(self.metadata_frame, textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
             entry.bind("<Key>", self.entry_modified)
             entry.bind("<Control-q>", self.close)
@@ -85,14 +90,14 @@ class ReferenceEditor(BaseEditor):
 
         key = "author"
         self.variables[key] = tk.StringVar()
-        entry = tk.Entry(self.metadata_frame, textvariable=self.variables[key])
+        entry = tk.ttk.Entry(self.metadata_frame, textvariable=self.variables[key])
         entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
         entry.bind("<Return>", self.add_author)
         entry.bind("<Key>", self.entry_modified)
         button = tk.Button(self.metadata_frame, text=Tr("Add"), command=self.add_author)
         button.grid(row=row, column=2)
 
-        for key in self.TYPE_KEYS.get(self.text["type"], []):
+        for key in constants.REFERENCE_TYPE_KEYS[self.text["type"]]:
             row += 1
             label = tk.Label(self.metadata_frame, text=Tr(key.capitalize()), padx=4)
             label.grid(row=row, column=0, sticky=tk.E)
@@ -125,14 +130,14 @@ class ReferenceEditor(BaseEditor):
     def save_prepare(self):
         "Prepare for saving; before doing dump-to-Markdown."
         super().save_prepare()
-        for key in self.GENERAL_KEYS:
+        for key in constants.REFERENCE_GENERAL_KEYS:
             value = self.variables[key].get().strip()
             if value:
                 self.text[key] = value
             else:
                 self.text.pop(key)
         self.text["authors"] = self.authors
-        for key in self.TYPE_KEYS.get(self.text["type"], []):
+        for key in constants.REFERENCE_TYPE_KEYS[self.text["type"]]:
             value = self.variables[key].get().strip()
             if value:
                 self.text[key] = value
