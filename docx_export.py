@@ -5,6 +5,8 @@ from icecream import ic
 import os.path
 
 import docx
+import tkinter as tk
+import tkinter.simpledialog
 
 import constants
 import utils
@@ -13,8 +15,9 @@ import utils
 class Export:
     "DOCX export."
 
-    def __init__(self, source):
+    def __init__(self, source, config):
         self.source = source
+        self.config = config
 
     def write(self, filepath=None):
         if filepath is None:
@@ -67,3 +70,20 @@ class Export:
         if line[-1] == "\n":
             line[-1] = " "
         self.paragraph.add_run(line)
+
+
+class Dialog(tk.simpledialog.Dialog):
+    "Dialog to confirm or modify configuration before export."
+
+    def __init__(self, master, main):
+        self.main = main
+        self.result = None
+        super().__init__(master, title="DOCX export")
+
+    def body(self, body):
+        entry = tk.Entry(body)
+        entry.pack()
+
+    def apply(self):
+        Export(self.source, self.main.config["export"].get("docx")).write()
+        self.result = "filename"

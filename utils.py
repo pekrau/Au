@@ -1,16 +1,16 @@
 "Utility functions."
 
-import os
-import time
+import os.path
 
 import constants
 import latex_utf8
 import translation
 
 
+# A global instance of the language translator.
 try:
-    Tr = translation.Translation(os.path.join(os.path.dirname(__file__),
-                                              constants.TRANSLATION_FILE))
+    path = os.path.join(os.path.dirname(__file__), constants.TRANSLATIONS_FILE)
+    Tr = translation.Translation(path)
 except OSError:
     Tr = lambda t: t
 
@@ -27,21 +27,6 @@ def shortname(name):
     parts.append("".join([f"{i}." for i in initials]))
     return ", ".join(parts)
 
-def get_now():
-    "Get ISO formatted string for the current local time."
-    return time.strftime(constants.TIME_ISO_FORMAT, time.localtime())
-
 def get_normalized_mark(value):
     "Return a valid tk.Text mark."
     return value.replace(" ", "_").replace(".", "_")
-
-def check_invalid_characters(name):
-    """Raise ValueError if name contains any invalid characters;
-    those with special meaning in file system.
-    """
-    invalids = [os.extsep, os.sep]
-    if os.altsep:
-        invalids.append(os.altsep)
-    for invalid in invalids:
-        if invalid in name:
-            raise ValueError(f"The name may not contain the character '{invalid}'.")

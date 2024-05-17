@@ -9,11 +9,13 @@ import shutil
 
 import tkinter as tk
 import tkinter.messagebox
+import tkinter.simpledialog
 import tkinter.ttk
 import tkinter.font
 
 import constants
 import utils
+import docx_export
 
 from utils import Tr
 from source import Source
@@ -122,7 +124,7 @@ class Main:
             if "main" not in self.config:
                 raise ValueError # Invalid JSON content.
         except (OSError, json.JSONDecodeError, ValueError):
-            self.config = dict(main={}, meta={}, source={})
+            self.config = dict(main={}, meta={}, source={}, export={})
 
     def config_save(self):
         "Save the current config. Get current state from the respective widgets."
@@ -141,6 +143,8 @@ class Main:
         config["source"]["selected"] = self.treeview.focus()
         config["source"]["cursor"] = dict([(t.fullname, t.viewer.cursor)
                                            for t in self.source.all_texts])
+
+        config["export"] = self.config.get("export", {})
 
         with open(self.configpath, "w") as outfile:            
             json.dump(config, outfile, indent=2)
@@ -194,10 +198,10 @@ class Main:
 
         self.menu_export = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_export, label=Tr("Export"))
-        self.menu_export.add_command(label="DOCX", command=self.source.export_docx)
-        self.menu_export.add_command(label="PDF", command=self.source.export_pdf)
-        self.menu_export.add_command(label="EPUB", command=self.source.export_epub)
-        self.menu_export.add_command(label="HTML", command=self.source.export_html)
+        self.menu_export.add_command(label="DOCX", command=self.export_docx)
+        self.menu_export.add_command(label="PDF", command=self.export_pdf)
+        self.menu_export.add_command(label="EPUB", command=self.export_epub)
+        self.menu_export.add_command(label="HTML", command=self.export_html)
 
         self.menu_popup = tk.Menu(self.root)
         self.menu_popup.add_command(label=Tr("Create text"), command=self.create_text)
@@ -476,6 +480,20 @@ class Main:
         else:
             tk.messagebox.showinfo(title=Tr("Archive file written"),
                                    message=f"{count} {Tr('items written to archive file')}.")
+
+    def export_docx(self):
+        answer = docx_export.Dialog(self.root, self)
+        ic(answer)
+
+    def export_pdf(self):
+        raise NotImplementedError
+
+    def export_epub(self):
+        raise NotImplementedError
+
+    def export_html(self):
+        raise NotImplementedError
+
 
     def quit(self, event=None):
         modified = [e.is_modified for e in self.text_editors.values()] + \

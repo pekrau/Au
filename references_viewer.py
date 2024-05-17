@@ -122,7 +122,7 @@ class ReferencesViewer(BaseViewer):
             if len(reference["authors"]) > 1:
                 self.view.insert(tk.INSERT, " & ")
                 self.view.insert(tk.INSERT, utils.shortname(reference["authors"][-1]))
-            self.view.insert(tk.INSERT, "  ")
+            self.view.insert(tk.INSERT, " ")
 
             if reference["type"] == constants.ARTICLE:
                 self.view.insert(tk.INSERT, f"({reference['year']}). ")
@@ -162,6 +162,7 @@ class ReferencesViewer(BaseViewer):
                     pass
 
             elif reference["type"] == constants.LINK:
+                self.view.insert(tk.INSERT, f"({reference['year']}). ")
                 try:
                     self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
                 except KeyError:

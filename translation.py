@@ -1,12 +1,14 @@
-"Simple translation of words."
+"Simple translation of words and phrases."
 
 from icecream import ic
 
 import csv
 
+import constants
+
 
 class Translation:
-    "Simple translation of words from one language to another."
+    "Simple translation of words and phrases from one language to another."
 
     def __init__(self, translation_csv_file, source=None, target=None):
         """The CSV file must have one column per language.
@@ -42,7 +44,7 @@ class Translation:
 
 
 if __name__ == "__main__":
-    t = Translation("translation.csv")
+    t = Translation(constants.TRANSLATIONS_FILE)
     ic(str(t))
     ic(t.languages)
     for term in ["item", "section"]:

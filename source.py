@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import tarfile
+import time
 
 import marko
 import marko.ast_renderer
@@ -16,8 +17,6 @@ import marko.ext.gfm
 import yaml
 
 import constants
-import utils
-import docx_export
 
 FRONTMATTER = re.compile(r"^---([\n\r].*?[\n\r])---[\n\r](.*)$", re.DOTALL)
 
@@ -125,7 +124,7 @@ class Source:
         or after anchor if it is a text.
         Raise ValueError if there is a problem.
         """
-        utils.check_invalid_characters(name)
+        check_invalid_characters(name)
         if anchor is None:
             section = self
         elif anchor.is_text:
@@ -152,7 +151,7 @@ class Source:
         or after anchor if it is a text.
         Raise ValueError if there is a problem.
         """
-        utils.check_invalid_characters(name)
+        check_invalid_characters(name)
         if anchor.is_text:
             supersection = anchor.parent
         else:
@@ -169,22 +168,6 @@ class Source:
         self.lookup[section.fullname] = section
         return section
 
-    def filepath_export(self, extension):
-        "Filepath to be used for for export."
-        return os.path.join(self.abspath, self.name + extension)
-
-    def export_docx(self):
-        docx_export.Export(self).write()
-
-    def export_pdf(self):
-        raise NotImplementedError
-
-    def export_epub(self):
-        raise NotImplementedError
-
-    def export_html(self):
-        raise NotImplementedError
-
     def archive(self, sources=None):
         """Write all files for texts to a gzipped tar file.
         Optionally include items from other sources, using the name of each
@@ -192,9 +175,10 @@ class Source:
         Return the number of items written.
         Raise an OSError if any error.
         """
+        filename = time.strftime(constants.TIME_ISO_FORMAT, time.localtime()) + ".tgz"
         archivefilepath = os.path.join(self.absdirpath,
                                        constants.ARCHIVE_DIRNAME,
-                                       f"{utils.get_now()}.tgz")
+                                       filename)
         with tarfile.open(archivefilepath, "x:gz") as archivefile:
             # By looping over top-level items, the special directories are avoided.
             for item in self.items:
@@ -356,7 +340,7 @@ class Item:
             return
         if not newname:
             raise ValueError("Empty string given for name.")
-        utils.check_invalid_characters(newname)
+        check_invalid_characters(newname)
         newabspath = os.path.join(self.parent.abspath, self.filename(newname))
         if os.path.exists(newabspath):
             raise ValueError("The name is already in use.")
@@ -437,7 +421,7 @@ class Item:
             raise ValueError("Cannot copy to the same name.")
         if not newname:
             raise ValueError("Empty string given for name.")
-        utils.check_invalid_characters(newname)
+        check_invalid_characters(newname)
         newabspath = os.path.join(self.parent.abspath, self.filename(newname))
         if os.path.exists(newabspath):
             raise ValueError("The name is already in use.")
@@ -683,6 +667,17 @@ parser.use(marko.helpers.MarkoExtension(elements=[
 ]))
 parser.use(marko.helpers.MarkoExtension(elements=[Indexed, Reference]))
 
+
+def check_invalid_characters(name):
+    """Raise ValueError if name contains any invalid characters;
+    those with special meaning in file system.
+    """
+    invalids = [os.extsep, os.sep]
+    if os.altsep:
+        invalids.append(os.altsep)
+    for invalid in invalids:
+        if invalid in name:
+            raise ValueError(f"The name may not contain the character '{invalid}'.")
 
 def test(keep=False):
     import tempfile
