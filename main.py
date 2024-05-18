@@ -80,7 +80,7 @@ class Main:
         # Must be 'tk.PanedWindow', not 'tk.ttk.PanedWindow',
         # since the 'paneconfigure' command is needed.
         self.panedwindow = tk.PanedWindow(
-            self.root, background="gold", orient=tk.HORIZONTAL, sashwidth=4
+            self.root, background="gold", orient=tk.HORIZONTAL, sashwidth=constants.SASH_WIDTH
         )
         self.panedwindow.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
@@ -781,10 +781,9 @@ class Main:
 
     def create_text(self):
         try:
-            fullname = self.treeview.selection()[0]
+            anchor = self.source[self.treeview.selection()[0]]
         except IndexError:
-            return
-        anchor = self.source[fullname]
+            anchor = None
         name = tk.simpledialog.askstring(
             parent=self.treeview,
             title=Tr("New text"),

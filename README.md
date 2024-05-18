@@ -1,15 +1,15 @@
 # Au: Markdown authoring tool
 
-- View and edit texts in chapters, optinally in sections and subsections.
-- Links using URLs.
+- View and edit texts in chapters, optionally in sections and subsections.
+- Allow URL links.
 - Search all text.
 - Indexing terms, allowing canonical form.
 - References.
 - Footnotes.
-- Compile to:
+- Export to:
   - DOCX
   - EPUB
   - PDF
   - HTML
-
-Written in Python using Tkinter.
+- Data stored in extended Markdown format.
+- Written in Python using Tkinter.

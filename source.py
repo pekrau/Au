@@ -108,7 +108,7 @@ class Source:
     def apply_config(self, config):
         original = dict([(i.name, i) for i in self.items])
         self.items = []
-        for ordered in config["items"]:
+        for ordered in config.get("items", []):
             try:
                 item = original.pop(ordered["name"])
             except KeyError:

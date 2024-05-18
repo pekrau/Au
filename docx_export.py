@@ -12,6 +12,7 @@ import tkinter.filedialog
 
 import constants
 import utils
+from utils import Tr
 
 
 class Exporter:
@@ -73,6 +74,9 @@ class Exporter:
             line[-1] = " "
         self.paragraph.add_run(line)
 
+    def render_blank_line(self, ast):
+        pass
+
 
 class Dialog(tk.simpledialog.Dialog):
     "Dialog to confirm or modify configuration before export."
@@ -83,18 +87,18 @@ class Dialog(tk.simpledialog.Dialog):
         super().__init__(master, title="DOCX export")
 
     def body(self, body):
-        label = tk.ttk.Label(body, text="Filename", width=40)
-        label.grid(row=0, column=0, sticky=tk.E)
-        self.filename_entry = tk.ttk.Entry(body)
+        label = tk.ttk.Label(body, text="Filename")
+        label.grid(row=0, column=0, padx=4, sticky=tk.E)
+        self.filename_entry = tk.ttk.Entry(body, width=40)
         self.filename_entry.insert(0, self.config.get("filename") or "")
         self.filename_entry.grid(row=0, column=1, sticky=tk.W)
 
-        label = tk.ttk.Label(body, text="Directory", width=40)
-        label.grid(row=1, column=0, sticky=tk.E)
-        self.dirpath_entry = tk.ttk.Entry(body)
+        label = tk.ttk.Label(body, text="Directory")
+        label.grid(row=1, column=0, padx=4, sticky=tk.E)
+        self.dirpath_entry = tk.ttk.Entry(body, width=40)
         self.dirpath_entry.insert(0, self.config.get("dirpath") or "")
         self.dirpath_entry.grid(row=1, column=1, sticky=tk.W)
-        button = tk.ttk.Button(body, text="Change", command=self.change_dirpath)
+        button = tk.ttk.Button(body, text=Tr("Choose"), command=self.change_dirpath)
         button.grid(row=1, column=3)
 
     def apply(self):
