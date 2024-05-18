@@ -388,7 +388,7 @@ class BaseEditor(TextViewer):
             first = self.view.index(tk.INSERT)
             tags = {}
             self.skip_text = False
-            for entry in dump:
+            for entry in self.main.clipboard:
                 try:
                     method = getattr(self, f"undump_{entry[0]}")
                 except AttributeError:
