@@ -46,7 +46,7 @@ class Main:
         referencesdirpath = os.path.join(self.absdirpath, constants.REFERENCES_DIRNAME)
         if not os.path.exists(referencesdirpath):
             os.mkdir(referencesdirpath)
-        
+
         self.help_source = Source(os.path.join(os.path.dirname(__file__), "help"))
         self.source = Source(self.absdirpath)
         self.config_read()
@@ -56,7 +56,8 @@ class Main:
         assert constants.FONT_NORMAL_FAMILY in constants.FONT_FAMILIES
 
         self.root.geometry(
-            self.config["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY))
+            self.config["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY)
+        )
         self.root.option_add("*tearOff", tk.FALSE)
         self.root.minsize(600, 600)
         self.au64 = tk.PhotoImage(data=constants.AU64)
@@ -73,15 +74,14 @@ class Main:
         self.clipboard = []
         self.clipboard_chars = ""
         self.source.apply_config(self.config["source"])
-        self.text_editors = {}      # Key: fullname; value: TextEditor instance
-        self.reference_editors = {} # Key: fullname; value: ReferenceEditor instance
+        self.text_editors = {}  # Key: fullname; value: TextEditor instance
+        self.reference_editors = {}  # Key: fullname; value: ReferenceEditor instance
 
         # Must be 'tk.PanedWindow', not 'tk.ttk.PanedWindow',
         # since the 'paneconfigure' command is needed.
-        self.panedwindow = tk.PanedWindow(self.root,
-                                          background="gold",
-                                          orient=tk.HORIZONTAL,
-                                          sashwidth=4)
+        self.panedwindow = tk.PanedWindow(
+            self.root, background="gold", orient=tk.HORIZONTAL, sashwidth=4
+        )
         self.panedwindow.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.menubar_setup()
@@ -95,7 +95,7 @@ class Main:
         except KeyError:
             pass
         else:
-            self.panedwindow.update() # Required for this to work.
+            self.panedwindow.update()  # Required for this to work.
             self.panedwindow.sash("place", 0, sash[0], 1)
             self.panedwindow.sash("place", 1, sash[1], 1)
 
@@ -122,31 +122,38 @@ class Main:
             with open(self.configpath) as infile:
                 self.config = json.load(infile)
             if "main" not in self.config:
-                raise ValueError # Invalid JSON content.
+                raise ValueError  # Invalid JSON content.
         except (OSError, json.JSONDecodeError, ValueError):
             self.config = dict(main={}, meta={}, source={}, export={})
 
     def config_save(self):
         "Save the current config. Get current state from the respective widgets."
         config = {}
-        config["main"] = dict(title=self.title,
-                              subtitle=self.subtitle,
-                              authors=self.authors,
-                              geometry=self.root.geometry(),
-                              sash=[self.panedwindow.sash("coord", 0)[0],
-                                    self.panedwindow.sash("coord", 1)[0]])
+        config["main"] = dict(
+            title=self.title,
+            subtitle=self.subtitle,
+            authors=self.authors,
+            geometry=self.root.geometry(),
+            sash=[
+                self.panedwindow.sash("coord", 0)[0],
+                self.panedwindow.sash("coord", 1)[0],
+            ],
+        )
 
-        config["meta"] = dict(selected=str(self.meta_notebook_lookup[self.meta_notebook.select()]))
+        config["meta"] = dict(
+            selected=str(self.meta_notebook_lookup[self.meta_notebook.select()])
+        )
         config["source"] = self.source.get_config()
 
         # Currently selected text, and cursor locations in all viewers.
         config["source"]["selected"] = self.treeview.focus()
-        config["source"]["cursor"] = dict([(t.fullname, t.viewer.cursor)
-                                           for t in self.source.all_texts])
+        config["source"]["cursor"] = dict(
+            [(t.fullname, t.viewer.cursor) for t in self.source.all_texts]
+        )
 
         config["export"] = self.config.get("export", {})
 
-        with open(self.configpath, "w") as outfile:            
+        with open(self.configpath, "w") as outfile:
             json.dump(config, outfile, indent=2)
         self.config = config
 
@@ -156,7 +163,9 @@ class Main:
             return
         if getattr(self, "_after_id", None):
             self.root.after_cancel(self._after_id)
-        self._after_id = self.root.after(constants.CONFIG_UPDATE_DELAY,self.config_save)
+        self._after_id = self.root.after(
+            constants.CONFIG_UPDATE_DELAY, self.config_save
+        )
 
     def menubar_setup(self):
         self.menubar = tk.Menu(self.root, background="gold")
@@ -166,16 +175,17 @@ class Main:
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
         self.menu_file.add_command(label=Tr("Archive"), command=self.archive)
-        self.menu_file.add_command(label=Tr("Quit"),
-                                   command=self.quit,
-                                   accelerator="Ctrl-Q")
+        self.menu_file.add_command(
+            label=Tr("Quit"), command=self.quit, accelerator="Ctrl-Q"
+        )
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
         # The order here affects 'set_menubar_state'.
         self.menu_edit.add_command(label=Tr("Create text"), command=self.create_text)
-        self.menu_edit.add_command(label=Tr("Create section"),
-                                   command=self.create_section)
+        self.menu_edit.add_command(
+            label=Tr("Create section"), command=self.create_section
+        )
         self.menu_edit.add_command(label=Tr("Rename"), command=self.rename)
         self.menu_edit.add_command(label=Tr("Copy"), command=self.copy)
         self.menu_edit.add_command(label=Tr("Delete"), command=self.delete)
@@ -183,18 +193,22 @@ class Main:
         self.menu_move = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_move, label=Tr("Rearrange"))
         # The order here affects 'set_menubar_state'.
-        self.menu_move.add_command(label=Tr("Move up"),
-                                      command=self.move_item_up,
-                                      accelerator="Ctrl-Up")
-        self.menu_move.add_command(label=Tr("Move down"),
-                                      command=self.move_item_down,
-                                      accelerator="Ctrl-Down")
-        self.menu_move.add_command(label=Tr("Into section"),
-                                      command=self.move_item_into_section,
-                                      accelerator="Ctrl-Left")
-        self.menu_move.add_command(label=Tr("Out of section"),
-                                      command=self.move_item_out_of_section,
-                                      accelerator="Ctrl-Right")
+        self.menu_move.add_command(
+            label=Tr("Move up"), command=self.move_item_up, accelerator="Ctrl-Up"
+        )
+        self.menu_move.add_command(
+            label=Tr("Move down"), command=self.move_item_down, accelerator="Ctrl-Down"
+        )
+        self.menu_move.add_command(
+            label=Tr("Into section"),
+            command=self.move_item_into_section,
+            accelerator="Ctrl-Left",
+        )
+        self.menu_move.add_command(
+            label=Tr("Out of section"),
+            command=self.move_item_out_of_section,
+            accelerator="Ctrl-Right",
+        )
 
         self.menu_export = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_export, label=Tr("Export"))
@@ -205,42 +219,47 @@ class Main:
 
         self.menu_popup = tk.Menu(self.root)
         self.menu_popup.add_command(label=Tr("Create text"), command=self.create_text)
-        self.menu_popup.add_command(label=Tr("Create section"),
-                                    command=self.create_section)
+        self.menu_popup.add_command(
+            label=Tr("Create section"), command=self.create_section
+        )
         self.menu_popup.add_command(label=Tr("Rename"), command=self.rename)
         self.menu_popup.add_command(label=Tr("Copy"), command=self.copy)
         self.menu_popup.add_command(label=Tr("Delete"), command=self.delete)
         self.menu_popup.add_separator()
         self.menu_popup.add_command(label=Tr("Move up"), command=self.move_item_up)
         self.menu_popup.add_command(label=Tr("Move down"), command=self.move_item_down)
-        self.menu_popup.add_command(label=Tr("Into section"),
-                                    command=self.move_item_into_section)
-        self.menu_popup.add_command(label=Tr("Out of section"),
-                                    command=self.move_item_out_of_section)
+        self.menu_popup.add_command(
+            label=Tr("Into section"), command=self.move_item_into_section
+        )
+        self.menu_popup.add_command(
+            label=Tr("Out of section"), command=self.move_item_out_of_section
+        )
 
     def set_menubar_state(self):
         """To avoid potential problems, some menu items are restricted
         while any text editors are open.
         """
         state = self.text_editors and tk.DISABLED or tk.NORMAL
-        self.menu_edit.entryconfigure(2, state=state) # Edit: Rename
-        self.menu_edit.entryconfigure(3, state=state) # Edit: Copy
-        self.menu_edit.entryconfigure(4, state=state) # Edit: Delete
-        self.menu_move.entryconfigure(2, state=state) # Move: Into section
-        self.menu_move.entryconfigure(3, state=state) # Move: Out of section
+        self.menu_edit.entryconfigure(2, state=state)  # Edit: Rename
+        self.menu_edit.entryconfigure(3, state=state)  # Edit: Copy
+        self.menu_edit.entryconfigure(4, state=state)  # Edit: Delete
+        self.menu_move.entryconfigure(2, state=state)  # Move: Into section
+        self.menu_move.entryconfigure(3, state=state)  # Move: Out of section
 
     def treeview_create(self):
         "Create the treeview framework."
         self.treeview_frame = tk.ttk.Frame(self.panedwindow)
-        self.panedwindow.add(self.treeview_frame,
-                             width=constants.TREEVIEW_PANE_WIDTH,
-                             minsize=constants.PANE_MINSIZE)
+        self.panedwindow.add(
+            self.treeview_frame,
+            width=constants.TREEVIEW_PANE_WIDTH,
+            minsize=constants.PANE_MINSIZE,
+        )
 
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
-        self.treeview = tk.ttk.Treeview(self.treeview_frame,
-                                     columns=("status", "chars", "age"),
-                                     selectmode="browse")
+        self.treeview = tk.ttk.Treeview(
+            self.treeview_frame, columns=("status", "chars", "age"), selectmode="browse"
+        )
         self.treeview.tag_configure("section", background=constants.SECTION_COLOR)
         self.treeview.tag_configure("modified", background=constants.MODIFIED_COLOR)
         self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
@@ -248,21 +267,27 @@ class Main:
         self.treeview.heading("status", text=Tr("Status"))
         self.treeview.heading("chars", text=Tr("Chars"))
         self.treeview.heading("age", text=Tr("Age"))
-        self.treeview.column("status",
-                             anchor=tk.E,
-                             minwidth=3*constants.FONT_NORMAL_SIZE,
-                             width=6*constants.FONT_NORMAL_SIZE)
-        self.treeview.column("chars",
-                             anchor=tk.E,
-                             minwidth=3*constants.FONT_NORMAL_SIZE,
-                             width=6*constants.FONT_NORMAL_SIZE)
-        self.treeview.column("age",
-                             anchor=tk.E,
-                             minwidth=2*constants.FONT_NORMAL_SIZE,
-                             width=6*constants.FONT_NORMAL_SIZE)
-        self.treeview_scroll_y = tk.ttk.Scrollbar(self.treeview_frame,
-                                               orient=tk.VERTICAL,
-                                               command=self.treeview.yview)
+        self.treeview.column(
+            "status",
+            anchor=tk.E,
+            minwidth=3 * constants.FONT_NORMAL_SIZE,
+            width=6 * constants.FONT_NORMAL_SIZE,
+        )
+        self.treeview.column(
+            "chars",
+            anchor=tk.E,
+            minwidth=3 * constants.FONT_NORMAL_SIZE,
+            width=6 * constants.FONT_NORMAL_SIZE,
+        )
+        self.treeview.column(
+            "age",
+            anchor=tk.E,
+            minwidth=2 * constants.FONT_NORMAL_SIZE,
+            width=6 * constants.FONT_NORMAL_SIZE,
+        )
+        self.treeview_scroll_y = tk.ttk.Scrollbar(
+            self.treeview_frame, orient=tk.VERTICAL, command=self.treeview.yview
+        )
         self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
 
@@ -286,17 +311,18 @@ class Main:
 
     def add_treeview_entry(self, item, index=None):
         if item.is_text:
-            self.treeview.insert(item.parentpath,
-                                 index or tk.END,
-                                 iid=item.fullname,
-                                 text=item.name)
+            self.treeview.insert(
+                item.parentpath, index or tk.END, iid=item.fullname, text=item.name
+            )
         elif item.is_section:
-            self.treeview.insert(item.parentpath,
-                                 index or tk.END,
-                                 iid=item.fullname,
-                                 text=item.name,
-                                 open=item.open,
-                                 tags=(constants.SECTION, ))
+            self.treeview.insert(
+                item.parentpath,
+                index or tk.END,
+                iid=item.fullname,
+                text=item.name,
+                open=item.open,
+                tags=(constants.SECTION,),
+            )
 
     def treeview_selected(self, event):
         "Synchronize text tab with selected in the treeview."
@@ -354,7 +380,7 @@ class Main:
         "Create the texts notebook framework."
         self.texts_notebook = tk.ttk.Notebook(self.panedwindow)
         self.panedwindow.add(self.texts_notebook, minsize=constants.PANE_MINSIZE)
-         # Key: tabid; value: instance
+        # Key: tabid; value: instance
         self.texts_notebook_lookup = {}
 
     def texts_notebook_populate(self):
@@ -368,8 +394,11 @@ class Main:
         # Create the text views.
         for text in self.source.all_texts:
             text.viewer = viewer = TextViewer(self.texts_notebook, self, text)
-            self.texts_notebook.add(viewer.frame, text=viewer.name,
-                                    state=text.shown and tk.NORMAL or tk.HIDDEN)
+            self.texts_notebook.add(
+                viewer.frame,
+                text=viewer.name,
+                state=text.shown and tk.NORMAL or tk.HIDDEN,
+            )
             tabs = self.texts_notebook.tabs()
             text.tabid = tabs[-1]
             self.texts_notebook_lookup[text.tabid] = text
@@ -396,8 +425,9 @@ class Main:
             self.treeview.see(text.fullname)
             self.treeview.focus(text.fullname)
             self.treeview.update()
-        self.texts_notebook.bind("<<NotebookTabChanged>>",
-                                 self.texts_notebook_tab_changed)
+        self.texts_notebook.bind(
+            "<<NotebookTabChanged>>", self.texts_notebook_tab_changed
+        )
 
     def texts_notebook_tab_changed(self, event):
         "Synchronize selected in treeview with tab change."
@@ -410,7 +440,7 @@ class Main:
         self.meta_notebook = tk.ttk.Notebook(self.panedwindow)
         self.panedwindow.add(self.meta_notebook, minsize=constants.PANE_MINSIZE)
 
-         # key: tabid; value: instance
+        # key: tabid; value: instance
         self.meta_notebook_lookup = {}
 
         self.title_viewer = TitleViewer(self.meta_notebook, self)
@@ -468,22 +498,38 @@ class Main:
     def update_statistics(self):
         self.title_viewer.chapters_var.set(len(self.source.items))
         self.title_viewer.texts_var.set(len(self.source.all_texts))
-        self.title_viewer.characters_var.set(sum([t.viewer.character_count
-                                                  for t in self.source.all_texts]))
+        self.title_viewer.characters_var.set(
+            sum([t.viewer.character_count for t in self.source.all_texts])
+        )
 
     def archive(self):
         try:
             count = self.source.archive(sources=self.references_viewer.source)
         except OSError as error:
-            tk.messagebox.showerror(title="Error",
-                                    message=f"Could not write .tgz file: {error}")
+            tk.messagebox.showerror(
+                title="Error", message=f"Could not write .tgz file: {error}"
+            )
         else:
-            tk.messagebox.showinfo(title=Tr("Archive file written"),
-                                   message=f"{count} {Tr('items written to archive file')}.")
+            tk.messagebox.showinfo(
+                title=Tr("Archive file written"),
+                message=f"{count} {Tr('items written to archive file')}.",
+            )
 
     def export_docx(self):
-        answer = docx_export.Dialog(self.root, self)
-        ic(answer)
+        config = self.config["export"].get("docx") or {}
+        if "title" not in config:
+            config["title"] = self.title
+        answer = docx_export.Dialog(self.root, config)
+        if not answer.result:
+            return
+        filepath = os.path.join(answer.result["dirpath"], answer.result["filename"])
+        exporter = docx_export.Exporter(self.source, answer.result)
+        exporter.write(filepath)
+        tk.messagebox.showinfo(
+            title=Tr("DOCX file written"),
+            message=f"DOCX {Tr('file')} '{filepath}' {Tr('written')}.",
+        )
+        self.config["export"]["docx"] = answer.result
 
     def export_pdf(self):
         raise NotImplementedError
@@ -494,16 +540,17 @@ class Main:
     def export_html(self):
         raise NotImplementedError
 
-
     def quit(self, event=None):
-        modified = [e.is_modified for e in self.text_editors.values()] + \
-            [e.is_modified for e in self.reference_editors.values()]
+        modified = [e.is_modified for e in self.text_editors.values()] + [
+            e.is_modified for e in self.reference_editors.values()
+        ]
         if modified:
-            modified = functools.reduce(lambda a,b: a or b, modified)
+            modified = functools.reduce(lambda a, b: a or b, modified)
         if modified and not tk.messagebox.askokcancel(
-                parent=self.root,
-                title=Tr("Quit"),
-                message=Tr("All unsaved changes will be lost. Really quit?")):
+            parent=self.root,
+            title=Tr("Quit"),
+            message=Tr("All unsaved changes will be lost. Really quit?"),
+        ):
             return
         self.config_save()
         self.root.destroy()
@@ -564,7 +611,7 @@ class Main:
             item.move_to_section(item.prev)
         except ValueError:
             return "break"
-        self.treeview_populate()        # XXX Optimize!
+        self.treeview_populate()  # XXX Optimize!
         self.treeview.update()
         self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
@@ -585,7 +632,7 @@ class Main:
             item.move_to_parent()
         except ValueError:
             return "break"
-        self.treeview_populate()        # XXX Optimize!
+        self.treeview_populate()  # XXX Optimize!
         self.treeview.update()
         self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
@@ -605,7 +652,8 @@ class Main:
             parent=self.root,
             title=Tr("New name"),
             prompt=Tr("Give the new name for the item") + ":",
-            initialvalue=item.name)
+            initialvalue=item.name,
+        )
         if not newname:
             return
         if newname == item.name:
@@ -614,9 +662,8 @@ class Main:
             item.rename(newname)
         except ValueError as error:
             tk.messagebox.showerror(
-                parent=self.treeview,
-                title="Error",
-                message=str(error))
+                parent=self.treeview, title="Error", message=str(error)
+            )
             return
         if item.is_text:
             index = self.treeview.index(fullname)
@@ -625,7 +672,7 @@ class Main:
             self.texts_notebook.tab(item.tabid, text=item.name)
             item.viewer.display()
         elif item.is_section:
-            self.treeview_populate()        # XXX Optimize!
+            self.treeview_populate()  # XXX Optimize!
             self.treeview.update()
             self.texts_notebook_populate()  # XXX Optimize!
             self.texts_notebook.update()
@@ -652,9 +699,10 @@ class Main:
             tk.messagebox.showerror(
                 parent=self.treeview,
                 title="Error",
-                message="Could not generate a unique name for the copy.")
+                message="Could not generate a unique name for the copy.",
+            )
             return
-        self.treeview_populate()        # XXX Optimize!
+        self.treeview_populate()  # XXX Optimize!
         self.treeview.update()
         self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
@@ -671,15 +719,17 @@ class Main:
         item = self.source[fullname]
         if item.is_text:
             if not tk.messagebox.askokcancel(
-                    parent=self.treeview,
-                    title=Tr("Delete text"),
-                    message=f"{Tr('Really delete text')} '{item.fullname}'?"):
+                parent=self.treeview,
+                title=Tr("Delete text"),
+                message=f"{Tr('Really delete text')} '{item.fullname}'?",
+            ):
                 return
         elif item.is_section:
             if not tk.messagebox.askokcancel(
-                    parent=self.treeview,
-                    title=Tr("Delete section"),
-                    message=f"{Tr('Really delete section')} '{item.fullname}' {Tr('and all its contents?')}"):
+                parent=self.treeview,
+                title=Tr("Delete section"),
+                message=f"{Tr('Really delete section')} '{item.fullname}' {Tr('and all its contents?')}",
+            ):
                 return
         if item.is_text:
             self.treeview.delete(fullname)
@@ -688,7 +738,7 @@ class Main:
             item.delete()
         else:
             item.delete()
-            self.treeview_populate()        # XXX Optimize!
+            self.treeview_populate()  # XXX Optimize!
             self.treeview.update()
             self.texts_notebook_populate()  # XXX Optimize!
             self.texts_notebook.update()
@@ -738,18 +788,18 @@ class Main:
         name = tk.simpledialog.askstring(
             parent=self.treeview,
             title=Tr("New text"),
-            prompt=Tr("Give name of the new text") + ":")
+            prompt=Tr("Give name of the new text") + ":",
+        )
         if not name:
             return
         try:
             text = self.source.create_text(name, anchor)
         except ValueError as error:
             tk.messagebox.showerror(
-                parent=self.treeview,
-                title="Error",
-                message=str(error))
+                parent=self.treeview, title="Error", message=str(error)
+            )
             return
-        self.treeview_populate()        # XXX Optimize!
+        self.treeview_populate()  # XXX Optimize!
         self.treeview.update()
         self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
@@ -768,18 +818,18 @@ class Main:
         name = tk.simpledialog.askstring(
             parent=self.treeview,
             title=Tr("New section"),
-            prompt=Tr("Give name of the new section") + ":")
+            prompt=Tr("Give name of the new section") + ":",
+        )
         if not name:
             return
         try:
             section = self.source.create_section(anchor, name)
         except ValueError as error:
             tk.messagebox.showerror(
-                parent=self.treeview,
-                title="Error",
-                message=str(error))
+                parent=self.treeview, title="Error", message=str(error)
+            )
             return
-        self.treeview_populate()        # XXX Optimize!
+        self.treeview_populate()  # XXX Optimize!
         self.treeview.update()
         self.texts_notebook_populate()  # XXX Optimize!
         self.texts_notebook.update()
@@ -803,6 +853,7 @@ class Main:
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) == 2:
         dirpath = sys.argv[1]
         if not os.path.isabs(dirpath):

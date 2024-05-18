@@ -1,4 +1,4 @@
-"Viewer for the references list."
+"Viewer for the references."
 
 from icecream import ic
 
@@ -20,7 +20,7 @@ from base_viewer import BaseViewer
 
 
 class ReferencesViewer(BaseViewer):
-    "Viewer for the references list."
+    "Viewer for the references."
 
     def __init__(self, parent, main):
         super().__init__(parent, main)
@@ -34,16 +34,20 @@ class ReferencesViewer(BaseViewer):
         self.actions_frame.columnconfigure(0, weight=1)
         self.actions_frame.columnconfigure(1, weight=1)
 
-        button = tk.ttk.Button(self.actions_frame,
-                               text=Tr("Import BibTeX"),
-                               padding=4,
-                               command=self.import_bibtex)
+        button = tk.ttk.Button(
+            self.actions_frame,
+            text=Tr("Import BibTeX"),
+            padding=4,
+            command=self.import_bibtex,
+        )
         button.grid(row=0, column=0)
 
-        button = tk.ttk.Button(self.actions_frame,
-                               text=Tr("Add manually"),
-                               padding=4,
-                               command=self.add_manually)
+        button = tk.ttk.Button(
+            self.actions_frame,
+            text=Tr("Add manually"),
+            padding=4,
+            command=self.add_manually,
+        )
         button.grid(row=0, column=1)
 
         self.result_frame = tk.ttk.Frame(self.frame)
@@ -51,47 +55,54 @@ class ReferencesViewer(BaseViewer):
         self.result_frame.rowconfigure(0, weight=1)
         self.result_frame.columnconfigure(0, weight=1)
 
-        self.view = tk.Text(self.result_frame,
-                            padx=constants.TEXT_PADX,
-                            font=constants.FONT_NORMAL_FAMILY,
-                            wrap=tk.WORD,
-                            spacing1=constants.TEXT_SPACING1,
-                            spacing2=constants.TEXT_SPACING2,
-                            spacing3=constants.TEXT_SPACING3)
+        self.view = tk.Text(
+            self.result_frame,
+            padx=constants.TEXT_PADX,
+            font=constants.FONT_NORMAL_FAMILY,
+            wrap=tk.WORD,
+            spacing1=constants.TEXT_SPACING1,
+            spacing2=constants.TEXT_SPACING2,
+            spacing3=constants.TEXT_SPACING3,
+        )
         self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.scroll_y = tk.ttk.Scrollbar(self.result_frame,
-                                      orient=tk.VERTICAL,
-                                      command=self.view.yview)
+        self.scroll_y = tk.ttk.Scrollbar(
+            self.result_frame, orient=tk.VERTICAL, command=self.view.yview
+        )
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
-        
+
     def __str__(self):
         return "References"
 
     def view_configure_tags(self, view=None):
         "Configure the key bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
+        view = view or self.view
         super().view_configure_tags(view=view)
-        view.tag_configure(constants.LINK,
-                           font=constants.FONT_SMALL,
-                           foreground=constants.LINK_COLOR,
-                           underline=True)
-        view.tag_configure(constants.REFERENCE, 
-                           spacing1=constants.REFERENCE_SPACING,
-                           lmargin2=constants.REFERENCE_INDENT)
-        view.tag_configure(constants.XREF,
-                           font=constants.FONT_SMALL,
-                           foreground=constants.XREF_COLOR,
-                           lmargin1=2 * constants.REFERENCE_INDENT,
-                           lmargin2=2 * constants.REFERENCE_INDENT,
-                           underline=True)
+        view.tag_configure(
+            constants.LINK,
+            font=constants.FONT_SMALL,
+            foreground=constants.LINK_COLOR,
+            underline=True,
+        )
+        view.tag_configure(
+            constants.REFERENCE,
+            spacing1=constants.REFERENCE_SPACING,
+            lmargin2=constants.REFERENCE_INDENT,
+        )
+        view.tag_configure(
+            constants.XREF,
+            font=constants.FONT_SMALL,
+            foreground=constants.XREF_COLOR,
+            lmargin1=2 * constants.REFERENCE_INDENT,
+            lmargin2=2 * constants.REFERENCE_INDENT,
+            underline=True,
+        )
 
     def display(self):
         self.display_wipe()
-        self.references_pos = {} # Key: reference id; value: position here.
+        self.references_pos = {}  # Key: reference id; value: position here.
         self.highlighted = None  # Currently highlighted range.
-        texts_pos = {}           # Position in the source text.
+        texts_pos = {}  # Position in the source text.
         for text in self.main.source.all_texts:
             for id, positions in text.viewer.references.items():
                 texts_pos.setdefault(id, {})[text.fullname] = list(sorted(positions))
@@ -101,20 +112,22 @@ class ReferencesViewer(BaseViewer):
             self.references_pos[reference["id"]] = first
 
             tag = f"{constants.REFERENCE_PREFIX}{reference['id']}"
-            self.view.tag_configure(tag,
-                                    font=constants.FONT_BOLD,
-                                    foreground=constants.REFERENCE_COLOR)
+            self.view.tag_configure(
+                tag, font=constants.FONT_BOLD, foreground=constants.REFERENCE_COLOR
+            )
             self.view.tag_bind(tag, "<Enter>", self.reference_enter)
             self.view.tag_bind(tag, "<Leave>", self.reference_leave)
-            self.view.tag_bind(tag, "<Button-1>",
-                               functools.partial(self.reference_action,
-                                                 reference=reference))
-            self.view.insert(tk.INSERT, reference["id"], (tag, ))
+            self.view.tag_bind(
+                tag,
+                "<Button-1>",
+                functools.partial(self.reference_action, reference=reference),
+            )
+            self.view.insert(tk.INSERT, reference["id"], (tag,))
             self.view.insert(tk.INSERT, "  ")
 
             self.view.insert(tk.INSERT, utils.shortname(reference["authors"][0]))
             number = min(len(reference["authors"]), constants.REFERENCE_MAX_AUTHORS)
-            for author in reference["authors"][1:number-1]:
+            for author in reference["authors"][1 : number - 1]:
                 self.view.insert(tk.INSERT, ", ")
                 self.view.insert(tk.INSERT, utils.shortname(author))
             if len(reference["authors"]) > constants.REFERENCE_MAX_AUTHORS:
@@ -131,9 +144,9 @@ class ReferencesViewer(BaseViewer):
                 except KeyError:
                     pass
                 try:
-                    self.view.insert(tk.INSERT,
-                                     reference["journal"],
-                                     (constants.ITALIC, ))
+                    self.view.insert(
+                        tk.INSERT, reference["journal"], (constants.ITALIC,)
+                    )
                 except KeyError:
                     pass
                 try:
@@ -147,15 +160,17 @@ class ReferencesViewer(BaseViewer):
                         pass
                     self.view.insert(tk.INSERT, ": ")
                 try:
-                    self.view.insert(tk.INSERT,
-                                     f"pp. {reference['pages'].replace('--', '-')}. ")
+                    self.view.insert(
+                        tk.INSERT, f"pp. {reference['pages'].replace('--', '-')}. "
+                    )
                 except KeyError:
                     pass
 
             elif reference["type"] == constants.BOOK:
                 self.view.insert(tk.INSERT, f"({reference['year']}). ")
-                self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ",
-                                 (constants.ITALIC, ))
+                self.view.insert(
+                    tk.INSERT, reference["title"].strip(".") + ". ", (constants.ITALIC,)
+                )
                 try:
                     self.view.insert(tk.INSERT, f"{reference['publisher']}. ")
                 except KeyError:
@@ -170,10 +185,12 @@ class ReferencesViewer(BaseViewer):
                 try:
                     start = self.view.index(tk.INSERT)
                     self.view.insert(tk.INSERT, reference["url"])
-                    self.link_create(url=reference["url"],
-                                     title=reference["title"],
-                                     first=start,
-                                     last=self.view.index(tk.INSERT))
+                    self.link_create(
+                        url=reference["url"],
+                        title=reference["title"],
+                        first=start,
+                        last=self.view.index(tk.INSERT),
+                    )
                 except KeyError:
                     pass
                 try:
@@ -190,10 +207,12 @@ class ReferencesViewer(BaseViewer):
                         self.view.insert(tk.INSERT, ", ")
                     start = self.view.index(tk.INSERT)
                     self.view.insert(tk.INSERT, f"{label}:{value}")
-                    self.link_create(url=template.format(value=value),
-                                     title=value,
-                                     first=start,
-                                     last=self.view.index(tk.INSERT))
+                    self.link_create(
+                        url=template.format(value=value),
+                        title=value,
+                        first=start,
+                        last=self.view.index(tk.INSERT),
+                    )
                     any_item = True
                 except KeyError:
                     pass
@@ -207,7 +226,7 @@ class ReferencesViewer(BaseViewer):
             reference["orphan"] = not fullnames
             for fullname, positions in sorted(fullnames.items()):
                 self.view.insert(tk.INSERT, "\n")
-                positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
+                positions = sorted(positions, key=lambda p: int(p[: p.index(".")]))
                 self.xref_create(fullname, positions[0], constants.REFERENCE)
                 for i, position in enumerate(positions[1:], start=2):
                     self.view.insert(tk.INSERT, ", ")
@@ -241,8 +260,9 @@ class ReferencesViewer(BaseViewer):
         self.main.meta_notebook.select(self.tabid)
 
     def read(self):
-        self.source = Source(os.path.join(self.main.absdirpath,
-                                          constants.REFERENCES_DIRNAME))
+        self.source = Source(
+            os.path.join(self.main.absdirpath, constants.REFERENCES_DIRNAME)
+        )
         self.references = [t for t in self.source.all_texts if "id" in t]
         self.references.sort(key=lambda r: r["id"])
         self.references_lookup = dict([(r["id"], r) for r in self.references])
@@ -302,13 +322,13 @@ class BibtexImport(tk.simpledialog.Dialog):
             tk.messagebox.showerror(
                 parent=self.view,
                 title="Error",
-                message="More than one BibTeX entry in data.")
+                message="More than one BibTeX entry in data.",
+            )
             return False
         elif len(entries) == 0:
             tk.messagebox.showerror(
-                parent=self.view,
-                title="Error",
-                message="No BibTeX entry in data.")
+                parent=self.view, title="Error", message="No BibTeX entry in data."
+            )
             return False
         entry = entries[0]
         authors = utils.cleanup(entry.fields_dict["author"].value)
@@ -316,9 +336,11 @@ class BibtexImport(tk.simpledialog.Dialog):
         year = entry.fields_dict["year"].value.strip()
         id = self.viewer.get_unique_id(authors[0], year)
         if id is None:
-            tk.messagebox.showerror(parent=self,
-                                    title="Error",
-                                    message="Could not create unique id for reference.")
+            tk.messagebox.showerror(
+                parent=self,
+                title="Error",
+                message="Could not create unique id for reference.",
+            )
             return False
         self.result = dict(id=id, type=entry.entry_type, authors=authors, year=year)
         for key, field in entry.fields_dict.items():
@@ -352,34 +374,35 @@ class AddManually(tk.simpledialog.Dialog):
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("Author"))
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
-        self.author_entry = tk.Entry(body)
-        self.author_entry.grid(row=0, column=1, sticky=(tk.W, tk.E))
+        self.author_entry = tk.Entry(body, width=40)
+        self.author_entry.grid(row=0, column=1, sticky=tk.W)
 
         label = tk.ttk.Label(body, text=Tr("Year"))
         label.grid(row=1, column=0, padx=4, sticky=tk.E)
         self.year_entry = tk.Entry(body)
-        self.year_entry.grid(row=1, column=1, sticky=(tk.W, tk.E))
+        self.year_entry.grid(row=1, column=1, sticky=tk.W)
         self.year_entry.bind("<Return>", self.ok)
 
         frame = tk.Frame(body)
         frame.grid(row=2, column=1, sticky=(tk.W, tk.E))
         self.type_var = tk.StringVar(value=constants.ARTICLE)
         for type in constants.REFERENCE_TYPES:
-            tk.ttk.Radiobutton(frame,
-                               text=Tr(type.capitalize()),
-                               value=type,
-                               variable=self.type_var).pack(anchor=tk.NW, padx=4)
+            tk.ttk.Radiobutton(
+                frame, text=Tr(type.capitalize()), value=type, variable=self.type_var
+            ).pack(anchor=tk.NW, padx=4)
 
         return self.author_entry
-    
+
     def validate(self):
         author = self.author_entry.get().strip()
         year = self.year_entry.get().strip()
         id = self.viewer.get_unique_id(author, year)
         if id is None:
-            tk.messagebox.showerror(parent=self,
-                                    title="Error",
-                                    message="Could not create unique id for reference.")
+            tk.messagebox.showerror(
+                parent=self,
+                title="Error",
+                message="Could not create unique id for reference.",
+            )
             return False
         self.result = dict(id=id, type=self.type_var.get(), authors=[author], year=year)
         return True

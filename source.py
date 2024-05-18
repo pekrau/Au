@@ -81,7 +81,6 @@ class Source:
 
         # Section and Text instances for directories and files that actually exist.
         for itemname in sorted(os.listdir(self.absdirpath)):
-
             # Skip hard-wired special directories.
             if itemname == constants.ARCHIVE_DIRNAME:
                 continue
@@ -120,7 +119,7 @@ class Source:
         self.items.extend(original.values())
 
     def create_text(self, name, anchor=None):
-        """Create a new empty text inside the anchor if it is a section, 
+        """Create a new empty text inside the anchor if it is a section,
         or after anchor if it is a text.
         Raise ValueError if there is a problem.
         """
@@ -147,7 +146,7 @@ class Source:
         return text
 
     def create_section(self, anchor, name):
-        """Create a new empty section inside the anchor if it is a section, 
+        """Create a new empty section inside the anchor if it is a section,
         or after anchor if it is a text.
         Raise ValueError if there is a problem.
         """
@@ -176,14 +175,14 @@ class Source:
         Raise an OSError if any error.
         """
         filename = time.strftime(constants.TIME_ISO_FORMAT, time.localtime()) + ".tgz"
-        archivefilepath = os.path.join(self.absdirpath,
-                                       constants.ARCHIVE_DIRNAME,
-                                       filename)
+        archivefilepath = os.path.join(
+            self.absdirpath, constants.ARCHIVE_DIRNAME, filename
+        )
         with tarfile.open(archivefilepath, "x:gz") as archivefile:
             # By looping over top-level items, the special directories are avoided.
             for item in self.items:
                 archivefile.add(item.abspath, arcname=item.filename(), recursive=True)
-                
+
             if sources:
                 if not isinstance(sources, list):
                     sources = [sources]
@@ -259,13 +258,13 @@ class Item:
         index = self.index
         if index == 0:
             return None
-        return self.parent.items[index-1]
+        return self.parent.items[index - 1]
 
     @property
     def next(self):
         "Next sibling or None."
         try:
-            return self.parent.items[self.index+1]
+            return self.parent.items[self.index + 1]
         except IndexError:
             return None
 
@@ -304,7 +303,7 @@ class Item:
             unit = "hrs"
         elif age.seconds >= 60.0:
             value = age.seconds / 60.0
-            unit= "mins"
+            unit = "mins"
         else:
             value = age.seconds + age.microseconds / 1000000.0
             unit = "secs"
@@ -323,7 +322,7 @@ class Item:
     def read(self):
         "To be implemented by inheriting classes."
         raise NotImplementedError
-        
+
     def get_config(self):
         "To be implemented by inheriting classes."
         raise NotImplementedError
@@ -362,7 +361,7 @@ class Item:
         pos = self.parent.items.index(self)
         if pos == 0:
             raise ValueError("Item already at the start of the list.")
-        self.parent.items.insert(pos-1, self.parent.items.pop(pos))
+        self.parent.items.insert(pos - 1, self.parent.items.pop(pos))
 
     def move_down(self):
         """Move this item one step down towards the end of its list of sibling items.
@@ -371,7 +370,7 @@ class Item:
         pos = self.parent.items.index(self)
         if pos == len(self.parent.items) - 1:
             raise ValueError("Item already at the end of the list.")
-        self.parent.items.insert(pos+1, self.parent.items.pop(pos))
+        self.parent.items.insert(pos + 1, self.parent.items.pop(pos))
 
     def move_to_parent(self):
         """Move this item one level up to the parent.
@@ -484,10 +483,12 @@ class Section(Item):
                 pass
 
     def get_config(self):
-        return dict(type="section",
-                    name=self.name,
-                    open=self.open,
-                    items=[i.get_config() for i in self.items])
+        return dict(
+            type="section",
+            name=self.name,
+            open=self.open,
+            items=[i.get_config() for i in self.items],
+        )
 
     def apply_config(self, config):
         assert config["type"] == "section"
@@ -579,7 +580,7 @@ class Text(Item):
         elif not isinstance(status, constants.Status):
             raise ValueError("Invalid status value.")
         self.frontmatter["status"] = repr(status)
-    
+
     status = property(get_status, set_status)
 
     def filename(self, newname=None):
@@ -594,7 +595,7 @@ class Text(Item):
         match = FRONTMATTER.match(content)
         if match:
             self.frontmatter = yaml.safe_load(match.group(1))
-            content = content[match.start(2):]
+            content = content[match.start(2) :]
         else:
             self.frontmatter = {}
         self.ast = parser.convert(content)
@@ -637,12 +638,12 @@ class Text(Item):
 class Indexed(marko.inline.InlineElement):
     "Markdown extension for indexed term."
 
-    pattern = re.compile(r"\[#(.+?)(\|(.+?))?\]") # I know, this isn't quite right.
+    pattern = re.compile(r"\[#(.+?)(\|(.+?))?\]")  # I know, this isn't quite right.
     parse_children = False
 
     def __init__(self, match):
         self.term = match.group(1).strip()
-        if match.group(3):      # Because of the not-quite-right regexp...
+        if match.group(3):  # Because of the not-quite-right regexp...
             self.canonical = match.group(3).strip()
         else:
             self.canonical = self.term
@@ -660,11 +661,15 @@ class Reference(marko.inline.InlineElement):
 
 parser = marko.Markdown(renderer=marko.ast_renderer.ASTRenderer)
 parser.use("footnote")
-parser.use(marko.helpers.MarkoExtension(elements=[
-    marko.ext.gfm.elements.Table,
-    marko.ext.gfm.elements.TableRow,
-    marko.ext.gfm.elements.TableCell
-]))
+parser.use(
+    marko.helpers.MarkoExtension(
+        elements=[
+            marko.ext.gfm.elements.Table,
+            marko.ext.gfm.elements.TableRow,
+            marko.ext.gfm.elements.TableCell,
+        ]
+    )
+)
 parser.use(marko.helpers.MarkoExtension(elements=[Indexed, Reference]))
 
 
@@ -679,8 +684,10 @@ def check_invalid_characters(name):
         if invalid in name:
             raise ValueError(f"The name may not contain the character '{invalid}'.")
 
+
 def test(keep=False):
     import tempfile
+
     content = "# Very basic Markdown.\n\n**Bold**.\n"
     dirpath = tempfile.mkdtemp()
     for filename in ["text1.md", "text2.md", "text3.md"]:
@@ -706,8 +713,10 @@ def test(keep=False):
     if not keep:
         shutil.rmtree(dirpath)
 
+
 if __name__ == "__main__":
     import json
+
     test()
     source = Source("/home/pekrau/Att konfrontera lejonen")
     with open("config.json") as infile:

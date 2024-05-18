@@ -2,6 +2,7 @@
 From data found at https://www.ctan.org/tex-archive/support/utf2any/maps
 """
 
+
 def from_latex_to_utf8(value):
     "Convert string value from LaTeX notation to UTF-8 characters."
     stack = []
@@ -11,7 +12,7 @@ def from_latex_to_utf8(value):
             stack.append(pos)
         elif c == "}":
             if len(stack) == 1:
-                item = value[stack[0]:pos+1]
+                item = value[stack[0] : pos + 1]
                 # This kludge fixes a problem seen in BibTex from Paperpile.
                 if item.startswith(r"{\v "):
                     item = r"{\v{" + item[4:] + "}"
@@ -20,7 +21,8 @@ def from_latex_to_utf8(value):
         elif not stack:
             result.append(c)
     return "".join(result)
-    
+
+
 def from_utf8_to_latex(value):
     "Convert string value from UTF-8 characters to LaTeX notation."
     result = []

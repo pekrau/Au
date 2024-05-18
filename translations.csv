@@ -5,6 +5,7 @@ archive,arkivera
 quit,avsluta
 save,spara
 close,stäng
+close?,stänga?
 modifications will not be saved.,förändringar sparas inte.
 edit,editera
 create text,skapa text
@@ -92,7 +93,7 @@ give name of the new section,ange namn för den nya sektionen
 new text,ny text
 give name of the new text,ange namn för den nya texten
 All unsaved changes will be lost. Really quit?,Alla osparade förändringar kommer att försvinna. Verkligen avsluta?
-Archive file written,Arkivfil skriven
+archive file written,arkivfil skriven
 items written to archive file,poster skrivna till arkivfilen
 delete text,radera text
 really delete text,verkligen radera text

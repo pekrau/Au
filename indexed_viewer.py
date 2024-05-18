@@ -17,33 +17,36 @@ class IndexedViewer(BaseViewer):
 
     def view_configure_tags(self, view=None):
         "Configure the key bindings used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
+        view = view or self.view
         super().view_configure_tags(view=view)
-        view.tag_configure(constants.INDEXED,
-                           font=constants.FONT_NORMAL,
-                           spacing1=constants.INDEXED_SPACING)
-        view.tag_configure(constants.XREF,
-                           font=constants.FONT_SMALL,
-                           foreground=constants.XREF_COLOR,
-                           lmargin1=constants.INDEXED_INDENT,
-                           lmargin2=constants.INDEXED_INDENT,
-                           underline=True)
+        view.tag_configure(
+            constants.INDEXED,
+            font=constants.FONT_NORMAL,
+            spacing1=constants.INDEXED_SPACING,
+        )
+        view.tag_configure(
+            constants.XREF,
+            font=constants.FONT_SMALL,
+            foreground=constants.XREF_COLOR,
+            lmargin1=constants.INDEXED_INDENT,
+            lmargin2=constants.INDEXED_INDENT,
+            underline=True,
+        )
 
     def display(self):
         self.display_wipe()
-        self.indexed = {}   # Key: term; value: position in this view.
-        pos = {}            # Position in source text.
+        self.indexed = {}  # Key: term; value: position in this view.
+        pos = {}  # Position in source text.
         for text in self.main.source.all_texts:
             for term, positions in text.viewer.indexed.items():
                 pos.setdefault(term, {})[text.fullname] = list(sorted(positions))
         texts_pos = sorted(pos.items(), key=lambda i: i[0].lower())
         for term, fullnames in texts_pos:
             self.indexed[term] = self.view.index(tk.INSERT)
-            self.view.insert(tk.INSERT, term, (constants.INDEXED, ))
+            self.view.insert(tk.INSERT, term, (constants.INDEXED,))
             for fullname, positions in sorted(fullnames.items()):
                 self.view.insert(tk.INSERT, "\n")
-                positions = sorted(positions, key= lambda p: int(p[:p.index(".")]))
+                positions = sorted(positions, key=lambda p: int(p[: p.index(".")]))
                 self.xref_create(fullname, positions[0], constants.INDEXED)
                 for i, position in enumerate(positions[1:], start=2):
                     self.view.insert(tk.INSERT, ", ")

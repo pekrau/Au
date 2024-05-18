@@ -2,18 +2,20 @@
 
 from icecream import ic
 
+import copy
 import os.path
 
 import docx
 import tkinter as tk
 import tkinter.simpledialog
+import tkinter.filedialog
 
 import constants
 import utils
 
 
-class Export:
-    "DOCX export."
+class Exporter:
+    "DOCX exporter."
 
     def __init__(self, source, config):
         self.source = source
@@ -23,7 +25,7 @@ class Export:
         if filepath is None:
             filepath = os.path.join(self.source.abspath, self.source.name + ".docx")
         self.document = docx.Document()
-        self.document.add_heading(self.source.name, 0)
+        self.document.add_heading(self.config.get("title") or self.source.name, 0)
         for item in self.source.items:
             if item.is_section:
                 self.write_section(item, level=0)
@@ -37,9 +39,9 @@ class Export:
         self.document.add_heading(section.name, level)
         for item in section.items:
             if item.is_section:
-                self.write_section(item, level=level+1)
+                self.write_section(item, level=level + 1)
             else:
-                self.write_text(item, level=level+1)
+                self.write_text(item, level=level + 1)
 
     def write_text(self, text, level):
         if level < constants.DOCX_PAGEBREAK_LEVEL:
@@ -75,15 +77,39 @@ class Export:
 class Dialog(tk.simpledialog.Dialog):
     "Dialog to confirm or modify configuration before export."
 
-    def __init__(self, master, main):
-        self.main = main
+    def __init__(self, master, config):
+        self.config = copy.deepcopy(config)
         self.result = None
         super().__init__(master, title="DOCX export")
 
     def body(self, body):
-        entry = tk.Entry(body)
-        entry.pack()
+        label = tk.ttk.Label(body, text="Filename", width=40)
+        label.grid(row=0, column=0, sticky=tk.E)
+        self.filename_entry = tk.ttk.Entry(body)
+        self.filename_entry.insert(0, self.config.get("filename") or "")
+        self.filename_entry.grid(row=0, column=1, sticky=tk.W)
+
+        label = tk.ttk.Label(body, text="Directory", width=40)
+        label.grid(row=1, column=0, sticky=tk.E)
+        self.dirpath_entry = tk.ttk.Entry(body)
+        self.dirpath_entry.insert(0, self.config.get("dirpath") or "")
+        self.dirpath_entry.grid(row=1, column=1, sticky=tk.W)
+        button = tk.ttk.Button(body, text="Change", command=self.change_dirpath)
+        button.grid(row=1, column=3)
 
     def apply(self):
-        Export(self.source, self.main.config["export"].get("docx")).write()
-        self.result = "filename"
+        self.config["dirpath"] = self.dirpath_entry.get().strip() or "."
+        filename = self.filename_entry.get().strip() or constants.BOOK
+        self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
+        self.result = self.config
+
+    def change_dirpath(self):
+        dirpath = tk.filedialog.askdirectory(
+            parent=self,
+            title="Directory",
+            initialdir=self.config.get("dirpath") or ".",
+            mustexist=True,
+        )
+        if dirpath:
+            self.dirpath_entry.delete(0, tk.END)
+            self.dirpath_entry.insert(0, dirpath)

@@ -57,12 +57,15 @@ class ReferenceEditor(BaseEditor):
             self.variables[key] = tk.StringVar(value=self.text.get(key) or "")
             # Special case for language field.
             if key == "language":
-                entry = tk.ttk.Combobox(self.metadata_frame,
-                                        values=constants.REFERENCE_LANGUAGES,
-                                        textvariable=self.variables[key])
+                entry = tk.ttk.Combobox(
+                    self.metadata_frame,
+                    values=constants.REFERENCE_LANGUAGES,
+                    textvariable=self.variables[key],
+                )
             else:
-                entry = tk.ttk.Entry(self.metadata_frame,
-                                     textvariable=self.variables[key])
+                entry = tk.ttk.Entry(
+                    self.metadata_frame, textvariable=self.variables[key]
+                )
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
             entry.bind("<Key>", self.entry_modified)
             entry.bind("<Control-q>", self.close)
@@ -84,7 +87,8 @@ class ReferenceEditor(BaseEditor):
                 button = tk.Button(
                     self.metadata_frame,
                     text=Tr("Remove"),
-                    command=functools.partial(self.remove_author, pos=pos))
+                    command=functools.partial(self.remove_author, pos=pos),
+                )
                 button.grid(row=row, column=2)
             row += 1
 
@@ -102,8 +106,7 @@ class ReferenceEditor(BaseEditor):
             label = tk.Label(self.metadata_frame, text=Tr(key.capitalize()), padx=4)
             label.grid(row=row, column=0, sticky=tk.E)
             self.variables[key] = tk.StringVar(value=self.text.get(key) or "")
-            entry = tk.ttk.Entry(self.metadata_frame, 
-                                 textvariable=self.variables[key])
+            entry = tk.ttk.Entry(self.metadata_frame, textvariable=self.variables[key])
             entry.grid(row=row, column=1, sticky=(tk.W, tk.E))
             entry.bind("<Key>", self.entry_modified)
             entry.bind("<Control-q>", self.close)
@@ -116,9 +119,10 @@ class ReferenceEditor(BaseEditor):
 
     def delete(self):
         if not tk.messagebox.askokcancel(
-                parent=self.frame,
-                title=Tr("Delete"),
-                message=Tr("Really delete reference") + "?"):
+            parent=self.frame,
+            title=Tr("Delete"),
+            message=Tr("Really delete reference") + "?",
+        ):
             return
         self.viewer.references.remove(self.text)
         self.viewer.references_lookup.pop(self.text["id"])

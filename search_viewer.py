@@ -28,9 +28,7 @@ class SearchViewer(BaseViewer):
 
         tk.ttk.Label(self.entry_frame, text="Term").grid(row=0, column=0, padx=4)
         self.search_entry = tk.ttk.Entry(self.entry_frame)
-        self.search_entry.grid(row=0, column=1,
-                               sticky=(tk.E, tk.W), 
-                               padx=4)
+        self.search_entry.grid(row=0, column=1, sticky=(tk.E, tk.W), padx=4)
         self.search_entry.bind("<Return>", self.search)
 
         button = tk.ttk.Button(self.entry_frame, text=Tr("Search"), command=self.search)
@@ -39,17 +37,19 @@ class SearchViewer(BaseViewer):
         button.grid(row=1, column=2, padx=4, pady=4)
 
         self.search_case_var = tk.IntVar(value=1)
-        self.search_case = tk.ttk.Checkbutton(self.entry_frame,
-                                              text=Tr("Character case is significant"),
-                                              variable=self.search_case_var)
+        self.search_case = tk.ttk.Checkbutton(
+            self.entry_frame,
+            text=Tr("Character case is significant"),
+            variable=self.search_case_var,
+        )
         self.search_case.grid(row=1, column=1, sticky=tk.W)
 
         self.search_regexp_var = tk.IntVar(value=0)
         self.search_regexp = tk.ttk.Checkbutton(
             self.entry_frame,
-            text=Tr("Allow regular expression") +
-            "\n. ^ [c1...] (...) * + ? e1|e2",
-            variable=self.search_regexp_var)
+            text=Tr("Allow regular expression") + "\n. ^ [c1...] (...) * + ? e1|e2",
+            variable=self.search_regexp_var,
+        )
         self.search_regexp.grid(row=2, column=1, sticky=tk.W)
 
         self.result_frame = tk.ttk.Frame(self.frame)
@@ -57,33 +57,35 @@ class SearchViewer(BaseViewer):
         self.result_frame.rowconfigure(0, weight=1)
         self.result_frame.columnconfigure(0, weight=1)
 
-        self.view = tk.Text(self.result_frame,
-                            background=self.TEXT_COLOR,
-                            padx=constants.TEXT_PADX,
-                            font=constants.FONT_NORMAL_FAMILY,
-                            wrap=tk.WORD,
-                            spacing1=constants.TEXT_SPACING1,
-                            spacing2=constants.TEXT_SPACING2,
-                            spacing3=constants.TEXT_SPACING3)
+        self.view = tk.Text(
+            self.result_frame,
+            background=self.TEXT_COLOR,
+            padx=constants.TEXT_PADX,
+            font=constants.FONT_NORMAL_FAMILY,
+            wrap=tk.WORD,
+            spacing1=constants.TEXT_SPACING1,
+            spacing2=constants.TEXT_SPACING2,
+            spacing3=constants.TEXT_SPACING3,
+        )
         self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.scroll_y = tk.ttk.Scrollbar(self.result_frame,
-                                         orient=tk.VERTICAL,
-                                         command=self.view.yview)
+        self.scroll_y = tk.ttk.Scrollbar(
+            self.result_frame, orient=tk.VERTICAL, command=self.view.yview
+        )
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
-        
+
     def view_configure_tags(self, view=None):
         "Configure the tags used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
+        view = view or self.view
         super().view_configure_tags(view=view)
         view.tag_configure(constants.SEARCH, lmargin1=constants.SEARCH_INDENT)
 
-    def view_bind_tags(self):
+    def view_bind_tags(self, view=None):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        super().view_bind_tags()
-        self.view.tag_bind(constants.SEARCH, "<Enter>", self.link_enter)
-        self.view.tag_bind(constants.SEARCH, "<Leave>", self.link_leave)
+        view = view or self.view
+        super().view_bind_tags(view=view)
+        view.tag_bind(constants.SEARCH, "<Enter>", self.link_enter)
+        view.tag_bind(constants.SEARCH, "<Leave>", self.link_leave)
 
     def search(self, event=None):
         """Search the viewer texts.
@@ -102,27 +104,31 @@ class SearchViewer(BaseViewer):
         for text in self.main.source.all_texts:
             view = text.viewer.view
             found = []
-            text.viewer.tags_inhibit_elide() # Bug workaround. See above.
-            first = view.search(term, 
-                                "1.0",
-                                nocase=not case,
-                                regexp=regexp, 
-                                stopindex=tk.END,
-                                count=count_var)
+            text.viewer.tags_inhibit_elide()  # Bug workaround. See above.
+            first = view.search(
+                term,
+                "1.0",
+                nocase=not case,
+                regexp=regexp,
+                stopindex=tk.END,
+                count=count_var,
+            )
             while first:
                 length = count_var.get()
                 item = view.get(first, view.index(first + f"+{length}c"))
                 found.append((first, length))
-                first = view.search(term,
-                                    first + f"+{length}c",
-                                    nocase=not case,
-                                    regexp=regexp,
-                                    stopindex=tk.END,
-                                    count=count_var)
-            text.viewer.tags_restore_elide() # Bug workaround. See above.
+                first = view.search(
+                    term,
+                    first + f"+{length}c",
+                    nocase=not case,
+                    regexp=regexp,
+                    stopindex=tk.END,
+                    count=count_var,
+                )
+            text.viewer.tags_restore_elide()  # Bug workaround. See above.
             if not found:
                 continue
-            self.view.insert(tk.INSERT, text.fullname, (constants.BOLD, ))
+            self.view.insert(tk.INSERT, text.fullname, (constants.BOLD,))
             self.view.insert(tk.INSERT, "\n")
             for first, length in found:
                 begin = self.view.index(tk.INSERT)
@@ -142,12 +148,13 @@ class SearchViewer(BaseViewer):
                 tag = f"{constants.SEARCH_PREFIX}{tag_counter}"
                 tag_counter += 1
                 self.view.tag_add(tag, begin, tk.INSERT)
-                self.view.tag_bind(tag,
-                                   "<Button-1>", 
-                                   functools.partial(self.link_action,
-                                                     text=text,
-                                                     first=first,
-                                                     last=last))
+                self.view.tag_bind(
+                    tag,
+                    "<Button-1>",
+                    functools.partial(
+                        self.link_action, text=text, first=first, last=last
+                    ),
+                )
                 self.view.insert(tk.INSERT, "\n")
             self.view.insert(tk.INSERT, "\n")
 

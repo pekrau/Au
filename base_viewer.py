@@ -33,18 +33,20 @@ class BaseViewer:
         self.frame.pack(fill=tk.BOTH, expand=True)
         self.frame.rowconfigure(0, weight=1)
         self.frame.columnconfigure(0, weight=1)
-        self.view = tk.Text(self.frame,
-                            background=self.TEXT_COLOR,
-                            padx=constants.TEXT_PADX,
-                            font=constants.FONT_NORMAL_FAMILY,
-                            wrap=tk.WORD,
-                            spacing1=constants.TEXT_SPACING1,
-                            spacing2=constants.TEXT_SPACING2,
-                            spacing3=constants.TEXT_SPACING3)
+        self.view = tk.Text(
+            self.frame,
+            background=self.TEXT_COLOR,
+            padx=constants.TEXT_PADX,
+            font=constants.FONT_NORMAL_FAMILY,
+            wrap=tk.WORD,
+            spacing1=constants.TEXT_SPACING1,
+            spacing2=constants.TEXT_SPACING2,
+            spacing3=constants.TEXT_SPACING3,
+        )
         self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.scroll_y = tk.ttk.Scrollbar(self.frame,
-                                         orient=tk.VERTICAL,
-                                         command=self.view.yview)
+        self.scroll_y = tk.ttk.Scrollbar(
+            self.frame, orient=tk.VERTICAL, command=self.view.yview
+        )
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
 
@@ -54,46 +56,48 @@ class BaseViewer:
 
     def view_configure_tags(self, view=None):
         "Configure the tags used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
+        view = view or self.view
         for h in constants.H_LOOKUP.values():
-            view.tag_configure(h["tag"],
-                               font=h["font"],
-                               lmargin1=h["left_margin"],
-                               lmargin2=h["left_margin"],
-                               spacing3=h["spacing"])
+            view.tag_configure(
+                h["tag"],
+                font=h["font"],
+                lmargin1=h["left_margin"],
+                lmargin2=h["left_margin"],
+                spacing3=h["spacing"],
+            )
         view.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         view.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
-        view.tag_configure(constants.LINK,
-                           foreground=constants.LINK_COLOR,
-                           underline=True)
-        view.tag_configure(constants.XREF,
-                           foreground=constants.XREF_COLOR,
-                           underline=True)
-        view.tag_configure(constants.LIST_BULLET, font=constants.FONT_BOLD)
-        view.tag_configure(constants.HIGHLIGHT,
-                           background=constants.HIGHLIGHT_COLOR)
+        view.tag_configure(
+            constants.LINK, foreground=constants.LINK_COLOR, underline=True
+        )
+        view.tag_configure(
+            constants.XREF, foreground=constants.XREF_COLOR, underline=True
+        )
+        # view.tag_configure(constants.LIST_BULLET, font=constants.FONT_BOLD)
+        view.tag_configure(constants.HIGHLIGHT, background=constants.HIGHLIGHT_COLOR)
 
-    def view_bind_tags(self):
+    def view_bind_tags(self, view=None):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        self.view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
-        self.view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
-        self.view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
-        self.view.tag_bind(constants.XREF, "<Enter>", self.xref_enter)
-        self.view.tag_bind(constants.XREF, "<Leave>", self.xref_leave)
-        self.view.tag_bind(constants.XREF, "<Button-1>", self.xref_action)
+        view = view or self.view
+        view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
+        view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
+        view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
+        view.tag_bind(constants.XREF, "<Enter>", self.xref_enter)
+        view.tag_bind(constants.XREF, "<Leave>", self.xref_leave)
+        view.tag_bind(constants.XREF, "<Button-1>", self.xref_action)
 
-    def view_bind_keys(self):
+    def view_bind_keys(self, view=None):
         "Configure the key bindings used in the 'tk.Text' instance."
-        self.view.bind("<Home>", self.cursor_home)
-        self.view.bind("<End>", self.cursor_end)
-        self.view.bind("<Key>", self.key_press)
-        self.view.bind("<Control-c>", self.clipboard_copy)
-        self.view.bind("<Control-C>", self.clipboard_copy)
-        self.view.bind("<F1>", self.debug_tags)
-        self.view.bind("<F2>", self.debug_selected)
-        self.view.bind("<F3>", self.debug_clipboard)
-        self.view.bind("<F4>", self.debug_dump)
+        view = view or self.view
+        view.bind("<Home>", self.cursor_home)
+        view.bind("<End>", self.cursor_end)
+        view.bind("<Key>", self.key_press)
+        view.bind("<Control-c>", self.clipboard_copy)
+        view.bind("<Control-C>", self.clipboard_copy)
+        view.bind("<F1>", self.debug_tags)
+        view.bind("<F2>", self.debug_selected)
+        view.bind("<F3>", self.debug_clipboard)
+        view.bind("<F4>", self.debug_dump)
 
     def display_wipe(self):
         self.links = {}
@@ -107,7 +111,7 @@ class BaseViewer:
             h = constants.H_LOOKUP[self.text.depth]
         except KeyError:
             h = constants.H_LOOKUP[constants.MAX_H_LEVEL]
-        self.view.insert(tk.INSERT, self.title, (h["tag"], ))
+        self.view.insert(tk.INSERT, self.title, (h["tag"],))
 
     def cursor_home(self, event=None):
         self.view.mark_set(tk.INSERT, "1.0")
@@ -155,9 +159,14 @@ class BaseViewer:
     def get_dump(self, first, last):
         "Get the dump of the contents, cleanup and preprocess."
         # Get rid of irrelevant marks.
-        dump = [e for e in self.view.dump(first, last)
-                if not (e[0] == "mark" and (e[1] in (tk.INSERT, tk.CURRENT) or
-                                            e[1].startswith("tk::")))]
+        dump = [
+            e
+            for e in self.view.dump(first, last)
+            if not (
+                e[0] == "mark"
+                and (e[1] in (tk.INSERT, tk.CURRENT) or e[1].startswith("tk::"))
+            )
+        ]
         # Get rid of tag SEL.
         dump = [e for e in dump if not (e[0] == "tagon" and e[1] == tk.SEL)]
         # Get link data to make a copy. Skip the position; not relevant.
@@ -296,27 +305,32 @@ class BaseViewer:
             tk.messagebox.showerror(
                 parent=self.toplevel,
                 title="Range boundary",
-                message="Selection contains a range boundary.")
+                message="Selection contains a range boundary.",
+            )
         return result
 
     def debug_tags(self, event=None):
-        ic("--- insert ---",
-           self.view.index(tk.INSERT),
-           self.cursor,
-           self.view.tag_names(tk.INSERT))
+        ic(
+            "--- insert ---",
+            self.view.index(tk.INSERT),
+            self.cursor,
+            self.view.tag_names(tk.INSERT),
+        )
 
     def debug_selected(self, event=None):
         try:
             first, last = self.get_selection(allow_boundary=True)
         except ValueError:
             return
-        ic("--- selected ---",
-           self.view.tag_names(first),
-           self.view.tag_names(last),
-           self.view.dump(first, last))
+        ic(
+            "--- selected ---",
+            self.view.tag_names(first),
+            self.view.tag_names(last),
+            self.view.dump(first, last),
+        )
 
     def debug_clipboard(self, event=None):
-        ic("--- clipboard ---",  self.main.clipboard)
+        ic("--- clipboard ---", self.main.clipboard)
 
     def debug_dump(self, event=None):
         dump = self.view.dump("1.0", tk.END)
@@ -325,7 +339,7 @@ class BaseViewer:
 
 class BaseTextViewer(BaseRenderMixin, BaseViewer):
     "Viewer base class for text with Markdown rendering methods and bindings."
- 
+
     def __init__(self, parent, main, text):
         super().__init__(parent, main)
         self.text = text
@@ -359,33 +373,35 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
 
     def view_configure_tags(self, view=None):
         "Configure the tags used in the 'tk.Text' instance."
-        if view is None:
-            view = self.view
+        view = view or self.view
         super().view_configure_tags(view=view)
-        view.tag_configure(constants.QUOTE,
-                           lmargin1=constants.QUOTE_LEFT_INDENT,
-                           lmargin2=constants.QUOTE_LEFT_INDENT,
-                           rmargin=constants.QUOTE_RIGHT_INDENT,
-                           spacing1=constants.QUOTE_SPACING1,
-                           spacing2=constants.QUOTE_SPACING2,
-                           font=constants.QUOTE_FONT)
-        view.tag_configure(constants.THEMATIC_BREAK,
-                           font=constants.FONT_BOLD,
-                           justify=tk.CENTER)
+        view.tag_configure(
+            constants.QUOTE,
+            lmargin1=constants.QUOTE_LEFT_INDENT,
+            lmargin2=constants.QUOTE_LEFT_INDENT,
+            rmargin=constants.QUOTE_RIGHT_INDENT,
+            spacing1=constants.QUOTE_SPACING1,
+            spacing2=constants.QUOTE_SPACING2,
+            font=constants.QUOTE_FONT,
+        )
+        view.tag_configure(
+            constants.THEMATIC_BREAK, font=constants.FONT_BOLD, justify=tk.CENTER
+        )
         view.tag_configure(constants.INDEXED, underline=True)
-        view.tag_configure(constants.REFERENCE,
-                           foreground=constants.REFERENCE_COLOR,
-                           underline=True)
+        view.tag_configure(
+            constants.REFERENCE, foreground=constants.REFERENCE_COLOR, underline=True
+        )
 
-    def view_bind_tags(self):
+    def view_bind_tags(self, view=None):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        super().view_bind_tags()
-        self.view.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
-        self.view.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
-        self.view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_action)
-        self.view.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
-        self.view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
-        self.view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_action)
+        view = view or self.view
+        super().view_bind_tags(view=view)
+        view.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
+        view.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
+        view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_action)
+        view.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
+        view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
+        view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_action)
 
     def display(self, reread_text=True):
         if reread_text:
@@ -411,7 +427,7 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
     def get_reference(self):
         for tag in self.view.tag_names(tk.CURRENT):
             if tag.startswith(constants.REFERENCE_PREFIX):
-                return tag[len(constants.REFERENCE_PREFIX):]
+                return tag[len(constants.REFERENCE_PREFIX) :]
 
     def indexed_enter(self, event):
         self.view.configure(cursor="hand2")
@@ -427,7 +443,7 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
     def get_indexed(self):
         for tag in self.view.tag_names(tk.CURRENT):
             if tag.startswith(constants.INDEXED_PREFIX):
-                return tag[len(constants.INDEXED_PREFIX):]
+                return tag[len(constants.INDEXED_PREFIX) :]
 
     def render_table(self, ast):
         self.table = Table(self, ast)
@@ -456,18 +472,23 @@ class Table(BaseRenderMixin):
         self.current_column += 1
         width = max(6, self.delimiters[self.current_column])
         height = max(1, self.len_raw_text(ast) / self.delimiters[self.current_column])
-        self.view = tk.Text(self.frame,
-                            width=width,
-                            height=height,
-                            padx=constants.TEXT_PADX,
-                            font=constants.FONT_NORMAL_FAMILY,
-                            wrap=tk.WORD,
-                            spacing1=constants.TEXT_SPACING1,
-                            spacing2=constants.TEXT_SPACING2,
-                            spacing3=constants.TEXT_SPACING3)
+        self.view = tk.Text(
+            self.frame,
+            width=width,
+            height=height,
+            padx=constants.TEXT_PADX,
+            font=constants.FONT_NORMAL_FAMILY,
+            wrap=tk.WORD,
+            spacing1=constants.TEXT_SPACING1,
+            spacing2=constants.TEXT_SPACING2,
+            spacing3=constants.TEXT_SPACING3,
+        )
         self.master.view_configure_tags(view=self.view)
-        self.view.grid(row=self.current_row, column=self.current_column,
-                       sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.view.grid(
+            row=self.current_row,
+            column=self.current_column,
+            sticky=(tk.W, tk.E, tk.N, tk.S),
+        )
         for child in ast["children"]:
             self.render(child)
         if ast.get("header"):

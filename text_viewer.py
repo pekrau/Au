@@ -16,29 +16,36 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
     TEXT_COLOR = constants.TEXT_COLOR
 
     def __init__(self, parent, main, text):
-        self.footnotes = {}     # Lookup local for the instance.
+        self.footnotes = {}  # Lookup local for the instance.
         super().__init__(parent, main, text)
-        self.status = constants.Status.lookup(self.text.frontmatter.get("status")) or constants.STARTED
+        self.status = (
+            constants.Status.lookup(self.text.frontmatter.get("status"))
+            or constants.STARTED
+        )
 
     def view_configure_tags(self, view=None):
-        if view is None:
-            view = self.view
+        view = view or self.view
         super().view_configure_tags(view=view)
-        view.tag_configure(constants.FOOTNOTE_REF,
-                           foreground=constants.FOOTNOTE_REF_COLOR,
-                           underline=True)
-        view.tag_configure(constants.FOOTNOTE_DEF,
-                           background=constants.FOOTNOTE_DEF_COLOR,
-                           borderwidth=1,
-                           relief=tk.SOLID,
-                           lmargin1=constants.FOOTNOTE_MARGIN,
-                           lmargin2=constants.FOOTNOTE_MARGIN,
-                           rmargin=constants.FOOTNOTE_MARGIN)
+        view.tag_configure(
+            constants.FOOTNOTE_REF,
+            foreground=constants.FOOTNOTE_REF_COLOR,
+            underline=True,
+        )
+        view.tag_configure(
+            constants.FOOTNOTE_DEF,
+            background=constants.FOOTNOTE_DEF_COLOR,
+            borderwidth=1,
+            relief=tk.SOLID,
+            lmargin1=constants.FOOTNOTE_MARGIN,
+            lmargin2=constants.FOOTNOTE_MARGIN,
+            rmargin=constants.FOOTNOTE_MARGIN,
+        )
 
-    def view_bind_tags(self):
-        super().view_bind_tags()
-        self.view.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
-        self.view.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
+    def view_bind_tags(self, view=None):
+        view = view or self.view
+        super().view_bind_tags(view=view)
+        view.tag_bind(constants.FOOTNOTE_REF, "<Enter>", self.footnote_enter)
+        view.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
 
     def display_wipe(self):
         super().display_wipe()
@@ -53,7 +60,7 @@ class TextViewer(FootnoteRenderMixin, BaseTextViewer):
     def footnote_toggle(self, event=None):
         for tag in self.view.tag_names(tk.CURRENT):
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
-                label = tag[len(constants.FOOTNOTE_REF_PREFIX):]
+                label = tag[len(constants.FOOTNOTE_REF_PREFIX) :]
                 break
         else:
             return
