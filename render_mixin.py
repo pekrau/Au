@@ -1,4 +1,4 @@
-"Mixin classes containing methods to render Marko AST to tk.Text instance."
+"Mixin class containing methods to render Marko AST to tk.Text instance."
 
 from icecream import ic
 
@@ -8,10 +8,13 @@ import constants
 import utils
 
 
-class BaseRenderMixin:
-    """Mixin class containing basic methods to render Marko AST to tk.Text instance.
-    It assumes an attribute '.view'; instance of tk.Text.
+class RenderMixin:
+    """Mixin class containing methods to render Marko AST to tk.Text instance.
+    Assumes an attribute '.view'; instance of tk.Text.
     """
+
+    def render_init(self):
+        self.prev_line_blank = True
 
     def render(self, ast):
         try:
@@ -20,18 +23,6 @@ class BaseRenderMixin:
             ic("Could not handle ast", ast)
         else:
             method(ast)
-
-    def get_prev_line_blank(self):
-        try:
-            return self._prev_line_blank
-        except AttributeError:
-            self._prev_line_blank = True
-            return self._prev_line_blank
-
-    def set_prev_line_blank(self, value):
-        self._prev_line_blank = value
-
-    prev_line_blank = property(get_prev_line_blank, set_prev_line_blank)
 
     # @property
     # def lists_lookup(self):
@@ -200,12 +191,6 @@ class BaseRenderMixin:
         while range:
             self.references.setdefault(self.view.get(*range), set()).add(range[0])
             range = self.view.tag_nextrange(constants.REFERENCE, range[0] + "+1c")
-
-
-class FootnoteRenderMixin:
-    """Mixin class containing  methods to render footnote Marko AST to tk.Text instance.
-    It assumes the presence of an attribute 'view'; instance of tk.Text.
-    """
 
     def render_footnote_ref(self, ast):
         label = ast["label"]

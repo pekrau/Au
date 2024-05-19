@@ -12,7 +12,7 @@ import tkinter.ttk
 
 import constants
 import utils
-from render_mixins import BaseRenderMixin
+from render_mixin import RenderMixin
 
 
 class BaseViewer:
@@ -337,7 +337,7 @@ class BaseViewer:
         ic("--- dump ---", dump)
 
 
-class BaseTextViewer(BaseRenderMixin, BaseViewer):
+class BaseTextViewer(RenderMixin, BaseViewer):
     "Viewer base class for text with Markdown rendering methods and bindings."
 
     def __init__(self, parent, main, text):
@@ -408,7 +408,7 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
             self.text.read()
         self.display_wipe()
         self.display_title()
-        self.prev_line_blank = True
+        self.render_init()
         self.render(self.text.ast)
         self.locate_indexed()
         self.locate_references()
@@ -449,7 +449,7 @@ class BaseTextViewer(BaseRenderMixin, BaseViewer):
         self.table = Table(self, ast)
 
 
-class Table(BaseRenderMixin):
+class Table(RenderMixin):
     "Read-only table requires its own class for rendering."
 
     def __init__(self, master, ast):
@@ -459,6 +459,7 @@ class Table(BaseRenderMixin):
         self.view = None
         self.current_row = -1
         self.delimiters = [len(d) for d in ast["delimiters"]]
+        self.render_init()
         for child in ast["children"]:
             self.render(child)
 

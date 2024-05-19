@@ -1,4 +1,40 @@
-"Authoring editor tool based on Tkinter."
+"""Authoring editor tool based on Tkinter.
+
+Class hierarchy:
+
+RenderMixin
+    # Mixin class containing methods to render Marko AST to tk.Text instance.
+    # Assumes an attribute '.view'; instance of tk.Text.
+
+BaseViewer 
+    # Base class with methods for viewer using a 'tk.Text' instance.
+
+BaseTextViewer(RenderMixin, BaseViewer)
+    # Viewer base class for text with Markdown rendering methods and bindings.
+
+TextViewer(BaseTextViewer)
+    # Viewer window for Markdown text file.
+
+BaseEditor(TextViewer)
+    # Base editor class.
+
+TextEditor(BaseEditor)
+    # Editor window for Markdown text file.
+
+ReferencesViewer(BaseViewer)
+    # Viewer for the references.
+
+IndexedViewer(BaseViewer)
+    # Viewer for the list of indexed terms.
+
+SearchViewer(BaseViewer)
+    # Viewer for the search feature and resulting list.
+
+HelpViewer(BaseTextViewer)
+    # View of the help file Markdown contents.
+
+
+"""
 
 from icecream import ic
 
@@ -76,14 +112,8 @@ class Main:
         self.source.apply_config(self.config["source"])
         self.text_editors = {}  # Key: fullname; value: TextEditor instance
         self.reference_editors = {}  # Key: fullname; value: ReferenceEditor instance
-
-        # Must be 'tk.PanedWindow', not 'tk.ttk.PanedWindow',
-        # since the 'paneconfigure' command is needed.
-        self.panedwindow = tk.PanedWindow(
-            self.root, background="gold", orient=tk.HORIZONTAL, sashwidth=constants.SASH_WIDTH
-        )
+        self.panedwindow = tk.ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         self.panedwindow.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
         self.menubar_setup()
         self.treeview_create()
         self.texts_notebook_create()
@@ -95,9 +125,8 @@ class Main:
         except KeyError:
             pass
         else:
-            self.panedwindow.update()  # Required for this to work.
-            self.panedwindow.sash("place", 0, sash[0], 1)
-            self.panedwindow.sash("place", 1, sash[1], 1)
+            self.panedwindow.sashpos(0, sash[0])
+            self.panedwindow.sashpos(1, sash[1])
 
         self.treeview_populate()
         self.texts_notebook_populate()
@@ -134,10 +163,7 @@ class Main:
             subtitle=self.subtitle,
             authors=self.authors,
             geometry=self.root.geometry(),
-            sash=[
-                self.panedwindow.sash("coord", 0)[0],
-                self.panedwindow.sash("coord", 1)[0],
-            ],
+            sash=[self.panedwindow.sashpos(0), self.panedwindow.sashpos(1)],
         )
 
         config["meta"] = dict(
@@ -249,12 +275,7 @@ class Main:
     def treeview_create(self):
         "Create the treeview framework."
         self.treeview_frame = tk.ttk.Frame(self.panedwindow)
-        self.panedwindow.add(
-            self.treeview_frame,
-            width=constants.TREEVIEW_PANE_WIDTH,
-            minsize=constants.PANE_MINSIZE,
-        )
-
+        self.panedwindow.add(self.treeview_frame)
         self.treeview_frame.rowconfigure(0, weight=1)
         self.treeview_frame.columnconfigure(0, weight=1)
         self.treeview = tk.ttk.Treeview(
@@ -379,7 +400,7 @@ class Main:
     def texts_notebook_create(self):
         "Create the texts notebook framework."
         self.texts_notebook = tk.ttk.Notebook(self.panedwindow)
-        self.panedwindow.add(self.texts_notebook, minsize=constants.PANE_MINSIZE)
+        self.panedwindow.add(self.texts_notebook)
         # Key: tabid; value: instance
         self.texts_notebook_lookup = {}
 
@@ -438,7 +459,7 @@ class Main:
     def meta_notebook_create(self):
         "Create the meta notebook framework."
         self.meta_notebook = tk.ttk.Notebook(self.panedwindow)
-        self.panedwindow.add(self.meta_notebook, minsize=constants.PANE_MINSIZE)
+        self.panedwindow.add(self.meta_notebook)
 
         # key: tabid; value: instance
         self.meta_notebook_lookup = {}

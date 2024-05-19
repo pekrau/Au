@@ -378,10 +378,9 @@ class BaseEditor(TextViewer):
 
     def clipboard_paste(self, event=None):
         """Paste in contents from the clipboard.
-        If the system clipboard text is the same as that stored in
-        as characters only in this app, then use the intra-Au clipboard,
-        which contains formatting.
-        Otherwise the system clipboard text.
+        The Au clipboard contains formatting, while the system clipboard
+        only has characters. If the character contents of the two is the same,
+        then use the Au clipboard, otherwise the system clipboard.
         """
         chars = self.view.clipboard_get()
         if chars == self.main.clipboard_chars:
