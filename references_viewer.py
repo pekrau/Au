@@ -16,80 +16,55 @@ import utils
 from utils import Tr
 
 from source import Source
-from base_viewer import BaseViewer
+from viewer import Viewer
 
 
-class ReferencesViewer(BaseViewer):
+class ReferencesViewer(Viewer):
     "Viewer for the references."
 
     def __init__(self, parent, main):
-        super().__init__(parent, main)
+        self.main = main
+        self.super_frame = tk.ttk.Frame(parent)
+        self.super_frame.pack(fill=tk.BOTH, expand=True)
+        self.actions_create(self.super_frame)
+        self.view_create(self.super_frame)
         self.read()
-
-    def view_create(self, parent):
-        self.frame = tk.ttk.Frame(parent)
-        self.frame.pack(fill=tk.BOTH, expand=True)
-        self.actions_frame = tk.ttk.Frame(self.frame, padding=6)
-        self.actions_frame.pack(fill=tk.X)
-        self.actions_frame.columnconfigure(0, weight=1)
-        self.actions_frame.columnconfigure(1, weight=1)
-
-        button = tk.ttk.Button(
-            self.actions_frame,
-            text=Tr("Import BibTeX"),
-            padding=4,
-            command=self.import_bibtex,
-        )
-        button.grid(row=0, column=0)
-
-        button = tk.ttk.Button(
-            self.actions_frame,
-            text=Tr("Add manually"),
-            padding=4,
-            command=self.add_manually,
-        )
-        button.grid(row=0, column=1)
-
-        self.result_frame = tk.ttk.Frame(self.frame)
-        self.result_frame.pack(fill=tk.BOTH, expand=True)
-        self.result_frame.rowconfigure(0, weight=1)
-        self.result_frame.columnconfigure(0, weight=1)
-
-        self.view = tk.Text(
-            self.result_frame,
-            padx=constants.TEXT_PADX,
-            font=constants.FONT,
-            wrap=tk.WORD,
-            spacing1=constants.TEXT_SPACING1,
-            spacing2=constants.TEXT_SPACING2,
-            spacing3=constants.TEXT_SPACING3,
-        )
-        self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.scroll_y = tk.ttk.Scrollbar(
-            self.result_frame, orient=tk.VERTICAL, command=self.view.yview
-        )
-        self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.view.configure(yscrollcommand=self.scroll_y.set)
 
     def __str__(self):
         return "References"
 
-    def view_configure_tags(self, view=None):
-        "Configure the key bindings used in the 'tk.Text' instance."
-        view = view or self.view
-        super().view_configure_tags(view=view)
-        view.tag_configure(
+    def actions_create(self, parent):
+        self.actions_frame = tk.ttk.Frame(parent, padding=6)
+        self.actions_frame.pack(fill=tk.X)
+        self.actions_frame.columnconfigure(0, weight=1)
+        self.actions_frame.columnconfigure(1, weight=1)
+        tk.ttk.Button(
+            self.actions_frame,
+            text=Tr("Import BibTeX"),
+            padding=4,
+            command=self.import_bibtex,
+        ).grid(row=0, column=0)
+        tk.ttk.Button(
+            self.actions_frame,
+            text=Tr("Add manually"),
+            padding=4,
+            command=self.add_manually,
+        ).grid(row=0, column=1)
+
+    def view_configure_tags(self):
+        "Configure the key bindings used in the 'view' tk.Text instance."
+        self.view.tag_configure(
             constants.LINK,
             font=constants.FONT_SMALL,
             foreground=constants.LINK_COLOR,
             underline=True,
         )
-        view.tag_configure(
+        self.view.tag_configure(
             constants.REFERENCE,
             spacing1=constants.REFERENCE_SPACING,
             lmargin2=constants.REFERENCE_INDENT,
         )
-        view.tag_configure(
+        self.view.tag_configure(
             constants.XREF,
             font=constants.FONT_SMALL,
             foreground=constants.XREF_COLOR,
@@ -98,8 +73,18 @@ class ReferencesViewer(BaseViewer):
             underline=True,
         )
 
+    def read(self):
+        "Read all references."
+        self.source = Source(
+            os.path.join(self.main.absdirpath, constants.REFERENCES_DIRNAME)
+        )
+        self.references = [t for t in self.source.all_texts if "id" in t]
+        self.references.sort(key=lambda r: r["id"])
+        self.references_lookup = dict([(r["id"], r) for r in self.references])
+
     def display(self):
-        self.display_clear()
+        self.view.delete("1.0", tk.END)
+
         self.references_pos = {}  # Key: reference id; value: position here.
         self.highlighted = None  # Currently highlighted range.
         texts_pos = {}  # Position in the source text.
@@ -259,14 +244,6 @@ class ReferencesViewer(BaseViewer):
         self.view.see(first)
         self.main.meta_notebook.select(self.tabid)
 
-    def read(self):
-        self.source = Source(
-            os.path.join(self.main.absdirpath, constants.REFERENCES_DIRNAME)
-        )
-        self.references = [t for t in self.source.all_texts if "id" in t]
-        self.references.sort(key=lambda r: r["id"])
-        self.references_lookup = dict([(r["id"], r) for r in self.references])
-
     def import_bibtex(self):
         bibtex = BibtexImport(self)
         if bibtex.result is None:
@@ -306,7 +283,7 @@ class BibtexImport(tk.simpledialog.Dialog):
     def __init__(self, viewer):
         self.viewer = viewer
         self.result = None
-        super().__init__(viewer.frame, title=Tr("Import BibTeX"))
+        super().__init__(viewer.view_frame, title=Tr("Import BibTeX"))
 
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("BibTeX"))
@@ -369,7 +346,7 @@ class AddManually(tk.simpledialog.Dialog):
     def __init__(self, viewer):
         self.viewer = viewer
         self.result = None
-        super().__init__(viewer.frame, title=Tr("Add manually"))
+        super().__init__(viewer.view_frame, title=Tr("Add manually"))
 
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("Author"))

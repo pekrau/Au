@@ -1,59 +1,4 @@
 """Authoring editor tool based on Tkinter.
-
-Class hierarchy:
-
-RenderMixin
-  # Mixin class containing methods to render Marko AST to tk.Text instance.
-  # Assumes an attribute '.view'; instance of tk.Text.
-
-BaseViewer 
-  # Base class with methods for viewer using a 'tk.Text' instance.
-
-TextViewer
-  # Viewer class for text with Markdown rendering methods and bindings.
-  > RenderMixin
-  > BaseViewer
-
-BaseEditor
-  # Base editor class.
-  > TextViewer
-    > RenderMixin
-    > BaseViewer
-
-TextEditor
-  # Editor window for Markdown text file.
-  > BaseEditor
-    > TextViewer
-      > RenderMixin
-      > BaseViewer
-
-TitleViewer
-  # View of the title page setup.
-  > BaseViewer
-
-ReferencesViewer
-  # Viewer for the references.
-  > BaseViewer
-
-ReferenceEditor
-  # Edit a reference.
-  > BaseEditor
-    > TextViewer
-      > RenderMixin
-      > BaseViewer
-
-IndexedViewer
-  # Viewer for the list of indexed terms.
-  > BaseViewer
-
-SearchViewer
-  # Viewer for the search feature and resulting list.
-  > BaseViewer
-
-HelpViewer(BaseTextViewer)
-  # View of the help file Markdown contents.
-  > RenderMixin
-  > BaseViewer
 """
 
 from icecream import ic
@@ -78,10 +23,10 @@ from source import Source
 from text_viewer import TextViewer
 from text_editor import TextEditor
 from title_viewer import TitleViewer
-from references_viewer import ReferencesViewer
-from reference_editor import ReferenceEditor
-from indexed_viewer import IndexedViewer
-from search_viewer import SearchViewer
+# from references_viewer import ReferencesViewer
+# from reference_editor import ReferenceEditor
+# from indexed_viewer import IndexedViewer
+# from search_viewer import SearchViewer
 from help_viewer import HelpViewer
 
 
@@ -410,7 +355,7 @@ class Main:
             tags.discard("modified")
         self.treeview.item(text.fullname, tags=tuple(tags))
         self.treeview.set(text.fullname, "status", Tr(str(text.status)))
-        self.treeview.set(text.fullname, "chars", text.viewer.character_count)
+        self.treeview.set(text.fullname, "chars", text.viewer.renderer.character_count)
         self.treeview.set(text.fullname, "age", text.age)
 
     def treeview_update_ages(self):
@@ -435,9 +380,10 @@ class Main:
 
         # Create the text views.
         for text in self.source.all_texts:
-            text.viewer = viewer = TextViewer(self.texts_notebook, self, text)
+            viewer = TextViewer(self.texts_notebook, self, text)
+            text.viewer = viewer
             self.texts_notebook.add(
-                viewer.frame,
+                viewer.view_frame,
                 text=viewer.name,
                 state=text.shown and tk.NORMAL or tk.HIDDEN,
             )
@@ -455,7 +401,7 @@ class Main:
                 text.viewer.cursor = self.config["source"]["cursor"][text.fullname]
             except KeyError:
                 pass
-        self.update_statistics()
+            self.update_statistics()
 
         # Set selected text tab in notebook.
         try:
@@ -486,35 +432,35 @@ class Main:
         self.meta_notebook_lookup = {}
 
         self.title_viewer = TitleViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.title_viewer.frame, text=Tr("Title"))
+        self.meta_notebook.add(self.title_viewer.view_frame, text=Tr("Title"))
         self.title_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.title_viewer.view.bind("<Control-q>", self.quit)
         self.title_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.title_viewer.tabid] = self.title_viewer
 
-        self.references_viewer = ReferencesViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.references_viewer.frame, text=Tr("References"))
-        self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
-        self.references_viewer.view.bind("<Control-q>", self.quit)
-        self.references_viewer.view.bind("<Control-Q>", self.quit)
-        self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
+        # self.references_viewer = ReferencesViewer(self.meta_notebook, self)
+        # self.meta_notebook.add(self.references_viewer.view_frame, text=Tr("References"))
+        # self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
+        # self.references_viewer.view.bind("<Control-q>", self.quit)
+        # self.references_viewer.view.bind("<Control-Q>", self.quit)
+        # self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
 
-        self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.indexed_viewer.frame, text=Tr("Index"))
-        self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
-        self.indexed_viewer.view.bind("<Control-q>", self.quit)
-        self.indexed_viewer.view.bind("<Control-Q>", self.quit)
-        self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
+        # self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
+        # self.meta_notebook.add(self.indexed_viewer.view_frame, text=Tr("Index"))
+        # self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
+        # self.indexed_viewer.view.bind("<Control-q>", self.quit)
+        # self.indexed_viewer.view.bind("<Control-Q>", self.quit)
+        # self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
-        self.search_viewer = SearchViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.search_viewer.frame, text=Tr("Search"))
-        self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
-        self.search_viewer.view.bind("<Control-q>", self.quit)
-        self.search_viewer.view.bind("<Control-Q>", self.quit)
-        self.meta_notebook_lookup[self.search_viewer.tabid] = self.search_viewer
+        # self.search_viewer = SearchViewer(self.meta_notebook, self)
+        # self.meta_notebook.add(self.search_viewer.view_frame, text=Tr("Search"))
+        # self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
+        # self.search_viewer.view.bind("<Control-q>", self.quit)
+        # self.search_viewer.view.bind("<Control-Q>", self.quit)
+        # self.meta_notebook_lookup[self.search_viewer.tabid] = self.search_viewer
 
         self.help_viewer = HelpViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.help_viewer.frame, text=Tr("Help"))
+        self.meta_notebook.add(self.help_viewer.view_frame, text=Tr("Help"))
         self.help_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.help_viewer.view.bind("<Control-q>", self.quit)
         self.help_viewer.view.bind("<Control-Q>", self.quit)
@@ -533,15 +479,15 @@ class Main:
     def meta_notebook_populate(self):
         "Populate the meta notebook with contents; help panel does not change."
         self.title_viewer.display()
-        self.references_viewer.display()
-        self.indexed_viewer.display()
-        self.search_viewer.display()
+        # self.references_viewer.display()
+        # self.indexed_viewer.display()
+        # self.search_viewer.display()
 
     def update_statistics(self):
         self.title_viewer.chapters_var.set(len(self.source.items))
         self.title_viewer.texts_var.set(len(self.source.all_texts))
         self.title_viewer.characters_var.set(
-            sum([t.viewer.character_count for t in self.source.all_texts])
+            sum([t.viewer.renderer.character_count for t in self.source.all_texts])
         )
 
     def archive(self):

@@ -6,32 +6,15 @@ import tkinter as tk
 
 import constants
 import utils
-from base_viewer import BaseViewer
+
+from viewer import Viewer
 
 
-class IndexedViewer(BaseViewer):
+class IndexedViewer(Viewer):
     "Viewer for the list of indexed terms."
 
     def __str__(self):
         return "Indexed"
-
-    def view_configure_tags(self, view=None):
-        "Configure the key bindings used in the 'tk.Text' instance."
-        view = view or self.view
-        super().view_configure_tags(view=view)
-        view.tag_configure(
-            constants.INDEXED,
-            font=constants.FONT_NORMAL,
-            spacing1=constants.INDEXED_SPACING,
-        )
-        view.tag_configure(
-            constants.XREF,
-            font=constants.FONT_SMALL,
-            foreground=constants.XREF_COLOR,
-            lmargin1=constants.INDEXED_INDENT,
-            lmargin2=constants.INDEXED_INDENT,
-            underline=True,
-        )
 
     def display(self):
         self.display_clear()

@@ -1,4 +1,4 @@
-"Base editor window."
+"Base text editor window."
 
 from icecream import ic
 
@@ -15,92 +15,20 @@ import constants
 import utils
 
 from utils import Tr
+
+from renderer import Renderer
 from text_viewer import TextViewer
 
 
-class BaseEditor(TextViewer):
-    "Base editor class."
+class EditorRenderer(Renderer):
+    "Rendering for the base editor."
 
-    def toplevel_setup(self):
-        self.toplevel = tk.Toplevel(self.main.root)
-        self.toplevel.title(f"{Tr('Edit')}: {self.text.fullname}")
-        self.toplevel.bind("<Control-s>", self.save)
-        self.toplevel.bind("<Control-S>", self.save)
-        self.toplevel.bind("<Control-q>", self.close)
-        self.toplevel.bind("<Control-Q>", self.close)
-        self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
-
-    def menubar_setup(self):
-        self.menubar = tk.Menu(self.toplevel, background="gold")
-        self.original_menubar_background = self.menubar.cget("background")
-        self.menubar_selection_change = set()
-        self.toplevel["menu"] = self.menubar
-        self.menubar.add_command(
-            label="Au",
-            font=constants.FONT_LARGE_BOLD,
-            background="gold",
-            command=self.main.root.lift,
-        )
-
-        self.menu_file = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
-        self.menubar_file_setup()
-
-        self.menu_edit = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
-        self.menu_edit.add_command(label=Tr("Copy"), command=self.clipboard_copy)
-        self.menu_edit.add_command(label=Tr("Cut"), command=self.clipboard_cut)
-        self.menu_edit.add_command(label=Tr("Paste"), command=self.clipboard_paste)
-
-        self.menu_format = tk.Menu(self.menubar)
-        self.menubar.add_cascade(
-            menu=self.menu_format, label=Tr("Format"), state=tk.DISABLED
-        )
-        self.menubar_selection_change.add(self.menubar.index(tk.END))
-        self.menu_format.add_command(label=Tr("Bold"), command=self.bold_add)
-        self.menu_format.add_command(label=Tr("Italic"), command=self.italic_add)
-        self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
-
-        # self.menu_list = tk.Menu(self.menubar)
-        # self.menubar.add_cascade(menu=self.menu_list, label=Tr("List"))
-        # self.menu_list.add_command(label=Tr("Ordered"),
-        #                            command=functools.partial(self.list_add,
-        #                                                      ordered=True))
-        # self.menu_list.add_command(label=Tr("Unordered"),
-        #                            command=functools.partial(self.list_add,
-        #                                                      ordered=False))
-
-        self.menubar.add_command(
-            label=Tr("Link"), command=self.link_add, state=tk.DISABLED
-        )
-        self.menubar_selection_change.add(self.menubar.index(tk.END))
-
-    def menubar_file_setup(self):
-        self.menu_file.add_command(
-            label=Tr("Save"), command=self.save, accelerator="Ctrl-S"
-        )
-        self.menu_file.add_command(
-            label=Tr("Close"), command=self.close, accelerator="Ctrl-Q"
-        )
-
-    def view_bind_tags(self, view=None):
-        "Configure the tag bindings used in the 'tk.Text' instance."
-        view = view or self.view
-        super().view_bind_tags(view=view)
-        view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
-        view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
-        view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
-
-    def view_bind_keys(self, view=None):
-        view = view or self.view
-        super().view_bind_keys(view=view)
-        view.bind("<Control-x>", self.clipboard_cut)
-        view.bind("<Control-X>", self.clipboard_cut)
-        view.bind("<Control-v>", self.clipboard_paste)
-        view.bind("<Control-V>", self.clipboard_paste)
-        view.bind("<<Modified>>", self.handle_modified)
-        view.bind("<Button-3>", self.popup_menu)
-        view.bind("<<Selection>>", self.selection_change)
+    def bind_tags(self):
+        super().bind_tags()
+        self.view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
+        self.view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
+        self.view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
+        self.view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
     def key_press(self, event):
         "Forbid some key press actions."
@@ -109,68 +37,24 @@ class BaseEditor(TextViewer):
             # For 'Backspace', check the position before.
             if event.keysym == "BackSpace":
                 tags = self.view.tag_names(tk.INSERT + "-1c")
-            # # Do not allow 'Return' when in list; temporary solution.
-            # elif event.keysym == "Return":
-            #     for tag in tags:
-            #         if tag.startswith(constants.LIST_PREFIX):
-            #             return "break"
-            # # Do not allow modifying keys from modifying a list item bullet.
-            # if constants.LIST_BULLET in tags:
-            #     return "break"
-            # Do not allow modifying keys from modifying a reference.
             if constants.REFERENCE in tags:
                 return "break"
-            # Do not allow modifying keys from modifying a footnote reference.
-            # XXX This should not be here, since BaseEditor does not handle footnotes.
             if constants.FOOTNOTE_REF in tags:
                 return "break"
+
+    def display_initialize(self):
+        super().display_initialize()
+        self.ignore_modified_event = True
 
     def display_title(self):
         "Do not display the title in the text edit area."
         pass
 
-    def selection_change(self, event):
-        try:
-            self.view.index(tk.SEL_FIRST)
-        except tk.TclError:
-            for pos in self.menubar_selection_change:
-                self.menubar.entryconfigure(pos, state=tk.DISABLED)
-        else:
-            for pos in self.menubar_selection_change:
-                self.menubar.entryconfigure(pos, state=tk.NORMAL)
+    def clipboard_cut(self, event=None):
+        pass
 
-    def get_ignore_modified_event(self):
-        "Always True first time accessed."
-        try:
-            return self._ignore_modified_event
-        except AttributeError:
-            self._ignore_modified_event = True
-            return self._ignore_modified_event
-
-    def set_ignore_modified_event(self, value):
-        self._ignore_modified_event = value
-
-    ignore_modified_event = property(
-        get_ignore_modified_event, set_ignore_modified_event
-    )
-
-    @property
-    def is_modified(self):
-        return self.view.edit_modified()
-
-    def set_modified(self, event=None):
-        self.ignore_modified_event = True
-        self.view.edit_modified(True)
-
-    def handle_modified(self, event=None):
-        "Return False if no work to be done; else True."
-        if self.ignore_modified_event:
-            self.ignore_modified_event = False
-            return False
-        if not self.is_modified:
-            return False
-        self.menubar.configure(background=constants.MODIFIED_COLOR)
-        return True
+    def clipboard_paste(self, event=None):
+        pass
 
     def bold_add(self):
         try:
@@ -239,83 +123,107 @@ class BaseEditor(TextViewer):
         self.view.tag_remove(constants.QUOTE, first, last)
         self.set_modified()
 
-    # def list_add(self, ordered):
-    #     data = self.list_create_entry(ordered, 1, True)
-    #     if ordered:
-    #         data["bullet"] = f"{data['count']}."
-    #         data["depth"] = 1
-    #     else:
-    #         # XXX actual depth needed
-    #         data["depth"] = 0
-    #         data["bullet"] = constants.LIST_BULLETS[data["depth"]]
-    #         data["depth"] += 1
-    #     self.view.insert(tk.INSERT, "\n")
-    #     first = self.view.index(tk.INSERT)
-    #     self.view.insert(tk.INSERT, data["bullet"] + " ", (constants.LIST_BULLET, ))
-    #     tag = f"{constants.LIST_ITEM_PREFIX}{data['number']}-{data['count']}"
-    #     self.view.tag_configure(tag,
-    #                             lmargin1=data["depth"]*constants.LIST_INDENT,
-    #                             lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)
-    #     self.view.tag_add(tag, first, tk.INSERT)
-    #     self.view.tag_add(data["tag"], first, tk.INSERT)
-    #     data["count"] += 1
 
-    # def list_item_add(self, tags):
-    #     # XXX item is not added to the correct place, if another has been
-    #     # added before in in the same edit session.
-    #     depth = 0
-    #     for t in tags:
-    #         if t.startswith(constants.LIST_ITEM_PREFIX):
-    #             n, c = t[len(constants.LIST_ITEM_PREFIX):].split("-")
-    #             d = self.lists_lookup[n]
-    #             if d["depth"] > depth:
-    #                 data = d
-    #                 depth = d["depth"]
-    #                 count = int(c)
-    #     first, last = self.view.tag_nextrange(data["tag"], "1.0")
-    #     tags = set(tags)
-    #     tags.remove(data["tag"])
-    #     self.view.mark_set(tk.INSERT, last)
-    #     self.view.insert(tk.INSERT, "\n")
-    #     if not data["tight"]:
-    #         self.view.insert(tk.INSERT, "\n")
-    #     if data["ordered"]:
-    #         data["bullet"] = f"{count+1}."
-    #     else:
-    #         data["bullet"] = data["bullet"]
-    #     first = self.view.index(tk.INSERT)
-    #     self.view.insert(tk.INSERT, data["bullet"] + " ", (constants.LIST_BULLET, ))
-    #     data["count"] += 1
-    #     tag = f"{constants.LIST_ITEM_PREFIX}{data['number']}-{data['count']}"
-    #     self.view.tag_configure(tag,
-    #                             lmargin1=data["depth"]*constants.LIST_INDENT,
-    #                             lmargin2=(data["depth"]+0.5)*constants.LIST_INDENT)
-    #     # Kludge to make insert point be placed within list tags.
-    #     self.view.insert(tk.INSERT, " ")
-    #     self.view.tag_add(tag, first, tk.INSERT)
-    #     tag = f"{constants.LIST_PREFIX}{data['number']}"
-    #     self.view.tag_add(tag, first, tk.INSERT)
-    #     for tag in tags:
-    #         self.view.tag_add(tag, first, tk.INSERT)
-    #     # Kludge to make insert point be placed within list tags.
-    #     self.view.mark_set(tk.INSERT, self.view.index(tk.INSERT + "-1c"))
+class Editor(TextViewer):
+    "Base text editor class."
 
-    # def list_item_remove(self, tags):
-    #     depth = 0
-    #     for t in tags:
-    #         if t.startswith(constants.LIST_ITEM_PREFIX):
-    #             n, c = t[len(constants.LIST_ITEM_PREFIX):].split("-")
-    #             d = self.lists_lookup[n]
-    #             d = self.lists_lookup[n]
-    #             if d["depth"] > depth:
-    #                 tag = t
-    #                 data = d
-    #                 depth = d["depth"]
-    #                 count = int(c)
-    #     first, last = self.view.tag_nextrange(tag, "1.0")
-    #     # Also remove the newline after the previous line.
-    #     first = self.view.index(first + "-1c")
-    #     self.view.delete(first, last)
+    def __init__(self, parent, main, text):
+        self.main = main
+        self.view_create(parent)
+        self.text = text
+        self.renderer = EditorRenderer(main, self, self.view)
+
+    def toplevel_setup(self):
+        self.toplevel = tk.Toplevel(self.main.root)
+        self.toplevel.title(f"{Tr('Edit')}: {self.text.fullname}")
+        self.toplevel.bind("<Control-s>", self.save)
+        self.toplevel.bind("<Control-S>", self.save)
+        self.toplevel.bind("<Control-q>", self.close)
+        self.toplevel.bind("<Control-Q>", self.close)
+        self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
+
+    def menubar_setup(self):
+        self.menubar = tk.Menu(self.toplevel, background="gold")
+        self.original_menubar_background = self.menubar.cget("background")
+        self.menubar_selection_change = set()
+        self.toplevel["menu"] = self.menubar
+        self.menubar.add_command(
+            label="Au",
+            font=constants.FONT_LARGE_BOLD,
+            background="gold",
+            command=self.main.root.lift,
+        )
+
+        self.menu_file = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
+        self.menubar_file_setup()
+
+        self.menu_edit = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
+        self.menu_edit.add_command(label=Tr("Copy"), command=self.renderer.clipboard_copy)
+        self.menu_edit.add_command(label=Tr("Cut"), command=self.renderer.clipboard_cut)
+        self.menu_edit.add_command(label=Tr("Paste"), command=self.renderer.clipboard_paste)
+
+        self.menu_format = tk.Menu(self.menubar)
+        self.menubar.add_cascade(
+            menu=self.menu_format, label=Tr("Format"), state=tk.DISABLED
+        )
+        self.menubar_selection_change.add(self.menubar.index(tk.END))
+        self.menu_format.add_command(label=Tr("Bold"), command=self.bold_add)
+        self.menu_format.add_command(label=Tr("Italic"), command=self.italic_add)
+        self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
+
+        self.menubar.add_command(
+            label=Tr("Link"), command=self.link_add, state=tk.DISABLED
+        )
+        self.menubar_selection_change.add(self.menubar.index(tk.END))
+
+    def menubar_file_setup(self):
+        self.menu_file.add_command(
+            label=Tr("Save"), command=self.save, accelerator="Ctrl-S"
+        )
+        self.menu_file.add_command(
+            label=Tr("Close"), command=self.close, accelerator="Ctrl-Q"
+        )
+
+    def view_bind_keys(self, view=None):
+        view = view or self.view
+        super().view_bind_keys(view=view)
+        view.bind("<Control-x>", self.renderer.clipboard_cut)
+        view.bind("<Control-X>", self.renderer.clipboard_cut)
+        view.bind("<Control-v>", self.clipboard_paste)
+        view.bind("<Control-V>", self.clipboard_paste)
+        view.bind("<<Modified>>", self.handle_modified)
+        view.bind("<Button-3>", self.popup_menu)
+        view.bind("<<Selection>>", self.selection_change)
+
+    def selection_change(self, event):
+        try:
+            self.view.index(tk.SEL_FIRST)
+        except tk.TclError:
+            for pos in self.menubar_selection_change:
+                self.menubar.entryconfigure(pos, state=tk.DISABLED)
+        else:
+            for pos in self.menubar_selection_change:
+                self.menubar.entryconfigure(pos, state=tk.NORMAL)
+
+    @property
+    def is_modified(self):
+        return self.view.edit_modified()
+
+    def set_modified(self, event=None):
+        self.ignore_modified_event = True
+        self.view.edit_modified(True)
+
+    def handle_modified(self, event=None):
+        "Return False if no work to be done; else True."
+        if self.ignore_modified_event:
+            self.ignore_modified_event = False
+            return False
+        if not self.is_modified:
+            return False
+        self.menubar.configure(background=constants.MODIFIED_COLOR)
+        return True
 
     def link_action(self, event):
         "Allow viewing, editing and opening the link."
@@ -417,7 +325,6 @@ class BaseEditor(TextViewer):
             self.link_create(
                 entry[2], entry[3], data["first"], self.view.index(tk.INSERT)
             )
-        # XXX This should not be here, since BaseEditor does not handle footnotes.
         elif entry[1].startswith(constants.FOOTNOTE_REF_PREFIX):
             label = data["label"]
             tag = constants.FOOTNOTE_REF_PREFIX + label
@@ -593,30 +500,6 @@ class BaseEditor(TextViewer):
         self.save_line_indent(force=True)
         self.outfile.write("\n")
         self.skip_text = False
-
-    # def markdown_start_list(self, tag):
-    #     data = self.lists_lookup[tag]
-    #     data["count"] = data["start"]
-    #     if len(self.list_stack):
-    #         self.line_indents.append("    ")
-    #     self.list_stack.append(data)
-
-    # def markdown_finish_list(self, tag):
-    #     self.list_stack.pop()
-    #     if len(self.list_stack):
-    #         self.line_indents.pop()
-
-    # def markdown_tagon_list_bullet(self, item):
-    #     data = self.list_stack[-1]
-    #     if data["ordered"]:
-    #         self.save_characters(f"{data['count']}. ")
-    #         data["count"] += 1
-    #     else:
-    #         self.save_characters("- ")
-    #     self.skip_text = True
-
-    # def markdown_tagoff_list_bullet(self, item):
-    #     self.skip_text = False
 
     def markdown_tagon_link(self, item):
         for tag in self.view.tag_names(item[2]):

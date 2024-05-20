@@ -13,11 +13,11 @@ import constants
 import utils
 
 from utils import Tr
-from base_editor import BaseEditor
+from editor import Editor
 
 
-class TextEditor(BaseEditor):
-    "Editor window for Markdown text file."
+class TextEditor(Editor):
+    "Editor for source text Markdown file."
 
     TEXT_COLOR = constants.EDIT_COLOR
 
@@ -56,12 +56,6 @@ class TextEditor(BaseEditor):
                 variable=self.status_var,
                 command=self.set_status,
             )
-
-    def view_bind_tags(self, view=None):
-        "Configure the tag bindings used in the 'tk.Text' instance."
-        view = view or self.view
-        super().view_bind_tags(view=view)
-        view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
     def popup_menu_add_selected(self, menu):
         "Add items to the popup menu for when text is selected."
@@ -138,16 +132,16 @@ class TextEditor(BaseEditor):
         self.view.insert(tk.INSERT, add.result, (constants.REFERENCE, tag))
 
     def reference_action(self, event):
-        reference = self.get_reference()
-        if not reference:
+        refid = self.get_refid()
+        if not refid:
             return
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
             title="Remove reference?",
-            message=f"Really remove reference '{reference}'?",
+            message=f"Really remove reference '{refid}'?",
         ):
             return
-        tag = f"{constants.REFERENCE_PREFIX}{reference}"
+        tag = f"{constants.REFERENCE_PREFIX}{refid}"
         first, last = self.view.tag_prevrange(tag, tk.CURRENT)
         self.view.delete(first, last)
         self.set_modified()

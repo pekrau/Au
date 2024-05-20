@@ -11,11 +11,11 @@ import tkinter.simpledialog
 import constants
 import utils
 
-from base_viewer import BaseViewer
+from viewer import Viewer
 from utils import Tr
 
 
-class TitleViewer(BaseViewer):
+class TitleViewer(Viewer):
     "View of the title page setup."
 
     def __init__(self, parent, main):
@@ -30,7 +30,7 @@ class TitleViewer(BaseViewer):
         return "Title"
 
     def display(self):
-        self.display_clear()
+        self.view.delete("1.0", tk.END)
         self.display_title()
         self.display_statistics()
 
