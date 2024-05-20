@@ -13,7 +13,7 @@ class RenderMixin:
     Assumes an attribute '.view'; instance of tk.Text.
     """
 
-    def render_init(self):
+    def render_initialize(self):
         self.prev_line_blank = True
 
     def render(self, ast):
@@ -82,7 +82,7 @@ class RenderMixin:
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.view.tag_add("quote", first, tk.INSERT)
+        self.view.tag_add(constants.QUOTE, first, tk.INSERT)
 
     def render_literal(self, ast):
         self.view.insert(tk.INSERT, ast["children"])
@@ -172,26 +172,6 @@ class RenderMixin:
         #     pass
         self.prev_line_blank = flag
 
-    def locate_indexed(self):
-        "Get the final positions of the indexed terms; affected by footnotes."
-        self.indexed = {}
-        for tag in self.view.tag_names():
-            if not tag.startswith(constants.INDEXED_PREFIX):
-                continue
-            canonical = tag[len(constants.INDEXED_PREFIX) :]
-            range = self.view.tag_nextrange(tag, "1.0")
-            while range:
-                self.indexed.setdefault(canonical, set()).add(range[0])
-                range = self.view.tag_nextrange(tag, range[0] + "+1c")
-
-    def locate_references(self):
-        "Get the final positions of the references; affected by footnotes."
-        self.references = {}
-        range = self.view.tag_nextrange(constants.REFERENCE, "1.0")
-        while range:
-            self.references.setdefault(self.view.get(*range), set()).add(range[0])
-            range = self.view.tag_nextrange(constants.REFERENCE, range[0] + "+1c")
-
     def render_footnote_ref(self, ast):
         label = ast["label"]
         tag = constants.FOOTNOTE_REF_PREFIX + label
@@ -246,3 +226,22 @@ class RenderMixin:
         "After search, set all elide tags to elide again."
         for tag in self.elided_tags:
             self.view.tag_configure(tag, elide=True)
+
+    def render_finalize(self):
+        """Get the final positions of the indexed terms and references.
+        These are affected by footnotes and can be obtained only after rendering.
+        """
+        self.indexed = {}
+        for tag in self.view.tag_names():
+            if not tag.startswith(constants.INDEXED_PREFIX):
+                continue
+            canonical = tag[len(constants.INDEXED_PREFIX) :]
+            range = self.view.tag_nextrange(tag, "1.0")
+            while range:
+                self.indexed.setdefault(canonical, set()).add(range[0])
+                range = self.view.tag_nextrange(tag, range[0] + "+1c")
+        self.references = {}
+        range = self.view.tag_nextrange(constants.REFERENCE, "1.0")
+        while range:
+            self.references.setdefault(self.view.get(*range), set()).add(range[0])
+            range = self.view.tag_nextrange(constants.REFERENCE, range[0] + "+1c")

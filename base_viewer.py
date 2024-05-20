@@ -37,7 +37,7 @@ class BaseViewer:
             self.frame,
             background=self.TEXT_COLOR,
             padx=constants.TEXT_PADX,
-            font=constants.FONT_NORMAL_FAMILY,
+            font=constants.FONT,
             wrap=tk.WORD,
             spacing1=constants.TEXT_SPACING1,
             spacing2=constants.TEXT_SPACING2,
@@ -99,9 +99,14 @@ class BaseViewer:
         view.bind("<F3>", self.debug_clipboard)
         view.bind("<F4>", self.debug_dump)
 
-    def display_wipe(self):
+    def display(self):
+        self.display_clear()
+        self.display_title()
+
+    def display_clear(self):
         self.links = {}
         self.xrefs = {}
+        self.footnotes = {}
         self.highlighted = None
         self.view.delete("1.0", tk.END)
 
@@ -335,172 +340,3 @@ class BaseViewer:
     def debug_dump(self, event=None):
         dump = self.view.dump("1.0", tk.END)
         ic("--- dump ---", dump)
-
-
-class BaseTextViewer(RenderMixin, BaseViewer):
-    "Viewer base class for text with Markdown rendering methods and bindings."
-
-    def __init__(self, parent, main, text):
-        super().__init__(parent, main)
-        self.text = text
-        self.display(reread_text=False)
-
-    def __str__(self):
-        "The full name of the text; filepath excluding extension."
-        return self.text.fullname
-
-    @property
-    def section(self):
-        "The section of the text; empty string if at top level."
-        return self.text.parentpath
-
-    @property
-    def name(self):
-        "The short name of the text."
-        return self.text.name
-
-    @property
-    def absfilepath(self):
-        return self.text.abspath
-
-    @property
-    def is_modified(self):
-        return False
-
-    @property
-    def character_count(self):
-        return len(self.view.get("1.0", tk.END)) - (len(str(self)) + 2)
-
-    def view_configure_tags(self, view=None):
-        "Configure the tags used in the 'tk.Text' instance."
-        view = view or self.view
-        super().view_configure_tags(view=view)
-        view.tag_configure(
-            constants.QUOTE,
-            lmargin1=constants.QUOTE_LEFT_INDENT,
-            lmargin2=constants.QUOTE_LEFT_INDENT,
-            rmargin=constants.QUOTE_RIGHT_INDENT,
-            spacing1=constants.QUOTE_SPACING1,
-            spacing2=constants.QUOTE_SPACING2,
-            font=constants.QUOTE_FONT,
-        )
-        view.tag_configure(
-            constants.THEMATIC_BREAK, font=constants.FONT_BOLD, justify=tk.CENTER
-        )
-        view.tag_configure(constants.INDEXED, underline=True)
-        view.tag_configure(
-            constants.REFERENCE, foreground=constants.REFERENCE_COLOR, underline=True
-        )
-
-    def view_bind_tags(self, view=None):
-        "Configure the tag bindings used in the 'tk.Text' instance."
-        view = view or self.view
-        super().view_bind_tags(view=view)
-        view.tag_bind(constants.INDEXED, "<Enter>", self.indexed_enter)
-        view.tag_bind(constants.INDEXED, "<Leave>", self.indexed_leave)
-        view.tag_bind(constants.INDEXED, "<Button-1>", self.indexed_action)
-        view.tag_bind(constants.REFERENCE, "<Enter>", self.reference_enter)
-        view.tag_bind(constants.REFERENCE, "<Leave>", self.reference_leave)
-        view.tag_bind(constants.REFERENCE, "<Button-1>", self.reference_action)
-
-    def display(self, reread_text=True):
-        if reread_text:
-            self.text.read()
-        self.display_wipe()
-        self.display_title()
-        self.render_init()
-        self.render(self.text.ast)
-        self.locate_indexed()
-        self.locate_references()
-
-    def reference_enter(self, event):
-        self.view.configure(cursor="hand2")
-
-    def reference_leave(self, event):
-        self.view.configure(cursor="")
-
-    def reference_action(self, event):
-        refid = self.get_reference()
-        if refid:
-            self.main.references_viewer.highlight(refid)
-
-    def get_reference(self):
-        for tag in self.view.tag_names(tk.CURRENT):
-            if tag.startswith(constants.REFERENCE_PREFIX):
-                return tag[len(constants.REFERENCE_PREFIX) :]
-
-    def indexed_enter(self, event):
-        self.view.configure(cursor="hand2")
-
-    def indexed_leave(self, event):
-        self.view.configure(cursor="")
-
-    def indexed_action(self, event):
-        term = self.get_indexed()
-        if term:
-            self.main.indexed_viewer.highlight(term)
-
-    def get_indexed(self):
-        for tag in self.view.tag_names(tk.CURRENT):
-            if tag.startswith(constants.INDEXED_PREFIX):
-                return tag[len(constants.INDEXED_PREFIX) :]
-
-    def render_table(self, ast):
-        self.table = Table(self, ast)
-
-
-class Table(RenderMixin):
-    "Read-only table requires its own class for rendering."
-
-    def __init__(self, master, ast):
-        self.master = master
-        self.frame = tk.ttk.Frame(self.master.view)
-        self.master.view.window_create(tk.INSERT, window=self.frame)
-        self.view = None
-        self.current_row = -1
-        self.delimiters = [len(d) for d in ast["delimiters"]]
-        self.render_init()
-        for child in ast["children"]:
-            self.render(child)
-
-    def render_table_row(self, ast):
-        self.current_row += 1
-        self.current_column = -1
-        for child in ast["children"]:
-            self.render(child)
-
-    def render_table_cell(self, ast):
-        self.current_column += 1
-        width = max(6, self.delimiters[self.current_column])
-        height = max(1, self.len_raw_text(ast) / self.delimiters[self.current_column])
-        self.view = tk.Text(
-            self.frame,
-            width=width,
-            height=height,
-            padx=constants.TEXT_PADX,
-            font=constants.FONT_NORMAL_FAMILY,
-            wrap=tk.WORD,
-            spacing1=constants.TEXT_SPACING1,
-            spacing2=constants.TEXT_SPACING2,
-            spacing3=constants.TEXT_SPACING3,
-        )
-        self.master.view_configure_tags(view=self.view)
-        self.view.grid(
-            row=self.current_row,
-            column=self.current_column,
-            sticky=(tk.W, tk.E, tk.N, tk.S),
-        )
-        for child in ast["children"]:
-            self.render(child)
-        if ast.get("header"):
-            self.view.tag_add(constants.BOLD, "1.0", tk.INSERT)
-        self.view.configure(state=tk.DISABLED)
-
-    def len_raw_text(self, ast):
-        if ast["element"] == "raw_text":
-            return len(ast["children"])
-        else:
-            return sum([self.len_raw_text(c) for c in ast["children"]])
-
-    def render_link(self, ast):
-        raise NotImplementedError

@@ -5,11 +5,13 @@ from icecream import ic
 import tkinter as tk
 
 import constants
-from base_viewer import BaseTextViewer
+from text_viewer import TextViewer
 
 
-class HelpViewer(BaseTextViewer):
+class HelpViewer(TextViewer):
     "View of the help file Markdown contents."
+
+    TEXT_COLOR = "white"
 
     def __init__(self, parent, main):
         super().__init__(parent, main, main.help_source["hotkeys"])

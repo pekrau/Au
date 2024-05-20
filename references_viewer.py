@@ -58,7 +58,7 @@ class ReferencesViewer(BaseViewer):
         self.view = tk.Text(
             self.result_frame,
             padx=constants.TEXT_PADX,
-            font=constants.FONT_NORMAL_FAMILY,
+            font=constants.FONT,
             wrap=tk.WORD,
             spacing1=constants.TEXT_SPACING1,
             spacing2=constants.TEXT_SPACING2,
@@ -99,7 +99,7 @@ class ReferencesViewer(BaseViewer):
         )
 
     def display(self):
-        self.display_wipe()
+        self.display_clear()
         self.references_pos = {}  # Key: reference id; value: position here.
         self.highlighted = None  # Currently highlighted range.
         texts_pos = {}  # Position in the source text.

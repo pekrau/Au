@@ -1,4 +1,4 @@
-"Source Markdown texts in files and directories."
+"Tree of source Markdown texts in files and directories."
 
 from icecream import ic
 
@@ -22,7 +22,7 @@ FRONTMATTER = re.compile(r"^---([\n\r].*?[\n\r])---[\n\r](.*)$", re.DOTALL)
 
 
 class Source:
-    "Source Markdown texts in files and directories."
+    "Tree of source Markdown texts in files and directories."
 
     def __init__(self, absdirpath):
         self.absdirpath = absdirpath
@@ -570,7 +570,7 @@ class Text(Item):
         return self.frontmatter.pop(key, default)
 
     def get_status(self):
-        return constants.Status.lookup(self.get("status"), constants.STARTED)
+        return constants.Status.lookup(self.get("status"), default=constants.STARTED)
 
     def set_status(self, status):
         if type(status) == str:
@@ -578,7 +578,7 @@ class Text(Item):
             if status is None:
                 raise ValueError("Invalid status value.")
         elif not isinstance(status, constants.Status):
-            raise ValueError("Invalid status value.")
+            raise ValueError("Invalid status instance.")
         self.frontmatter["status"] = repr(status)
 
     status = property(get_status, set_status)

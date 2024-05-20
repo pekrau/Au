@@ -61,7 +61,7 @@ class SearchViewer(BaseViewer):
             self.result_frame,
             background=self.TEXT_COLOR,
             padx=constants.TEXT_PADX,
-            font=constants.FONT_NORMAL_FAMILY,
+            font=constants.FONT,
             wrap=tk.WORD,
             spacing1=constants.TEXT_SPACING1,
             spacing2=constants.TEXT_SPACING2,

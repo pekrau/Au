@@ -30,7 +30,7 @@ class TitleViewer(BaseViewer):
         return "Title"
 
     def display(self):
-        self.display_wipe()
+        self.display_clear()
         self.display_title()
         self.display_statistics()
 

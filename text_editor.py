@@ -235,6 +235,7 @@ class TextEditor(BaseEditor):
 
     def save_finalize(self):
         "Perform final save operations; redisplaying text and setting info."
+        self.text.read()
         self.text.viewer.display()
         self.main.treeview_set_info(self.text)
         self.main.update_statistics()

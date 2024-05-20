@@ -34,14 +34,15 @@ class IndexedViewer(BaseViewer):
         )
 
     def display(self):
-        self.display_wipe()
-        self.indexed = {}  # Key: term; value: position in this view.
-        pos = {}  # Position in source text.
+        self.display_clear()
+
+        # Gather positions of indexed terms in source texts.
+        pos = {}
         for text in self.main.source.all_texts:
             for term, positions in text.viewer.indexed.items():
                 pos.setdefault(term, {})[text.fullname] = list(sorted(positions))
-        texts_pos = sorted(pos.items(), key=lambda i: i[0].lower())
-        for term, fullnames in texts_pos:
+
+        for term, fullnames in sorted(pos.items(), key=lambda i: i[0].lower()):
             self.indexed[term] = self.view.index(tk.INSERT)
             self.view.insert(tk.INSERT, term, (constants.INDEXED,))
             for fullname, positions in sorted(fullnames.items()):
@@ -53,8 +54,12 @@ class IndexedViewer(BaseViewer):
                     self.xref_create(str(i), position, constants.INDEXED)
                 self.view.insert(tk.INSERT, "\n")
 
-        # This is already displayed, so needs to be updated.
+        # This is already displayed in the statistics table; needs to be updated.
         self.main.title_viewer.indexed_var.set(len(self.indexed))
+
+    def display_clear(self):
+        super().display_clear()
+        self.indexed = {}  # Key: term; value: position in this view.
 
     def highlight(self, term):
         "Highlight and show the indexed term; show this pane."

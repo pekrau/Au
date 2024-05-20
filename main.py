@@ -3,37 +3,57 @@
 Class hierarchy:
 
 RenderMixin
-    # Mixin class containing methods to render Marko AST to tk.Text instance.
-    # Assumes an attribute '.view'; instance of tk.Text.
+  # Mixin class containing methods to render Marko AST to tk.Text instance.
+  # Assumes an attribute '.view'; instance of tk.Text.
 
 BaseViewer 
-    # Base class with methods for viewer using a 'tk.Text' instance.
+  # Base class with methods for viewer using a 'tk.Text' instance.
 
-BaseTextViewer(RenderMixin, BaseViewer)
-    # Viewer base class for text with Markdown rendering methods and bindings.
+TextViewer
+  # Viewer class for text with Markdown rendering methods and bindings.
+  > RenderMixin
+  > BaseViewer
 
-TextViewer(BaseTextViewer)
-    # Viewer window for Markdown text file.
+BaseEditor
+  # Base editor class.
+  > TextViewer
+    > RenderMixin
+    > BaseViewer
 
-BaseEditor(TextViewer)
-    # Base editor class.
+TextEditor
+  # Editor window for Markdown text file.
+  > BaseEditor
+    > TextViewer
+      > RenderMixin
+      > BaseViewer
 
-TextEditor(BaseEditor)
-    # Editor window for Markdown text file.
+TitleViewer
+  # View of the title page setup.
+  > BaseViewer
 
-ReferencesViewer(BaseViewer)
-    # Viewer for the references.
+ReferencesViewer
+  # Viewer for the references.
+  > BaseViewer
 
-IndexedViewer(BaseViewer)
-    # Viewer for the list of indexed terms.
+ReferenceEditor
+  # Edit a reference.
+  > BaseEditor
+    > TextViewer
+      > RenderMixin
+      > BaseViewer
 
-SearchViewer(BaseViewer)
-    # Viewer for the search feature and resulting list.
+IndexedViewer
+  # Viewer for the list of indexed terms.
+  > BaseViewer
+
+SearchViewer
+  # Viewer for the search feature and resulting list.
+  > BaseViewer
 
 HelpViewer(BaseTextViewer)
-    # View of the help file Markdown contents.
-
-
+  # View of the help file Markdown contents.
+  > RenderMixin
+  > BaseViewer
 """
 
 from icecream import ic
@@ -88,8 +108,9 @@ class Main:
         self.config_read()
 
         self.root = tk.Tk()
-        constants.FONT_FAMILIES = frozenset(tk.font.families())
-        assert constants.FONT_NORMAL_FAMILY in constants.FONT_FAMILIES
+        font_families = set(tk.font.families())
+        assert constants.FONT in font_families
+        assert constants.QUOTE_FONT in font_families
 
         self.root.geometry(
             self.config["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY)

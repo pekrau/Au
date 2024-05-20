@@ -4,13 +4,13 @@ import os.path
 
 import constants
 import latex_utf8
-import translation
+import translator
 
 
 # A global instance of the language translator.
 try:
     path = os.path.join(os.path.dirname(__file__), constants.TRANSLATIONS_FILE)
-    Tr = translation.Translation(path)
+    Tr = translator.Translator(path)
 except OSError:
     Tr = lambda t: t
 
