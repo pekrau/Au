@@ -55,7 +55,9 @@ class EditorRenderer(Renderer):
 
     def display_initialize(self):
         super().display_initialize()
-        self.ignore_modified_event = True
+        self.ignore_modified_event = self.view.edit_modified()
+        if self.ignore_modified_event:
+            self.view.edit_modified(False)
 
     def display_title(self):
         "Do not display the title in the text edit area."

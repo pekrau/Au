@@ -14,10 +14,9 @@ from renderer import Renderer
 class TextRenderer(Renderer):
     "Display text title according to text position in hierarchy."
 
-    @property
-    def character_count(self):
-        # XXX + 2 ?
-        return len(self.view.get("1.0", tk.END)) - (len(self.viewer.name) + 1)
+    def __len__(self):
+        "Number of characters. XXX Not quite sure why '+ 2' is needed..."
+        return len(self.view.get("1.0", tk.END)) - (len(self.viewer.name) + 2)
 
     def get_cursor(self):
         "Get the position of cursor in absolute number of characters."
@@ -61,14 +60,6 @@ class TextViewer(Viewer):
     def name(self):
         "The short name of the text."
         return self.text.name
-
-    @property
-    def absfilepath(self):
-        return self.text.abspath
-
-    @property
-    def is_modified(self):
-        return False
 
     def display(self):
         self.renderer.display(self.text.ast)

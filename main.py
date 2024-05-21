@@ -345,7 +345,7 @@ class Main:
     def treeview_set_info(self, text, modified=None):
         if modified is None:
             try:
-                modified = self.text_editors[text.fullname].is_modified
+                modified = self.text_editors[text.fullname].renderer.is_modified
             except KeyError:
                 modified = False
         tags = set(self.treeview.item(text.fullname, "tags"))
@@ -356,7 +356,7 @@ class Main:
             tags.discard("modified")
         self.treeview.item(text.fullname, tags=tuple(tags))
         self.treeview.set(text.fullname, "status", Tr(str(text.status)))
-        self.treeview.set(text.fullname, "chars", text.viewer.renderer.character_count)
+        self.treeview.set(text.fullname, "chars", len(text.viewer.renderer))
         self.treeview.set(text.fullname, "age", text.age)
 
     def treeview_update_ages(self):
@@ -525,8 +525,8 @@ class Main:
         raise NotImplementedError
 
     def quit(self, event=None):
-        modified = [e.is_modified for e in self.text_editors.values()] + [
-            e.is_modified for e in self.reference_editors.values()
+        modified = [e.renderer.is_modified for e in self.text_editors.values()] + [
+            e.renderer.is_modified for e in self.reference_editors.values()
         ]
         if modified:
             modified = functools.reduce(lambda a, b: a or b, modified)
@@ -555,7 +555,7 @@ class Main:
         self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index - 1)
         self.texts_notebook_reorder_tabs(item)
-        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.notify(constants.TEXT_CHANGED)
         self.config_save()
         return "break"
 
@@ -575,7 +575,7 @@ class Main:
         self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index + 1)
         self.texts_notebook_reorder_tabs(item)
-        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.notify(constants.TEXT_CHANGED)
         self.config_save()
         return "break"
 
@@ -605,7 +605,7 @@ class Main:
         self.treeview.selection_set(item.fullname)
         self.treeview.see(item.fullname)
         self.treeview.focus(item.fullname)
-        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.notify(constants.TEXT_CHANGED)
         self.config_save()
         return "break"
 
@@ -627,7 +627,7 @@ class Main:
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
-        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.notify(constants.TEXT_CHANGED)
         self.config_save()
         return "break"
 
@@ -670,7 +670,7 @@ class Main:
         self.source.check_integrity()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
-        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.notify(constants.TEXT_CHANGED)
         self.config_save()
 
     def copy(self):
@@ -702,7 +702,7 @@ class Main:
         self.texts_notebook.update()
         self.treeview.selection_set(newitem.fullname)
         self.treeview.focus(newitem.fullname)
-        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.notify(constants.TEXT_CHANGED)
         self.config_save()
 
     def delete(self):
@@ -737,7 +737,7 @@ class Main:
             self.texts_notebook_display()  # XXX Optimize!
             self.texts_notebook.update()
         self.source.check_integrity()
-        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.notify(constants.TEXT_CHANGED)
         self.config_save()
 
     def open_text_editor(self, event=None, text=None):
@@ -801,7 +801,7 @@ class Main:
         self.treeview.selection_set(text.fullname)
         self.treeview.see(text.fullname)
         self.treeview.focus(text.fullname)
-        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.notify(constants.TEXT_CHANGED)
         self.config_save()
 
     def create_section(self):
@@ -841,6 +841,9 @@ class Main:
         self.treeview.selection_set(fullname)
         self.treeview.focus(fullname)
         self.menu_popup.tk_popup(event.x_root, event.y_root)
+
+    def notify(self, eventname):
+        self.root.event_generate(eventname, when="tail")
 
     def mainloop(self):
         self.root.mainloop()

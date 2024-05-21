@@ -45,3 +45,7 @@ class Viewer:
         )
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
+
+    def notification(self, eventname, func):
+        "Set a function to be called on event."
+        self.main.root.bind(eventname, func)

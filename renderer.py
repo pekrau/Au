@@ -26,8 +26,8 @@ class Renderer:
         self.bind_tags()
         self.bind_events()
 
-    @property
-    def character_count(self):
+    def __len__(self):
+        "Number of characters."
         return len(self.view.get("1.0", tk.END))
 
     def configure_tags(self):

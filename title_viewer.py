@@ -19,13 +19,13 @@ class TitleViewer(Viewer):
     "View of the title page setup."
 
     def __init__(self, parent, main):
+        super().__init__(parent, main)
         self.chapters_var = tk.IntVar()
         self.texts_var = tk.IntVar()
         self.characters_var = tk.IntVar()
         self.indexed_var = tk.IntVar()
         self.references_var = tk.IntVar()
-        super().__init__(parent, main)
-        self.main.root.bind(constants.TEXT_CHANGED, self.update_statistics)
+        self.notification(constants.TEXT_CHANGED, self.update_statistics)
 
     def __str__(self):
         return "Title"
@@ -103,7 +103,7 @@ class TitleViewer(Viewer):
         self.chapters_var.set(len(self.main.source.items))
         self.texts_var.set(len(self.main.source.all_texts))
         self.characters_var.set(
-            sum([t.viewer.renderer.character_count for t in self.main.source.all_texts])
+            sum([len(t.viewer.renderer) for t in self.main.source.all_texts])
         )
 
     def edit_title(self):
