@@ -67,9 +67,6 @@ FINAL = Status("final", 8)
 STATUSES = (STARTED, OUTLINE, INCOMPLETE, DRAFT, WRITTEN, REVISED, DONE, PROOFS, FINAL)
 STATUS_LOOKUP = dict([(s.name, s) for s in STATUSES])
 
-# Custom events.
-TEXT_CHANGED = "<<TextChanged>>"
-
 BOLD = "bold"
 ITALIC = "italic"
 THEMATIC_BREAK = "thematic_break"
@@ -131,12 +128,6 @@ QUOTE_RIGHT_INDENT = 70
 QUOTE_SPACING1 = 4
 QUOTE_SPACING2 = 4
 QUOTE_FONT = "Verdana"
-
-# LIST_PREFIX = "list-"
-# LIST_ITEM_PREFIX = "list_item-"
-# LIST_BULLET = "list_bullet"
-# LIST_BULLETS = ("\u2022", "\u25e6", "\u2043", "\u2043")
-# LIST_INDENT = 20
 
 INDEXED = "indexed"
 INDEXED_PREFIX = "indexed-"

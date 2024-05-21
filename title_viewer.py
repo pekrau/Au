@@ -1,7 +1,5 @@
 "Title page viewer."
 
-from icecream import ic
-
 import functools
 
 import tkinter as tk
@@ -14,6 +12,8 @@ import utils
 from viewer import Viewer
 from utils import Tr
 
+from icecream import ic
+
 
 class TitleViewer(Viewer):
     "View of the title page setup."
@@ -25,7 +25,6 @@ class TitleViewer(Viewer):
         self.characters_var = tk.IntVar()
         self.indexed_var = tk.IntVar()
         self.references_var = tk.IntVar()
-        self.notification(constants.TEXT_CHANGED, self.update_statistics)
 
     def __str__(self):
         return "Title"
@@ -103,7 +102,7 @@ class TitleViewer(Viewer):
         self.chapters_var.set(len(self.main.source.items))
         self.texts_var.set(len(self.main.source.all_texts))
         self.characters_var.set(
-            sum([len(t.viewer.renderer) for t in self.main.source.all_texts])
+            sum([len(t.viewer) for t in self.main.source.all_texts])
         )
 
     def edit_title(self):

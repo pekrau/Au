@@ -140,7 +140,7 @@ class Main:
         # Currently selected text, and cursor locations in all viewers.
         config["source"]["selected"] = self.treeview.focus()
         config["source"]["cursor"] = dict(
-            [(t.fullname, t.viewer.renderer.cursor) for t in self.source.all_texts]
+            [(t.fullname, t.viewer.cursor) for t in self.source.all_texts]
         )
 
         config["export"] = self.config.get("export", {})
@@ -345,7 +345,7 @@ class Main:
     def treeview_set_info(self, text, modified=None):
         if modified is None:
             try:
-                modified = self.text_editors[text.fullname].renderer.is_modified
+                modified = self.text_editors[text.fullname].modified
             except KeyError:
                 modified = False
         tags = set(self.treeview.item(text.fullname, "tags"))
@@ -356,7 +356,7 @@ class Main:
             tags.discard("modified")
         self.treeview.item(text.fullname, tags=tuple(tags))
         self.treeview.set(text.fullname, "status", Tr(str(text.status)))
-        self.treeview.set(text.fullname, "chars", len(text.viewer.renderer))
+        self.treeview.set(text.fullname, "chars", len(text.viewer))
         self.treeview.set(text.fullname, "age", text.age)
 
     def treeview_update_ages(self):
@@ -383,6 +383,7 @@ class Main:
         # Create the text views.
         for text in self.source.all_texts:
             viewer = TextViewer(self.texts_notebook, self, text)
+            viewer.display()
             text.viewer = viewer
             self.texts_notebook.add(
                 viewer.view_frame,
@@ -400,7 +401,7 @@ class Main:
             self.treeview_set_info(text)
             # Place the cursor in the text view.
             try:
-                text.viewer.renderer.cursor = self.config["source"]["cursor"][text.fullname]
+                text.viewer.cursor = self.config["source"]["cursor"][text.fullname]
             except KeyError:
                 pass
 
@@ -414,13 +415,14 @@ class Main:
             self.treeview.see(text.fullname)
             self.treeview.focus(text.fullname)
             self.treeview.update()
-        # Done after having set current tab.
+
+        # Must be done after having set current tab.
         self.texts_notebook.bind(
             "<<NotebookTabChanged>>", self.texts_notebook_tab_changed
         )
 
     def texts_notebook_tab_changed(self, event):
-        "Synchronize selected in treeview with tab change."
+        "Synchronize selected in treeview with change of text tab."
         text = self.texts_notebook_lookup[self.texts_notebook.select()]
         self.treeview.selection_set(text.fullname)
         self.treeview.focus(text.fullname)
@@ -495,7 +497,7 @@ class Main:
             )
         else:
             tk.messagebox.showinfo(
-                title=Tr("Archive file written"),
+                title=Tr("Wrote archive file"),
                 message=f"{count} {Tr('items written to archive file')}.",
             )
 
@@ -510,8 +512,8 @@ class Main:
         exporter = docx_export.Exporter(self.source, answer.result)
         exporter.write(filepath)
         tk.messagebox.showinfo(
-            title=Tr("DOCX file written"),
-            message=f"DOCX {Tr('file')} '{filepath}' {Tr('written')}.",
+            title=Tr("Wrote DOCX file"),
+            message=f"{Tr('Wrote DOCX file')} '{filepath}'.",
         )
         self.config["export"]["docx"] = answer.result
 
@@ -525,8 +527,8 @@ class Main:
         raise NotImplementedError
 
     def quit(self, event=None):
-        modified = [e.renderer.is_modified for e in self.text_editors.values()] + [
-            e.renderer.is_modified for e in self.reference_editors.values()
+        modified = [e.modified for e in self.text_editors.values()] + [
+            e.modified for e in self.reference_editors.values()
         ]
         if modified:
             modified = functools.reduce(lambda a, b: a or b, modified)
@@ -555,7 +557,7 @@ class Main:
         self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index - 1)
         self.texts_notebook_reorder_tabs(item)
-        self.notify(constants.TEXT_CHANGED)
+        self.title_viewer.update_statistics()
         self.config_save()
         return "break"
 
@@ -575,7 +577,7 @@ class Main:
         self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index + 1)
         self.texts_notebook_reorder_tabs(item)
-        self.notify(constants.TEXT_CHANGED)
+        self.title_viewer.update_statistics()
         self.config_save()
         return "break"
 
@@ -605,7 +607,7 @@ class Main:
         self.treeview.selection_set(item.fullname)
         self.treeview.see(item.fullname)
         self.treeview.focus(item.fullname)
-        self.notify(constants.TEXT_CHANGED)
+        self.title_viewer.update_statistics()
         self.config_save()
         return "break"
 
@@ -627,7 +629,7 @@ class Main:
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
-        self.notify(constants.TEXT_CHANGED)
+        self.title_viewer.update_statistics()
         self.config_save()
         return "break"
 
@@ -670,7 +672,6 @@ class Main:
         self.source.check_integrity()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
-        self.notify(constants.TEXT_CHANGED)
         self.config_save()
 
     def copy(self):
@@ -702,7 +703,7 @@ class Main:
         self.texts_notebook.update()
         self.treeview.selection_set(newitem.fullname)
         self.treeview.focus(newitem.fullname)
-        self.notify(constants.TEXT_CHANGED)
+        self.title_viewer.update_statistics()
         self.config_save()
 
     def delete(self):
@@ -737,7 +738,7 @@ class Main:
             self.texts_notebook_display()  # XXX Optimize!
             self.texts_notebook.update()
         self.source.check_integrity()
-        self.notify(constants.TEXT_CHANGED)
+        self.title_viewer.update_statistics()
         self.config_save()
 
     def open_text_editor(self, event=None, text=None):
@@ -753,7 +754,9 @@ class Main:
             editor = self.text_editors[text.fullname]
         except KeyError:
             editor = TextEditor(self, text)
-            editor.renderer.cursor = text.viewer.renderer.cursor
+            editor.display()
+            editor.cursor = text.viewer.cursor
+            editor.view.edit_modified(False)
             self.text_editors[text.fullname] = editor
         else:
             editor.toplevel.lift()
@@ -770,6 +773,7 @@ class Main:
             self.reference_editors[reference.fullname] = editor
         else:
             editor.toplevel.lift()
+        editor.display()
         editor.view.update()
         editor.view.focus_set()
         return "break"
@@ -801,7 +805,7 @@ class Main:
         self.treeview.selection_set(text.fullname)
         self.treeview.see(text.fullname)
         self.treeview.focus(text.fullname)
-        self.notify(constants.TEXT_CHANGED)
+        self.title_viewer.update_statistics()
         self.config_save()
 
     def create_section(self):
@@ -832,6 +836,7 @@ class Main:
         self.treeview.selection_set(section.fullname)
         self.treeview.see(section.fullname)
         self.treeview.focus(section.fullname)
+        self.title_viewer.update_statistics()
         self.config_save()
 
     def popup_menu(self, event):
@@ -841,9 +846,6 @@ class Main:
         self.treeview.selection_set(fullname)
         self.treeview.focus(fullname)
         self.menu_popup.tk_popup(event.x_root, event.y_root)
-
-    def notify(self, eventname):
-        self.root.event_generate(eventname, when="tail")
 
     def mainloop(self):
         self.root.mainloop()

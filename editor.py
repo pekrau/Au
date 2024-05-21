@@ -1,7 +1,5 @@
 "Base text editor."
 
-from icecream import ic
-
 import io
 import webbrowser
 
@@ -15,12 +13,76 @@ import utils
 
 from utils import Tr
 
-from renderer import Renderer
 from text_viewer import TextViewer
 
+from icecream import ic
 
-class EditorRenderer(Renderer):
-    "Rendering for the base text editor."
+
+class Editor(TextViewer):
+    "Base text editor class."
+
+    def __init__(self, main, text):
+        self.toplevel = tk.Toplevel(main.root)
+        self.toplevel.title(f"{Tr('Edit')}: {text.fullname}")
+        self.toplevel.bind("<Control-s>", self.save)
+        self.toplevel.bind("<Control-S>", self.save)
+        self.toplevel.bind("<Control-q>", self.close)
+        self.toplevel.bind("<Control-Q>", self.close)
+        self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
+        self.menubar = tk.Menu(self.toplevel, background="gold")
+        self.toplevel["menu"] = self.menubar
+        super().__init__(self.toplevel, main, text)
+        self.menubar_setup()
+
+    def menubar_setup(self):
+        self.original_menubar_background = self.menubar.cget("background")
+        self.menubar_changed_by_selection = set()
+        self.menubar.add_command(
+            label="Au",
+            font=constants.FONT_LARGE_BOLD,
+            background="gold",
+            command=self.main.root.lift,
+        )
+
+        self.menu_file = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
+        self.menubar_file_setup()
+
+        self.menu_edit = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
+        self.menu_edit.add_command(
+            label=Tr("Copy"), command=self.clipboard_copy
+        )
+        self.menu_edit.add_command(
+            label=Tr("Cut"), command=self.clipboard_cut
+        )
+        self.menu_edit.add_command(
+            label=Tr("Paste"), command=self.clipboard_paste
+        )
+
+        self.menu_format = tk.Menu(self.menubar)
+        self.menubar.add_cascade(
+            menu=self.menu_format, label=Tr("Format"), state=tk.DISABLED
+        )
+        self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
+        self.menu_format.add_command(label=Tr("Bold"), command=self.bold_add)
+        self.menu_format.add_command(
+            label=Tr("Italic"), command=self.italic_add
+        )
+        self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
+
+        self.menubar.add_command(
+            label=Tr("Link"), command=self.link_add, state=tk.DISABLED
+        )
+        self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
+
+    def menubar_file_setup(self):
+        self.menu_file.add_command(
+            label=Tr("Save"), command=self.save, accelerator="Ctrl-S"
+        )
+        self.menu_file.add_command(
+            label=Tr("Close"), command=self.close, accelerator="Ctrl-Q"
+        )
 
     def bind_tags(self):
         super().bind_tags()
@@ -37,7 +99,7 @@ class EditorRenderer(Renderer):
         self.view.bind("<Control-V>", self.clipboard_paste)
         self.view.bind("<<Modified>>", self.handle_modified)
         self.view.bind("<Button-3>", self.popup_menu)
-        self.view.bind("<<Selection>>", self.viewer.selection_changed)
+        self.view.bind("<<Selection>>", self.selection_changed)
 
     def key_press(self, event):
         "Forbid some key press actions."
@@ -53,33 +115,25 @@ class EditorRenderer(Renderer):
         if constants.FOOTNOTE_REF in tags:
             return "break"
 
-    def display_initialize(self):
-        super().display_initialize()
-        self.ignore_modified_event = self.view.edit_modified()
-        if self.ignore_modified_event:
-            self.view.edit_modified(False)
-
     def display_title(self):
         "Do not display the title in the text edit area."
         pass
 
-    @property
-    def is_modified(self):
+    def get_modified(self):
         return self.view.edit_modified()
 
-    def set_modified(self, event=None):
-        self.ignore_modified_event = True
-        self.view.edit_modified(True)
+    def set_modified(self, yes):
+        if not isinstance(yes, bool):
+            raise ValueError("invalid value for 'modified'; must be bool")
+        self.view.edit_modified(yes)
+
+    modified = property(get_modified, set_modified)
 
     def handle_modified(self, event=None):
-        "Return False if no work to be done; else True."
-        if self.ignore_modified_event:
-            self.ignore_modified_event = False
-            return False
-        if not self.is_modified:
-            return False
-        self.viewer.menubar.configure(background=constants.MODIFIED_COLOR)
-        return True
+        if self.view.edit_modified():
+            self.menubar.configure(background=constants.MODIFIED_COLOR)
+        else:
+            self.menubar.configure(background=self.original_menubar_background)
 
     def popup_menu(self, event):
         "Display a popup menu according to the current state."
@@ -117,7 +171,7 @@ class EditorRenderer(Renderer):
         except ValueError:
             return
         self.view.tag_add(constants.BOLD, first, last)
-        self.set_modified()
+        self.modified = True
 
     def bold_remove(self, event):
         if constants.BOLD not in self.view.tag_names(tk.CURRENT):
@@ -130,7 +184,7 @@ class EditorRenderer(Renderer):
             return
         first, last = self.view.tag_prevrange(constants.BOLD, tk.CURRENT)
         self.view.tag_remove(constants.BOLD, first, last)
-        self.set_modified()
+        self.modified = True
 
     def italic_add(self):
         try:
@@ -138,20 +192,23 @@ class EditorRenderer(Renderer):
         except ValueError:
             return
         self.view.tag_add(constants.ITALIC, first, last)
-        self.set_modified()
+        self.modified = True
 
     def italic_remove(self, event):
         if constants.ITALIC not in self.view.tag_names(tk.CURRENT):
             return
-        first, last = self.view.tag_prevrange(constants.ITALIC, tk.CURRENT)
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
             title=f"{Tr('Remove')} {Tr('italic')}?)",
             message=f"{Tr('Really')} {Tr('remove')} {Tr('italic')}?)",
         ):
             return
+        try:
+            first, last = self.view.tag_prevrange(constants.ITALIC, tk.CURRENT)
+        except ValueError:      # XXX Not sure why this is needed?
+            first, last = self.view.tag_nextrange(constants.ITALIC, tk.CURRENT)
         self.view.tag_remove(constants.ITALIC, first, last)
-        self.set_modified()
+        self.modified = True
 
     def quote_add(self):
         try:
@@ -163,24 +220,24 @@ class EditorRenderer(Renderer):
             self.view.insert(last, "\n\n")
         if "\n\n" not in self.view.get(first + "-2c", first):
             self.view.insert(first, "\n\n")
-        self.set_modified()
+        self.modified = True
 
     def quote_remove(self, event):
         if constants.QUOTE not in self.view.tag_names(tk.CURRENT):
             return
-        first, last = self.view.tag_prevrange(constants.QUOTE, tk.CURRENT)
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
             title=f"{Tr('Remove')} {Tr('quote')}?)",
             message=f"{Tr('Really')} {Tr('remove')} {Tr('quote')}?)",
         ):
             return
+        first, last = self.view.tag_prevrange(constants.QUOTE, tk.CURRENT)
         self.view.tag_remove(constants.QUOTE, first, last)
-        self.set_modified()
+        self.modified = True
 
     def link_action(self, event):
         "Allow viewing, editing and opening the link."
-        link = self.renderer.get_link()
+        link = self.get_link()
         if not link:
             return
         edit = EditLink(self.view, link)
@@ -194,7 +251,7 @@ class EditorRenderer(Renderer):
             self.view.tag_remove(constants.LINK, first, last)
             self.view.tag_delete(link["tag"])
             # Do not remove entry from 'links': the count must be preserved.
-        self.set_modified()
+        self.modified = True
 
     def link_add(self):
         try:
@@ -219,7 +276,7 @@ class EditorRenderer(Renderer):
             title = None
         self.link_create(url, title, first, last)
         self.view.tag_remove(tk.SEL, first, last)
-        self.set_modified()
+        self.modified = True
 
     def indexed_add(self):
         try:
@@ -239,7 +296,7 @@ class EditorRenderer(Renderer):
             canonical = term
         self.view.tag_add(constants.INDEXED, first, last)
         self.view.tag_add(constants.INDEXED_PREFIX + canonical, first, last)
-        self.set_modified()
+        self.modified = True
 
     def indexed_remove(self, event):
         term = self.get_indexed()
@@ -254,7 +311,7 @@ class EditorRenderer(Renderer):
         first, last = self.view.tag_prevrange(constants.INDEXED, tk.CURRENT)
         self.view.tag_remove(constants.INDEXED, first, last)
         self.view.tag_remove(f"{constants.INDEXED_PREFIX}{term}", first, last)
-        self.set_modified()
+        self.modified = True
 
     def indexed_action(self, event):
         term = self.get_indexed()
@@ -270,7 +327,7 @@ class EditorRenderer(Renderer):
             self.view.tag_add(constants.INDEXED_PREFIX + edit.result, first, last)
         else:
             self.view.tag_remove(constants.INDEXED, first, last)
-        self.set_modified()
+        self.modified = True
 
     def reference_add(self):
         add = ReferenceAdd(self.view, self.main.references_viewer.references)
@@ -292,7 +349,7 @@ class EditorRenderer(Renderer):
         tag = f"{constants.REFERENCE_PREFIX}{refid}"
         first, last = self.view.tag_prevrange(tag, tk.CURRENT)
         self.view.delete(first, last)
-        self.set_modified()
+        self.modified = True
 
     def footnote_add(self):
         try:
@@ -380,76 +437,6 @@ class EditorRenderer(Renderer):
             self.view.insert(tk.INSERT, chars)
         return "break"  # When called by keyboard event.
 
-
-class Editor(TextViewer):
-    "Base text editor class."
-
-    def __init__(self, main, text):
-        self.main = main
-        self.text = text
-        self.toplevel = tk.Toplevel(self.main.root)
-        self.toplevel.title(f"{Tr('Edit')}: {self.text.fullname}")
-        self.toplevel.bind("<Control-s>", self.save)
-        self.toplevel.bind("<Control-S>", self.save)
-        self.toplevel.bind("<Control-q>", self.close)
-        self.toplevel.bind("<Control-Q>", self.close)
-        self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
-        self.menubar = tk.Menu(self.toplevel, background="gold")
-        self.toplevel["menu"] = self.menubar
-        self.view_create(self.toplevel)
-        self.renderer = EditorRenderer(main, self, self.view)
-        self.menubar_setup()
-
-    def menubar_setup(self):
-        self.original_menubar_background = self.menubar.cget("background")
-        self.menubar_changed_by_selection = set()
-        self.menubar.add_command(
-            label="Au",
-            font=constants.FONT_LARGE_BOLD,
-            background="gold",
-            command=self.main.root.lift,
-        )
-
-        self.menu_file = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
-        self.menubar_file_setup()
-
-        self.menu_edit = tk.Menu(self.menubar)
-        self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
-        self.menu_edit.add_command(
-            label=Tr("Copy"), command=self.renderer.clipboard_copy
-        )
-        self.menu_edit.add_command(
-            label=Tr("Cut"), command=self.renderer.clipboard_cut
-        )
-        self.menu_edit.add_command(
-            label=Tr("Paste"), command=self.renderer.clipboard_paste
-        )
-
-        self.menu_format = tk.Menu(self.menubar)
-        self.menubar.add_cascade(
-            menu=self.menu_format, label=Tr("Format"), state=tk.DISABLED
-        )
-        self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
-        self.menu_format.add_command(label=Tr("Bold"), command=self.renderer.bold_add)
-        self.menu_format.add_command(
-            label=Tr("Italic"), command=self.renderer.italic_add
-        )
-        self.menu_format.add_command(label=Tr("Quote"), command=self.renderer.quote_add)
-
-        self.menubar.add_command(
-            label=Tr("Link"), command=self.renderer.link_add, state=tk.DISABLED
-        )
-        self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
-
-    def menubar_file_setup(self):
-        self.menu_file.add_command(
-            label=Tr("Save"), command=self.save, accelerator="Ctrl-S"
-        )
-        self.menu_file.add_command(
-            label=Tr("Close"), command=self.close, accelerator="Ctrl-Q"
-        )
-
     def selection_changed(self, event):
         "Selection changed; normalize or disable menu items accordingly."
         try:
@@ -509,7 +496,7 @@ class Editor(TextViewer):
         """Save the current contents to the text file.
         Get the main window to refresh the contents of the text view.
         """
-        if not self.renderer.is_modified:
+        if not self.modified:
             return
         self.save_prepare()
         for item in self.view.dump("1.0", tk.END):
@@ -522,8 +509,9 @@ class Editor(TextViewer):
         self.save_after_dump()
         self.text.write(self.outfile.getvalue())
         self.menubar.configure(background=self.original_menubar_background)
-        self.ignore_modified_event = True
-        self.view.edit_modified(False)
+        # self.ignore_modified_event = True
+        # self.view.edit_modified(False)
+        self.modified = False
         self.save_finalize()
 
     def save_prepare(self):
@@ -633,7 +621,7 @@ class Editor(TextViewer):
         self.save_characters("[")
 
     def markdown_tagoff_link(self, item):
-        link = self.renderer.get_link(self.current_link_tag)
+        link = self.get_link(self.current_link_tag)
         if link["title"]:
             self.save_characters(f"""]({link['url']} "{link['title']}")""")
         else:
@@ -641,15 +629,16 @@ class Editor(TextViewer):
         self.current_link_tag = None
 
     def close(self, event=None, force=False):
-        if self.renderer.is_modified and not force:
+        if self.modified and not force:
             if not tk.messagebox.askokcancel(
                 parent=self.toplevel,
                 title=Tr("Close?"),
                 message=f"{Tr('Modifications will not be saved.')} {Tr('Really')} {Tr('close?')}",
             ):
                 return "break"  # When called by keyboard event.
-        self.ignore_modified_event = True
-        self.view.edit_modified(False)
+        # self.ignore_modified_event = True
+        # self.view.edit_modified(False)
+        # self.modified = False
         self.close_finalize()
         self.toplevel.destroy()
         return "break"  # When called by keyboard event.
@@ -684,7 +673,7 @@ class EditLink(tk.simpledialog.Dialog):
         return self.url_entry
 
     def remove(self):
-        """Remove the link in the text. Do not remove from 'viewer.links'.
+        """Remove the link in the text. Do not remove from 'links'.
         The link count must remain strictly increasing.
         """
         self.url_entry.delete(0, tk.END)

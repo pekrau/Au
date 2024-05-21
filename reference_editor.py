@@ -113,7 +113,7 @@ class ReferenceEditor(BaseEditor):
             entry.bind("<Control-Q>", self.close)
 
     def entry_modified(self, event):
-        if not self.is_modified and event.char:
+        if not self.modified and event.char:
             self.view.edit_modified(True)
             self.view.event_generate("<<Modified>>")
 

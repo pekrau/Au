@@ -93,7 +93,9 @@ give name of the new section,ange namn för den nya sektionen
 new text,ny text
 give name of the new text,ange namn för den nya texten
 All unsaved changes will be lost. Really quit?,Alla osparade förändringar kommer att försvinna. Verkligen avsluta?
-archive file written,arkivfil skriven
+wrote file,skrev fil
+Wrote DOCX file,Skrev DOCX-fil
+wrote archive file,skrev arkivfil
 items written to archive file,poster skrivna till arkivfilen
 delete text,radera text
 really delete text,verkligen radera text

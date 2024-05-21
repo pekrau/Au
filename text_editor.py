@@ -1,7 +1,5 @@
 "Editor window for text Markdown file."
 
-from icecream import ic
-
 import io
 
 import tkinter as tk
@@ -15,28 +13,25 @@ import utils
 from utils import Tr
 from editor import Editor
 
+from icecream import ic
+
 
 class TextEditor(Editor):
     "Editor for source text Markdown file."
 
     TEXT_COLOR = constants.EDIT_COLOR
 
-    def __init__(self, main, text):
-        super().__init__(main, text)
-        self.display()
-        self.view.edit_modified(False)
-
     def menubar_setup(self):
         super().menubar_setup()
         self.menubar.add_command(
-            label=Tr("Indexed"), command=self.renderer.indexed_add, state=tk.DISABLED
+            label=Tr("Indexed"), command=self.indexed_add, state=tk.DISABLED
         )
         self.menubar.add_command(
-            label=Tr("Reference"), command=self.renderer.reference_add
+            label=Tr("Reference"), command=self.reference_add
         )
         self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
         self.menubar.add_command(
-            label=Tr("Footnote"), command=self.renderer.footnote_add, state=tk.DISABLED
+            label=Tr("Footnote"), command=self.footnote_add, state=tk.DISABLED
         )
         self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
 
@@ -55,9 +50,20 @@ class TextEditor(Editor):
         "Add items to the popup menu for when text is selected."
         menu.add_command(label=Tr("Indexed"), command=self.indexed_add)
 
+    def get_cursor(self):
+        "Get the position of cursor in absolute number of characters."
+        return len(self.view.get("1.0", tk.INSERT))
+
+    def set_cursor(self, position):
+        "Set the position of the cursor by the absolute number of characters."
+        self.view.mark_set(tk.INSERT, self.view.index("1.0" + f"+{position}c"))
+        self.view.see(tk.INSERT)
+
+    cursor = property(get_cursor, set_cursor)
+
     def handle_modified(self, event=None):
-        if super().handle_modified(event=event):
-            self.main.treeview_set_info(self.text, modified=True)
+        super().handle_modified(event=event)
+        self.main.treeview_set_info(self.text, modified=self.modified)
 
     def set_status(self):
         try:
@@ -93,8 +99,8 @@ class TextEditor(Editor):
         self.text.read()
         self.text.viewer.display()
         self.main.treeview_set_info(self.text)
-        self.text.viewer.renderer.cursor = self.renderer.cursor
-        self.main.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
+        self.main.title_viewer.update_statistics()
+        self.text.viewer.cursor = self.cursor
 
     def markdown_tagon_indexed(self, item):
         for tag in self.view.tag_names(item[2]):
@@ -122,7 +128,7 @@ class TextEditor(Editor):
         for tag in self.view.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
                 old_label = tag[len(constants.FOOTNOTE_REF_PREFIX) :]
-                footnote = self.renderer.footnotes[old_label]
+                footnote = self.footnotes[old_label]
                 new_label = str(len(self.markdown_footnotes) + 1)
                 footnote["new_label"] = new_label
                 self.markdown_footnotes[old_label] = footnote
