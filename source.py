@@ -59,6 +59,7 @@ class Source:
 
     @property
     def all_items(self):
+        "Return list of all sub-items. Self is *not* included."
         result = []
         for item in self.items:
             result.append(item)
@@ -67,6 +68,7 @@ class Source:
 
     @property
     def all_texts(self):
+        "Return list of all sub-items that are texts."
         result = []
         for item in self.items:
             result.extend(item.all_texts)
@@ -135,15 +137,15 @@ class Source:
             raise ValueError(f"The name is already in use within '{section.fullname}'.")
         with open(fullpath, "w") as outfile:
             pass
-        text = Text(self, section, name)
+        new = Text(self, section, name)
         if anchor is None:
-            section.items.append(text)
+            section.items.append(new)
         elif anchor.is_text:
-            section.items.insert(anchor.index + 1, text)
+            section.items.insert(anchor.index + 1, new)
         else:
-            section.items.append(text)
-        self.lookup[text.fullname] = text
-        return text
+            section.items.append(new)
+        self.lookup[new.fullname] = new
+        return new
 
     def create_section(self, anchor, name):
         """Create a new empty section inside the anchor if it is a section,
@@ -152,20 +154,20 @@ class Source:
         """
         check_invalid_characters(name)
         if anchor.is_text:
-            supersection = anchor.parent
+            section = anchor.parent
         else:
-            supersection = anchor
-        fullpath = os.path.join(supersection.abspath, name)
+            section = anchor
+        fullpath = os.path.join(section.abspath, name)
         if os.path.exists(fullpath):
             raise ValueError(f"The name is already in use within '{section.fullname}'.")
         os.mkdir(fullpath)
-        section = Section(self, supersection, name)
+        new = Section(self, section, name)
         if anchor.is_text:
-            supersection.items.insert(anchor.index + 1, section)
+            section.items.insert(anchor.index + 1, new)
         else:
-            supersection.items.append(section)
-        self.lookup[section.fullname] = section
-        return section
+            section.items.append(new)
+        self.lookup[new.fullname] = new
+        return new
 
     def archive(self, sources=None):
         """Write all files for texts to a gzipped tar file.
@@ -193,9 +195,9 @@ class Source:
         return result
 
     def check_integrity(self):
-        assert os.path.exists(self.abspath), self
-        assert os.path.isdir(self.abspath), self
-        assert len(self.lookup) == len(self.all_items), self
+        assert os.path.exists(self.abspath), (self, self.abspath)
+        assert os.path.isdir(self.abspath), (self, self.abspath)
+        assert len(self.lookup) == len(self.all_items), (self, len(self.lookup), len(self.all_items))
         for item in self.all_items:
             assert item.source is self, (self, item)
             assert isinstance(item, Text) or isinstance(item, Section), (self, item)
@@ -238,12 +240,11 @@ class Item:
 
     @property
     def is_text(self):
-        "To be implemented by inheriting classes."
-        raise NotImplementedError
+        return isinstance(self, Text)
 
     @property
     def is_section(self):
-        return not self.is_text
+        return isinstance(self, Section)
 
     @property
     def index(self):
@@ -343,7 +344,7 @@ class Item:
         newabspath = os.path.join(self.parent.abspath, self.filename(newname))
         if os.path.exists(newabspath):
             raise ValueError("The name is already in use.")
-        oldfullnames = [i.fullname for i in self.all_items]
+        oldfullnames = [self.fullname] + [i.fullname for i in self.all_items]
         oldabspath = self.abspath
         self.name = newname
         os.rename(oldabspath, self.abspath)
@@ -383,7 +384,7 @@ class Item:
         if os.path.exists(newabspath):
             raise ValueError("Item cannot be moved up due to name collision.")
         oldabspath = self.abspath
-        oldfullnames = [i.fullname for i in self.all_items]
+        oldfullnames = [self.fullname] + [i.fullname for i in self.all_items]
         before = self.parent.next
         self.parent.items.remove(self)
         if before:
@@ -407,7 +408,7 @@ class Item:
         if os.path.exists(newabspath):
             raise ValueError("Item cannot be moved down due to name collision.")
         oldabspath = self.abspath
-        oldfullnames = [i.fullname for i in self.all_items]
+        oldfullnames = [self.fullname] + [i.fullname for i in self.all_items]
         self.parent.items.remove(self)
         section.items.append(self)
         self.parent = section
@@ -431,6 +432,7 @@ class Item:
         raise NotImplementedError
 
     def check_integrity(self):
+        assert isinstance(self.source, Source), self
         assert self in self.parent.items, self
         assert self.fullname in self.source.lookup, self
         assert os.path.exists(self.abspath), self
@@ -448,11 +450,8 @@ class Section(Item):
         return sum([len(i) for i in self.all_items])
 
     @property
-    def is_text(self):
-        return False
-
-    @property
     def all_items(self):
+        "Return list of all sub-items. Self is not included."
         result = []
         for item in self.items:
             result.append(item)
@@ -461,6 +460,7 @@ class Section(Item):
 
     @property
     def all_texts(self):
+        "Return list of all sub-items that are texts."
         result = []
         for item in self.items:
             result.extend(item.all_texts)
@@ -516,9 +516,9 @@ class Section(Item):
 
     def delete(self):
         shutil.rmtree(self.abspath)
-        items = list(self.all_items)
-        for item in items:
+        for item in self.all_items:
             self.source.lookup.pop(item.fullname)
+        self.source.lookup.pop(self.fullname)
         self.parent.items.remove(self)
         self.source = None
         self.parent = None
@@ -549,15 +549,13 @@ class Text(Item):
         return key in self.frontmatter
 
     @property
-    def is_text(self):
-        return True
-
-    @property
     def all_items(self):
+        "Return list of all sub-items. Self is *not* included."
         return []
 
     @property
     def all_texts(self):
+        "Return list of all sub-items that are texts. Self *is* included."
         return [self]
 
     def get(self, key, default=None):

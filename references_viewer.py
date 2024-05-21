@@ -22,6 +22,8 @@ from viewer import Viewer
 class ReferencesViewer(Viewer):
     "Viewer for the references."
 
+    # self.root.bind(constants.TEXT_CHANGED, self.references_viewer.display)
+
     def __init__(self, parent, main):
         self.main = main
         self.super_frame = tk.ttk.Frame(parent)
@@ -82,7 +84,7 @@ class ReferencesViewer(Viewer):
         self.references.sort(key=lambda r: r["id"])
         self.references_lookup = dict([(r["id"], r) for r in self.references])
 
-    def display(self):
+    def display(self, event=None):
         self.view.delete("1.0", tk.END)
 
         self.references_pos = {}  # Key: reference id; value: position here.

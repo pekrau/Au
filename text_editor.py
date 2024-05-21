@@ -22,29 +22,23 @@ class TextEditor(Editor):
     TEXT_COLOR = constants.EDIT_COLOR
 
     def __init__(self, main, text):
-        self.main = main
-        self.text = text
-        # super().__init__(main.root, main, text)
-        self.toplevel_setup()
-        self.menubar_setup()
-        self.view_create(self.toplevel)
-        self.view_configure_tags()
-        self.view_bind_tags()
-        self.view_bind_keys()
+        super().__init__(main, text)
         self.display()
         self.view.edit_modified(False)
 
     def menubar_setup(self):
         super().menubar_setup()
-        self.menubar.add_command(label=Tr("Reference"), command=self.reference_add)
         self.menubar.add_command(
-            label=Tr("Indexed"), command=self.indexed_add, state=tk.DISABLED
+            label=Tr("Indexed"), command=self.renderer.indexed_add, state=tk.DISABLED
         )
-        self.menubar_selection_change.add(self.menubar.index(tk.END))
         self.menubar.add_command(
-            label=Tr("Footnote"), command=self.footnote_add, state=tk.DISABLED
+            label=Tr("Reference"), command=self.renderer.reference_add
         )
-        self.menubar_selection_change.add(self.menubar.index(tk.END))
+        self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
+        self.menubar.add_command(
+            label=Tr("Footnote"), command=self.renderer.footnote_add, state=tk.DISABLED
+        )
+        self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
 
         self.menu_status = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_status, label=Tr("Status"))
@@ -73,146 +67,13 @@ class TextEditor(Editor):
         new_status = constants.Status.lookup(self.status_var.get().lower())
         self.view.edit_modified(new_status != old_status)
 
-    def indexed_add(self):
-        try:
-            first, last = self.get_selection()
-        except ValueError:
-            return
-        term = self.view.get(first, last)
-        canonical = tk.simpledialog.askstring(
-            parent=self.toplevel,
-            title="Canonical?",
-            prompt="Give canonical term:",
-            initialvalue=term,
-        )
-        if canonical is None:
-            return
-        if not canonical:
-            canonical = term
-        self.view.tag_add(constants.INDEXED, first, last)
-        self.view.tag_add(constants.INDEXED_PREFIX + canonical, first, last)
-        self.set_modified()
-
-    def indexed_remove(self, event):
-        term = self.get_indexed()
-        if not term:
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title="Remove indexed?",
-            message=f"Really remove indexing for '{term}'?",
-        ):
-            return
-        first, last = self.view.tag_prevrange(constants.INDEXED, tk.CURRENT)
-        self.view.tag_remove(constants.INDEXED, first, last)
-        self.view.tag_remove(f"{constants.INDEXED_PREFIX}{term}", first, last)
-        self.set_modified()
-
-    def indexed_action(self, event):
-        term = self.get_indexed()
-        if not term:
-            return
-        tag = constants.INDEXED_PREFIX + term
-        first, last = self.view.tag_prevrange(tag, tk.CURRENT)
-        edit = IndexedEdit(self.main, self.view, term)
-        if edit.result is None or edit.result == term:
-            return
-        self.view.tag_remove(tag, first, last)
-        if edit.result:
-            self.view.tag_add(constants.INDEXED_PREFIX + edit.result, first, last)
-        else:
-            self.view.tag_remove(constants.INDEXED, first, last)
-        self.set_modified()
-
-    def reference_add(self):
-        add = ReferenceAdd(self.view, self.main.references_viewer.references)
-        if not add.result:
-            return
-        tag = constants.REFERENCE_PREFIX + add.result
-        self.view.insert(tk.INSERT, add.result, (constants.REFERENCE, tag))
-
-    def reference_action(self, event):
-        refid = self.get_refid()
-        if not refid:
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title="Remove reference?",
-            message=f"Really remove reference '{refid}'?",
-        ):
-            return
-        tag = f"{constants.REFERENCE_PREFIX}{refid}"
-        first, last = self.view.tag_prevrange(tag, tk.CURRENT)
-        self.view.delete(first, last)
-        self.set_modified()
-
-    def footnote_add(self):
-        try:
-            first, last = self.get_selection()
-        except ValueError:
-            return
-        label = self.get_new_footnote_label()
-        tag = constants.FOOTNOTE_DEF_PREFIX + label
-        self.tag_elide(tag)
-        self.view.tag_add(constants.FOOTNOTE_DEF, first, last)
-        self.view.tag_add(tag, first, last)
-        self.view.insert(self.view.tag_nextrange(tag, "1.0")[0], "\n", (tag,))
-        tag = constants.FOOTNOTE_REF_PREFIX + label
-        self.footnotes[label] = dict(label=label, tag=tag)
-        self.view.insert(first, f"^{label}", (constants.FOOTNOTE_REF, (tag,)))
-        self.view.tag_bind(tag, "<Button-1>", self.footnote_toggle)
-
-    def get_new_footnote_label(self):
-        "Return the label (str) to use for a new footnote."
-        try:
-            return str(max([int(label) for label in self.footnotes]) + 1)
-        except ValueError:
-            return "1"
-
-    def footnote_remove(self, event):
-        tags = self.view.tag_names(tk.CURRENT)
-        for tag in tags:
-            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
-                label = tag[len(constants.FOOTNOTE_REF_PREFIX) :]
-                break
-        else:
-            return
-        tag = constants.FOOTNOTE_REF_PREFIX + label
-        first, last = self.view.tag_nextrange(tag, "1.0")
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title="Remove footnote?",
-            message=f"Really remove footnote (text will remain)?",
-        ):
-            return
-        self.view.tag_remove(constants.FOOTNOTE_REF, first, last)
-        self.view.tag_delete(tag)
-        self.view.delete(first, self.view.index(last + "+1c"))  # Remove newline.
-        tag = constants.FOOTNOTE_DEF_PREFIX + label
-        first, last = self.view.tag_nextrange(tag, "1.0")
-        self.view.tag_remove(constants.FOOTNOTE_DEF, first, last)
-        self.view.tag_delete(tag)
-        self.view.tag_add(tk.SEL, first, last)
-
-    def undump_tagon(self, entry, tags):
-        super().undump_tagon(entry, tags)
-        if entry[1].startswith(constants.FOOTNOTE_REF_PREFIX):
-            tags[entry[1]]["label"] = self.get_new_footnote_label()
-            self.skip_text = True
-        elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
-            tag = (
-                constants.FOOTNOTE_REF_PREFIX
-                + entry[1][len(constants.FOOTNOTE_DEF_PREFIX) :]
-            )
-            tags[entry[1]]["label"] = tags[tag]["label"]
-
     def save_prepare(self):
         "Prepare for saving; before doing dump-to-Markdown."
         super().save_prepare()
         self.text.status = constants.Status.lookup(self.status_var.get().lower())
         self.markdown_footnotes = {}
 
-    def save_postdump(self):
+    def save_after_dump(self):
         "Perform save operations after having done dump-to-Markdown; footnotes."
         footnotes = list(self.markdown_footnotes.values())
         footnotes.sort(key=lambda f: int(f["new_label"]))
@@ -228,15 +89,12 @@ class TextEditor(Editor):
                 self.outfile.write("\n")
 
     def save_finalize(self):
-        "Perform final save operations; redisplaying text and setting info."
+        "Perform final save operations; updating displays."
         self.text.read()
         self.text.viewer.display()
         self.main.treeview_set_info(self.text)
-        self.main.update_statistics()
-        self.text.viewer.cursor = self.cursor
-        self.main.references_viewer.display()  # XXX Optimize?
-        self.main.indexed_viewer.display()  # XXX Optimize?
-        self.main.search_viewer.clear()
+        self.text.viewer.renderer.cursor = self.renderer.cursor
+        self.main.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
 
     def markdown_tagon_indexed(self, item):
         for tag in self.view.tag_names(item[2]):
@@ -264,7 +122,7 @@ class TextEditor(Editor):
         for tag in self.view.tag_names(item[2]):
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
                 old_label = tag[len(constants.FOOTNOTE_REF_PREFIX) :]
-                footnote = self.footnotes[old_label]
+                footnote = self.renderer.footnotes[old_label]
                 new_label = str(len(self.markdown_footnotes) + 1)
                 footnote["new_label"] = new_label
                 self.markdown_footnotes[old_label] = footnote

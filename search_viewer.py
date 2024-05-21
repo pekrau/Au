@@ -16,6 +16,8 @@ from utils import Tr
 class SearchViewer(BaseViewer):
     "Viewer for the search feature and resulting list."
 
+    # self.main.search_viewer.clear()
+
     def __str__(self):
         return "Search"
 

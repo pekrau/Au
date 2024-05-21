@@ -2,6 +2,7 @@
 
 from icecream import ic
 
+import string
 import webbrowser
 
 import tkinter as tk
@@ -23,14 +24,13 @@ class Renderer:
         self.view = view
         self.configure_tags()
         self.bind_tags()
-        self.bind_keys()
+        self.bind_events()
 
     @property
     def character_count(self):
         return len(self.view.get("1.0", tk.END))
 
     def configure_tags(self):
-        ic(self, "configure_tags")
         for h in constants.H_LOOKUP.values():
             self.view.tag_configure(
                 h["tag"],
@@ -83,7 +83,6 @@ class Renderer:
 
     def bind_tags(self):
         "Configure the tag bindings used in the 'tk.Text' instance."
-        ic(self, "bind_tags")
         self.view.tag_bind(constants.LINK, "<Enter>", self.link_enter)
         self.view.tag_bind(constants.LINK, "<Leave>", self.link_leave)
         self.view.tag_bind(constants.LINK, "<Button-1>", self.link_action)
@@ -100,7 +99,7 @@ class Renderer:
         self.view.tag_bind(constants.FOOTNOTE_REF, "<Leave>", self.footnote_leave)
         self.view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_toggle)
 
-    def bind_keys(self):
+    def bind_events(self):
         "Configure the key bindings used in the 'tk.Text' instance."
         self.view.bind("<Home>", self.cursor_home)
         self.view.bind("<End>", self.cursor_end)
@@ -133,7 +132,7 @@ class Renderer:
 
     def clipboard_copy(self, event=None):
         """Copy the current selection into the clipboard.
-        Two variants: with formatting for intra-Au use,
+        Two variants: dump containing formatting for intra-Au use,
         and characters-only for cross-application use.
         """
         try:
@@ -175,7 +174,6 @@ class Renderer:
             return "break"
 
     def display(self, ast):
-        ic(self, "display")
         self.display_initialize()
         self.display_title()
         self.render(ast)
@@ -303,7 +301,6 @@ class Renderer:
         tag = constants.FOOTNOTE_REF_PREFIX + label
         self.footnotes[label] = dict(label=label, tag=tag)
         self.view.insert(tk.INSERT, f"^{label}", (constants.FOOTNOTE_REF, tag))
-        self.view.tag_bind(tag, "<Button-1>", self.footnote_toggle)
 
     def render_footnote_def(self, ast):
         tag = self.footnotes[ast["label"]]["tag"]
@@ -399,9 +396,9 @@ class Renderer:
         self.view.configure(cursor="")
 
     def indexed_action(self, event):
-        term = self.get_indexed()
-        if term:
-            self.main.indexed_viewer.highlight(term)
+        canonical = self.get_indexed()
+        if canonical:
+            self.main.indexed_viewer.highlight(canonical)
 
     def get_indexed(self):
         "Get the canonical indexed term at the current position."
@@ -546,60 +543,3 @@ class Renderer:
     def debug_dump(self, event=None):
         dump = self.view.dump("1.0", tk.END)
         ic("--- dump ---", dump)
-
-
-# class Table(RenderMixin):
-#     "Read-only table requires its own class for rendering."
-
-#     def __init__(self, master, ast):
-#         self.master = master
-#         self.frame = tk.ttk.Frame(self.master.view)
-#         self.master.view.window_create(tk.INSERT, window=self.frame)
-#         self.view = None
-#         self.current_row = -1
-#         self.delimiters = [len(d) for d in ast["delimiters"]]
-#         self.render_initialize()
-#         for child in ast["children"]:
-#             self.render(child)
-
-#     def render_table_row(self, ast):
-#         self.current_row += 1
-#         self.current_column = -1
-#         for child in ast["children"]:
-#             self.render(child)
-
-#     def render_table_cell(self, ast):
-#         self.current_column += 1
-#         width = max(6, self.delimiters[self.current_column])
-#         height = max(1, self.len_raw_text(ast) / self.delimiters[self.current_column])
-#         self.view = tk.Text(
-#             self.frame,
-#             width=width,
-#             height=height,
-#             padx=constants.TEXT_PADX,
-#             font=constants.FONT,
-#             wrap=tk.WORD,
-#             spacing1=constants.TEXT_SPACING1,
-#             spacing2=constants.TEXT_SPACING2,
-#             spacing3=constants.TEXT_SPACING3,
-#         )
-#         self.master.view_configure_tags(view=self.view)
-#         self.view.grid(
-#             row=self.current_row,
-#             column=self.current_column,
-#             sticky=(tk.W, tk.E, tk.N, tk.S),
-#         )
-#         for child in ast["children"]:
-#             self.render(child)
-#         if ast.get("header"):
-#             self.view.tag_add(constants.BOLD, "1.0", tk.INSERT)
-#         self.view.configure(state=tk.DISABLED)
-
-#     def len_raw_text(self, ast):
-#         if ast["element"] == "raw_text":
-#             return len(ast["children"])
-#         else:
-#             return sum([self.len_raw_text(c) for c in ast["children"]])
-
-#     def render_link(self, ast):
-#         raise NotImplementedError

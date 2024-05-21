@@ -13,6 +13,8 @@ from viewer import Viewer
 class IndexedViewer(Viewer):
     "Viewer for the list of indexed terms."
 
+    # self.main.indexed_viewer.display() XXX listen to event instead
+
     def __str__(self):
         return "Indexed"
 

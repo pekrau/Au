@@ -24,7 +24,7 @@ class ReferenceEditor(BaseEditor):
         self.toplevel_setup()
         self.menubar_setup()
         self.metadata_create(self.toplevel)
-        self.metadata_populate()
+        self.metadata_display()
         self.view_create(self.toplevel)
         self.view_configure_tags()
         self.view_bind_tags()
@@ -44,7 +44,7 @@ class ReferenceEditor(BaseEditor):
         self.metadata_frame.columnconfigure(1, weight=1)
         self.authors = list(self.text["authors"])
 
-    def metadata_populate(self):
+    def metadata_display(self):
         "Create entry fields for the given reference."
         for item in self.metadata_frame.grid_slaves():
             item.grid_forget()
@@ -162,7 +162,7 @@ class ReferenceEditor(BaseEditor):
             return
         self.authors.append(name)
         self.view.edit_modified(True)
-        self.metadata_populate()
+        self.metadata_display()
 
     def remove_author(self, pos):
         try:
@@ -170,4 +170,4 @@ class ReferenceEditor(BaseEditor):
         except IndexError:
             return
         self.view.edit_modified(True)
-        self.metadata_populate()
+        self.metadata_display()

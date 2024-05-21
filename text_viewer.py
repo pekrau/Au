@@ -43,8 +43,7 @@ class TextViewer(Viewer):
     TEXT_COLOR = constants.TEXT_COLOR
 
     def __init__(self, parent, main, text):
-        self.main = main
-        self.view_create(parent)
+        super().__init__(parent, main)
         self.text = text
         self.renderer = TextRenderer(main, self, self.view)
         self.display()

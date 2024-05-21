@@ -25,6 +25,7 @@ class TitleViewer(Viewer):
         self.indexed_var = tk.IntVar()
         self.references_var = tk.IntVar()
         super().__init__(parent, main)
+        self.main.root.bind(constants.TEXT_CHANGED, self.update_statistics)
 
     def __str__(self):
         return "Title"
@@ -33,6 +34,7 @@ class TitleViewer(Viewer):
         self.view.delete("1.0", tk.END)
         self.display_title()
         self.display_statistics()
+        self.update_statistics()
 
     def display_title(self):
         first = self.view.index(tk.INSERT)
@@ -67,7 +69,7 @@ class TitleViewer(Viewer):
         self.view.tag_add(constants.H_LOOKUP[3]["tag"], first, tk.INSERT)
 
     def display_statistics(self):
-        frame = tk.ttk.Frame(self.view)
+        frame = tk.ttk.Frame(self.view, padding=4)
 
         label = tk.ttk.Label(frame, text=Tr("Number of chapters") + ":")
         label.grid(row=0, column=0, sticky=tk.E, padx=4)
@@ -94,7 +96,15 @@ class TitleViewer(Viewer):
         label = tk.ttk.Label(frame, textvariable=self.references_var)
         label.grid(row=4, column=1, sticky=tk.E, padx=4)
 
+        self.view.insert(tk.INSERT, "\n")
         self.view.window_create(tk.INSERT, window=frame)
+
+    def update_statistics(self, event=None):
+        self.chapters_var.set(len(self.main.source.items))
+        self.texts_var.set(len(self.main.source.all_texts))
+        self.characters_var.set(
+            sum([t.viewer.renderer.character_count for t in self.main.source.all_texts])
+        )
 
     def edit_title(self):
         result = tk.simpledialog.askstring(

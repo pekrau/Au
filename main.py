@@ -68,7 +68,6 @@ class Main:
         self.root.bind("<Configure>", self.root_resized)
         self.root.bind("<Control-q>", self.quit)
         self.root.bind("<Control-Q>", self.quit)
-        self.root.after(constants.AGES_UPDATE_DELAY, self.treeview_update_ages)
 
         self.title = self.config["main"].get("title") or str(self.source)
         self.subtitle = self.config["main"].get("subtitle") or ""
@@ -94,9 +93,10 @@ class Main:
             self.panedwindow.sashpos(0, sash[0])
             self.panedwindow.sashpos(1, sash[1])
 
-        self.treeview_populate()
-        self.texts_notebook_populate()
-        self.meta_notebook_populate()
+        self.treeview_display()
+        self.treeview_update_ages()
+        self.texts_notebook_display()
+        self.meta_notebook_display()
 
     @property
     def configpath(self):
@@ -140,7 +140,7 @@ class Main:
         # Currently selected text, and cursor locations in all viewers.
         config["source"]["selected"] = self.treeview.focus()
         config["source"]["cursor"] = dict(
-            [(t.fullname, t.viewer.cursor) for t in self.source.all_texts]
+            [(t.fullname, t.viewer.renderer.cursor) for t in self.source.all_texts]
         )
 
         config["export"] = self.config.get("export", {})
@@ -232,6 +232,7 @@ class Main:
         while any text editors are open.
         """
         state = self.text_editors and tk.DISABLED or tk.NORMAL
+        # The index numbers depend on 'menubar_setup'.
         self.menu_edit.entryconfigure(2, state=state)  # Edit: Rename
         self.menu_edit.entryconfigure(3, state=state)  # Edit: Copy
         self.menu_edit.entryconfigure(4, state=state)  # Edit: Delete
@@ -290,7 +291,7 @@ class Main:
         self.treeview.bind("<<TreeviewClose>>", self.treeview_close)
         self.treeview.focus_set()
 
-    def treeview_populate(self):
+    def treeview_display(self):
         for child in self.treeview.get_children():
             self.treeview.delete(child)
         for item in self.source.all_items:
@@ -359,6 +360,7 @@ class Main:
         self.treeview.set(text.fullname, "age", text.age)
 
     def treeview_update_ages(self):
+        "Periodically update the ages of the texts in the treeview."
         for text in self.source.all_texts:
             self.treeview.set(text.fullname, "age", text.age)
         self.root.after(constants.AGES_UPDATE_DELAY, self.treeview_update_ages)
@@ -370,7 +372,7 @@ class Main:
         # Key: tabid; value: instance
         self.texts_notebook_lookup = {}
 
-    def texts_notebook_populate(self):
+    def texts_notebook_display(self):
         """Create views for tabs in the texts notebook.
         Also updates the text information in the treeview.
         """
@@ -398,10 +400,9 @@ class Main:
             self.treeview_set_info(text)
             # Place the cursor in the text view.
             try:
-                text.viewer.cursor = self.config["source"]["cursor"][text.fullname]
+                text.viewer.renderer.cursor = self.config["source"]["cursor"][text.fullname]
             except KeyError:
                 pass
-            self.update_statistics()
 
         # Set selected text tab in notebook.
         try:
@@ -413,6 +414,7 @@ class Main:
             self.treeview.see(text.fullname)
             self.treeview.focus(text.fullname)
             self.treeview.update()
+        # Done after having set current tab.
         self.texts_notebook.bind(
             "<<NotebookTabChanged>>", self.texts_notebook_tab_changed
         )
@@ -476,19 +478,13 @@ class Main:
                     pass
                 break
 
-    def meta_notebook_populate(self):
-        "Populate the meta notebook with contents; help panel does not change."
+
+    def meta_notebook_display(self):
+        "Display the meta notebook with contents; help panel does not change."
         self.title_viewer.display()
         # self.references_viewer.display()
         # self.indexed_viewer.display()
         # self.search_viewer.display()
-
-    def update_statistics(self):
-        self.title_viewer.chapters_var.set(len(self.source.items))
-        self.title_viewer.texts_var.set(len(self.source.all_texts))
-        self.title_viewer.characters_var.set(
-            sum([t.viewer.renderer.character_count for t in self.source.all_texts])
-        )
 
     def archive(self):
         try:
@@ -556,9 +552,10 @@ class Main:
             item.move_up()
         except ValueError:
             return "break"
+        self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index - 1)
         self.texts_notebook_reorder_tabs(item)
-        self.source.check_integrity()
+        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
         self.config_save()
         return "break"
 
@@ -575,9 +572,10 @@ class Main:
             item.move_down()
         except ValueError:
             return "break"
+        self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index + 1)
         self.texts_notebook_reorder_tabs(item)
-        self.source.check_integrity()
+        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
         self.config_save()
         return "break"
 
@@ -599,13 +597,15 @@ class Main:
             item.move_to_section(item.prev)
         except ValueError:
             return "break"
-        self.treeview_populate()  # XXX Optimize!
+        self.source.check_integrity()
+        self.treeview_display()  # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_populate()  # XXX Optimize!
+        self.texts_notebook_display()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.see(item.fullname)
         self.treeview.focus(item.fullname)
+        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
         self.config_save()
         return "break"
 
@@ -620,12 +620,14 @@ class Main:
             item.move_to_parent()
         except ValueError:
             return "break"
-        self.treeview_populate()  # XXX Optimize!
+        self.source.check_integrity()
+        self.treeview_display()  # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_populate()  # XXX Optimize!
+        self.texts_notebook_display()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
+        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
         self.config_save()
         return "break"
 
@@ -657,15 +659,18 @@ class Main:
             index = self.treeview.index(fullname)
             self.treeview.delete(fullname)
             self.add_treeview_entry(item, index=index)
+            self.treeview_set_info(item)
             self.texts_notebook.tab(item.tabid, text=item.name)
             item.viewer.display()
         elif item.is_section:
-            self.treeview_populate()  # XXX Optimize!
+            self.treeview_display()  # XXX Optimize!
             self.treeview.update()
-            self.texts_notebook_populate()  # XXX Optimize!
+            self.texts_notebook_display()  # XXX Optimize!
             self.texts_notebook.update()
+        self.source.check_integrity()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
+        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
         self.config_save()
 
     def copy(self):
@@ -690,13 +695,14 @@ class Main:
                 message="Could not generate a unique name for the copy.",
             )
             return
-        self.treeview_populate()  # XXX Optimize!
+        self.source.check_integrity()
+        self.treeview_display()  # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_populate()  # XXX Optimize!
+        self.texts_notebook_display()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(newitem.fullname)
         self.treeview.focus(newitem.fullname)
-        self.source.check_integrity()
+        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
         self.config_save()
 
     def delete(self):
@@ -726,11 +732,12 @@ class Main:
             item.delete()
         else:
             item.delete()
-            self.treeview_populate()  # XXX Optimize!
+            self.treeview_display()  # XXX Optimize!
             self.treeview.update()
-            self.texts_notebook_populate()  # XXX Optimize!
+            self.texts_notebook_display()  # XXX Optimize!
             self.texts_notebook.update()
         self.source.check_integrity()
+        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
         self.config_save()
 
     def open_text_editor(self, event=None, text=None):
@@ -746,7 +753,7 @@ class Main:
             editor = self.text_editors[text.fullname]
         except KeyError:
             editor = TextEditor(self, text)
-            editor.cursor = text.viewer.cursor
+            editor.renderer.cursor = text.viewer.renderer.cursor
             self.text_editors[text.fullname] = editor
         else:
             editor.toplevel.lift()
@@ -786,14 +793,15 @@ class Main:
                 parent=self.treeview, title="Error", message=str(error)
             )
             return
-        self.treeview_populate()  # XXX Optimize!
+        self.source.check_integrity()
+        self.treeview_display()  # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_populate()  # XXX Optimize!
+        self.texts_notebook_display()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(text.fullname)
         self.treeview.see(text.fullname)
         self.treeview.focus(text.fullname)
-        self.source.check_integrity()
+        self.root.event_generate(constants.TEXT_CHANGED) # Update various displays.
         self.config_save()
 
     def create_section(self):
@@ -816,14 +824,14 @@ class Main:
                 parent=self.treeview, title="Error", message=str(error)
             )
             return
-        self.treeview_populate()  # XXX Optimize!
+        self.source.check_integrity()
+        self.treeview_display()  # XXX Optimize!
         self.treeview.update()
-        self.texts_notebook_populate()  # XXX Optimize!
+        self.texts_notebook_display()  # XXX Optimize!
         self.texts_notebook.update()
         self.treeview.selection_set(section.fullname)
         self.treeview.see(section.fullname)
         self.treeview.focus(section.fullname)
-        self.source.check_integrity()
         self.config_save()
 
     def popup_menu(self, event):
