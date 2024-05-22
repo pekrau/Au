@@ -25,13 +25,18 @@ class SearchViewer(Viewer):
         return "Search"
 
     def view_create(self, parent):
+        """Create an outer super-frame to contain the search entry box
+        and the view frame.
+        """
         self.super_frame = tk.ttk.Frame(parent)
         self.super_frame.pack(fill=tk.BOTH, expand=True)
+
         self.entry_frame = tk.ttk.Frame(self.super_frame, padding=6)
         self.entry_frame.pack(fill=tk.X)
         self.entry_frame.columnconfigure(1, weight=1)
 
-        tk.ttk.Label(self.entry_frame, text="Term").grid(row=0, column=0, padx=4)
+        label = tk.ttk.Label(self.entry_frame, text=Tr("Term"))
+        label.grid(row=0, column=0, padx=4)
         self.search_entry = tk.ttk.Entry(self.entry_frame)
         self.search_entry.grid(row=0, column=1, sticky=(tk.E, tk.W), padx=4)
         self.search_entry.bind("<Return>", self.search)

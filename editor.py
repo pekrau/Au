@@ -22,6 +22,11 @@ class Editor(TextViewer):
     "Base text editor class."
 
     def __init__(self, main, text):
+        self.toplevel_create(main, text)
+        super().__init__(self.toplevel, main, text)
+        self.menubar_create()
+
+    def toplevel_create(self, main, text):
         self.toplevel = tk.Toplevel(main.root)
         self.toplevel.title(f"{Tr('Edit')}: {text.fullname}")
         self.toplevel.bind("<Control-s>", self.save)
@@ -29,12 +34,10 @@ class Editor(TextViewer):
         self.toplevel.bind("<Control-q>", self.close)
         self.toplevel.bind("<Control-Q>", self.close)
         self.toplevel.protocol("WM_DELETE_WINDOW", self.close)
+
+    def menubar_create(self):
         self.menubar = tk.Menu(self.toplevel, background="gold")
         self.toplevel["menu"] = self.menubar
-        super().__init__(self.toplevel, main, text)
-        self.menubar_setup()
-
-    def menubar_setup(self):
         self.original_menubar_background = self.menubar.cget("background")
         self.menubar_changed_by_selection = set()
         self.menubar.add_command(
@@ -46,7 +49,12 @@ class Editor(TextViewer):
 
         self.menu_file = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_file, label=Tr("File"))
-        self.menubar_file_setup()
+        self.menu_file.add_command(
+            label=Tr("Save"), command=self.save, accelerator="Ctrl-S"
+        )
+        self.menu_file.add_command(
+            label=Tr("Close"), command=self.close, accelerator="Ctrl-Q"
+        )
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
@@ -75,14 +83,6 @@ class Editor(TextViewer):
             label=Tr("Link"), command=self.link_add, state=tk.DISABLED
         )
         self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
-
-    def menubar_file_setup(self):
-        self.menu_file.add_command(
-            label=Tr("Save"), command=self.save, accelerator="Ctrl-S"
-        )
-        self.menu_file.add_command(
-            label=Tr("Close"), command=self.close, accelerator="Ctrl-Q"
-        )
 
     def bind_tags(self):
         super().bind_tags()
@@ -521,7 +521,7 @@ class Editor(TextViewer):
         self.line_indented = False
         self.skip_text = False
 
-    def save_postdump(self):
+    def save_after_dump(self):
         "Perform save operations after having done dump-to-Markdown."
         pass
 
@@ -636,9 +636,6 @@ class Editor(TextViewer):
                 message=f"{Tr('Modifications will not be saved.')} {Tr('Really')} {Tr('close?')}",
             ):
                 return "break"  # When called by keyboard event.
-        # self.ignore_modified_event = True
-        # self.view.edit_modified(False)
-        # self.modified = False
         self.close_finalize()
         self.toplevel.destroy()
         return "break"  # When called by keyboard event.

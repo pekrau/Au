@@ -21,8 +21,8 @@ class TextEditor(Editor):
 
     TEXT_COLOR = constants.EDIT_COLOR
 
-    def menubar_setup(self):
-        super().menubar_setup()
+    def menubar_create(self):
+        super().menubar_create()
         self.menubar.add_command(
             label=Tr("Indexed"), command=self.indexed_add, state=tk.DISABLED
         )

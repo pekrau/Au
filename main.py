@@ -24,8 +24,8 @@ from text_viewer import TextViewer
 from text_editor import TextEditor
 from title_viewer import TitleViewer
 from indexed_viewer import IndexedViewer
-# from references_viewer import ReferencesViewer
-# from reference_editor import ReferenceEditor
+from references_viewer import ReferencesViewer
+from reference_editor import ReferenceEditor
 from search_viewer import SearchViewer
 from help_viewer import HelpViewer
 
@@ -449,12 +449,12 @@ class Main:
         self.indexed_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
-        # self.references_viewer = ReferencesViewer(self.meta_notebook, self)
-        # self.meta_notebook.add(self.references_viewer.view_frame, text=Tr("References"))
-        # self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
-        # self.references_viewer.view.bind("<Control-q>", self.quit)
-        # self.references_viewer.view.bind("<Control-Q>", self.quit)
-        # self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
+        self.references_viewer = ReferencesViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.references_viewer.super_frame, text=Tr("References"))
+        self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.references_viewer.view.bind("<Control-q>", self.quit)
+        self.references_viewer.view.bind("<Control-Q>", self.quit)
+        self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
 
         self.search_viewer = SearchViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.search_viewer.super_frame, text=Tr("Search"))
@@ -485,7 +485,7 @@ class Main:
         "Display the meta notebook with contents; help panel does not change."
         self.title_viewer.display()
         self.indexed_viewer.display()
-        # self.references_viewer.display()
+        self.references_viewer.display()
         self.search_viewer.display()
 
     def archive(self):
@@ -756,7 +756,7 @@ class Main:
             editor = TextEditor(self, text)
             editor.display()
             editor.cursor = text.viewer.cursor
-            editor.view.edit_modified(False)
+            editor.modified = False
             self.text_editors[text.fullname] = editor
         else:
             editor.toplevel.lift()
@@ -770,10 +770,12 @@ class Main:
             editor = self.reference_editors[reference.fullname]
         except KeyError:
             editor = ReferenceEditor(self, viewer, reference)
+            editor.display()
+            editor.cursor_home()
+            editor.modified = False
             self.reference_editors[reference.fullname] = editor
         else:
             editor.toplevel.lift()
-        editor.display()
         editor.view.update()
         editor.view.focus_set()
         return "break"

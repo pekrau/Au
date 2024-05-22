@@ -1,42 +1,39 @@
 "Reference editor; also for viewing abstract and notes."
 
-from icecream import ic
-
 import functools
 
 import tkinter as tk
 import tkinter.ttk
 
+from icecream import ic
+
 import constants
 import utils
 
-from text_editor import BaseEditor
+from editor import Editor
 from utils import Tr
 
 
-class ReferenceEditor(BaseEditor):
+class ReferenceEditor(Editor):
     "Edit a reference."
 
     def __init__(self, main, viewer, text):
         self.main = main
         self.viewer = viewer
         self.text = text
-        self.toplevel_setup()
-        self.menubar_setup()
+        self.toplevel_create(main, text)
+        self.menubar_create()
         self.metadata_create(self.toplevel)
         self.metadata_display()
         self.view_create(self.toplevel)
-        self.view_configure_tags()
-        self.view_bind_tags()
-        self.view_bind_keys()
-        self.display(reread_text=False)
-        self.view.edit_modified(False)
-        self.cursor_home()
+        self.configure_tags()
+        self.bind_tags()
+        self.bind_events()
 
-    def menubar_file_setup(self):
+    def menubar_create(self):
+        super().menubar_create()
         state = self.text.get("orphan") and tk.NORMAL or tk.DISABLED
         self.menu_file.add_command(label=Tr("Delete"), state=state, command=self.delete)
-        super().menubar_file_setup()
 
     def metadata_create(self, parent):
         self.metadata_frame = tk.ttk.Frame(parent)

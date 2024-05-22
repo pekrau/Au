@@ -22,49 +22,53 @@ from viewer import Viewer
 class ReferencesViewer(Viewer):
     "Viewer for the references."
 
-    # self.root.bind(constants.TEXT_CHANGED, self.references_viewer.display)
-
     def __init__(self, parent, main):
-        self.main = main
-        self.super_frame = tk.ttk.Frame(parent)
-        self.super_frame.pack(fill=tk.BOTH, expand=True)
-        self.actions_create(self.super_frame)
-        self.view_create(self.super_frame)
-        self.read()
+        super().__init__(parent, main)
+        self.read_references()
 
     def __str__(self):
         return "References"
 
-    def actions_create(self, parent):
-        self.actions_frame = tk.ttk.Frame(parent, padding=6)
+    def view_create(self, parent):
+        """Create an outer super-frame to contain the action buttons
+        and the view frame.
+        """
+        self.super_frame = tk.ttk.Frame(parent)
+        self.super_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.actions_frame = tk.ttk.Frame(self.super_frame, padding=6)
         self.actions_frame.pack(fill=tk.X)
         self.actions_frame.columnconfigure(0, weight=1)
         self.actions_frame.columnconfigure(1, weight=1)
-        tk.ttk.Button(
+
+        button = tk.ttk.Button(
             self.actions_frame,
             text=Tr("Import BibTeX"),
             padding=4,
             command=self.import_bibtex,
-        ).grid(row=0, column=0)
-        tk.ttk.Button(
+        )
+        button.grid(row=0, column=0)
+
+        button = tk.ttk.Button(
             self.actions_frame,
             text=Tr("Add manually"),
             padding=4,
             command=self.add_manually,
-        ).grid(row=0, column=1)
-
-    def view_configure_tags(self):
-        "Configure the key bindings used in the 'view' tk.Text instance."
-        self.view.tag_configure(
-            constants.LINK,
-            font=constants.FONT_SMALL,
-            foreground=constants.LINK_COLOR,
-            underline=True,
         )
+        button.grid(row=0, column=1)
+
+        super().view_create(self.super_frame)
+
+    def configure_tags(self):
+        "Reconfigure and add some tags."
+        super().configure_tags()
+        self.view.tag_configure(constants.LINK, font=constants.FONT_SMALL)
         self.view.tag_configure(
             constants.REFERENCE,
             spacing1=constants.REFERENCE_SPACING,
             lmargin2=constants.REFERENCE_INDENT,
+            foreground="black",
+            underline=False,
         )
         self.view.tag_configure(
             constants.XREF,
@@ -75,28 +79,36 @@ class ReferencesViewer(Viewer):
             underline=True,
         )
 
-    def read(self):
-        "Read all references."
+    def bind_tags(self):
+        "Remove tag binding that is irrelevant in this context."
+        super().bind_tags()
+        self.view.tag_unbind(constants.REFERENCE, "<Button-1>")
+
+    def read_references(self):
         self.source = Source(
             os.path.join(self.main.absdirpath, constants.REFERENCES_DIRNAME)
         )
-        self.references = [t for t in self.source.all_texts if "id" in t]
-        self.references.sort(key=lambda r: r["id"])
-        self.references_lookup = dict([(r["id"], r) for r in self.references])
+        self.reference_texts = [t for t in self.source.all_texts if "id" in t]
+        self.reference_texts.sort(key=lambda r: r["id"])
+        self.reference_lookup = dict([(r["id"], r) for r in self.reference_texts])
+        # This variable is already displayed, so needs to be updated.
+        self.main.title_viewer.references_var.set(len(self.reference_texts))
 
-    def display(self, event=None):
-        self.view.delete("1.0", tk.END)
+    def display_title(self):
+        pass
 
-        self.references_pos = {}  # Key: reference id; value: position here.
-        self.highlighted = None  # Currently highlighted range.
-        texts_pos = {}  # Position in the source text.
+    def display_initialize(self):
+        super().display_initialize()
+        self.reference_pos = {}  # Key: reference id; value: position here.
+        self.texts_pos = {}      # Position in the source text.
         for text in self.main.source.all_texts:
             for id, positions in text.viewer.references.items():
-                texts_pos.setdefault(id, {})[text.fullname] = list(sorted(positions))
+                self.texts_pos.setdefault(id, {})[text.fullname] = list(sorted(positions))
 
-        for reference in self.references:
+    def display_view(self):
+        for reference in self.reference_texts:
             first = self.view.index(tk.INSERT)
-            self.references_pos[reference["id"]] = first
+            self.reference_pos[reference["id"]] = first
 
             tag = f"{constants.REFERENCE_PREFIX}{reference['id']}"
             self.view.tag_configure(
@@ -209,7 +221,7 @@ class ReferencesViewer(Viewer):
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
 
             # Get the texts that use this reference.
-            fullnames = texts_pos.get(reference["id"]) or {}
+            fullnames = self.texts_pos.get(reference["id"]) or {}
             reference["orphan"] = not fullnames
             for fullname, positions in sorted(fullnames.items()):
                 self.view.insert(tk.INSERT, "\n")
@@ -219,9 +231,6 @@ class ReferencesViewer(Viewer):
                     self.view.insert(tk.INSERT, ", ")
                     self.xref_create(str(i), position, constants.REFERENCE)
             self.view.insert(tk.INSERT, "\n")
-
-        # This is already displayed, so needs to be updated.
-        self.main.title_viewer.references_var.set(len(self.references))
 
     def reference_enter(self, event):
         self.view.configure(cursor="hand2")
@@ -235,7 +244,7 @@ class ReferencesViewer(Viewer):
     def highlight(self, refid):
         "Highlight and show the reference; show this pane."
         try:
-            first = self.references_pos[refid]
+            first = self.reference_pos[refid]
         except KeyError:
             return
         if self.highlighted:
@@ -274,9 +283,11 @@ class ReferencesViewer(Viewer):
         return None
 
     def reference_add(self, reference):
-        self.references.append(reference)
-        self.references.sort(key=lambda r: r["id"])
-        self.references_lookup[reference["id"]] = reference
+        self.reference_texts.append(reference)
+        self.reference_texts.sort(key=lambda r: r["id"])
+        self.reference_lookup[reference["id"]] = reference
+        # This is already displayed, so needs to be updated.
+        self.main.title_viewer.references_var.set(len(self.reference_texts))
 
 
 class BibtexImport(tk.simpledialog.Dialog):
