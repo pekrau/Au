@@ -10,6 +10,7 @@ import tkinter.simpledialog
 import tkinter.filedialog
 
 import docx
+
 # from docx.enum.style import WD_STYLE_TYPE
 
 import constants
@@ -45,8 +46,12 @@ class Exporter:
         style = self.document.styles.add_style(
             constants.DOCX_QUOTE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
         )
-        style.paragraph_format.left_indent = docx.shared.Pt(constants.DOCX_QUOTE_LEFT_INDENT)
-        style.paragraph_format.right_indent = docx.shared.Pt(constants.DOCX_QUOTE_RIGHT_INDENT)
+        style.paragraph_format.left_indent = docx.shared.Pt(
+            constants.DOCX_QUOTE_LEFT_INDENT
+        )
+        style.paragraph_format.right_indent = docx.shared.Pt(
+            constants.DOCX_QUOTE_RIGHT_INDENT
+        )
         style.font.name = constants.DOCX_QUOTE_FONT
 
         # Set Dublin core metadata.

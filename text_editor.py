@@ -26,9 +26,7 @@ class TextEditor(Editor):
         self.menubar.add_command(
             label=Tr("Indexed"), command=self.indexed_add, state=tk.DISABLED
         )
-        self.menubar.add_command(
-            label=Tr("Reference"), command=self.reference_add
-        )
+        self.menubar.add_command(label=Tr("Reference"), command=self.reference_add)
         self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
         self.menubar.add_command(
             label=Tr("Footnote"), command=self.footnote_add, state=tk.DISABLED

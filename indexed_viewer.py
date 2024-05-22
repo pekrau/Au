@@ -23,12 +23,12 @@ class IndexedViewer(Viewer):
             constants.INDEXED,
             spacing1=constants.INDEXED_SPACING,
             font=constants.INDEXED_FONT,
-            underline=False
+            underline=False,
         )
         self.view.tag_configure(
             constants.XREF,
             lmargin1=constants.INDEXED_INDENT,
-            font=constants.INDEXED_XREF_FONT
+            font=constants.INDEXED_XREF_FONT,
         )
 
     def display_initialize(self):
@@ -54,8 +54,9 @@ class IndexedViewer(Viewer):
                 self.xref_create(fullname, positions[0], constants.INDEXED)
                 for i, position in enumerate(positions[1:], start=2):
                     self.view.insert(tk.INSERT, ", ")
-                    self.xref_create(fullname, position, constants.INDEXED,
-                                     label=str(i))
+                    self.xref_create(
+                        fullname, position, constants.INDEXED, label=str(i)
+                    )
                 self.view.insert(tk.INSERT, "\n")
 
     def display_finalize(self):

@@ -197,7 +197,11 @@ class Source:
     def check_integrity(self):
         assert os.path.exists(self.abspath), (self, self.abspath)
         assert os.path.isdir(self.abspath), (self, self.abspath)
-        assert len(self.lookup) == len(self.all_items), (self, len(self.lookup), len(self.all_items))
+        assert len(self.lookup) == len(self.all_items), (
+            self,
+            len(self.lookup),
+            len(self.all_items),
+        )
         for item in self.all_items:
             assert item.source is self, (self, item)
             assert isinstance(item, Text) or isinstance(item, Section), (self, item)

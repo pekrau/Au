@@ -33,7 +33,9 @@ class ReferenceEditor(Editor):
     def menubar_create(self):
         super().menubar_create()
         state = self.text.get("orphan") and tk.NORMAL or tk.DISABLED
-        self.menu_file.add_command(label=Tr("Delete"), state=state, command=self.delete)
+        self.menu_file.insert_command(
+            0, label=Tr("Delete"), state=state, command=self.delete
+        )
 
     def metadata_create(self, parent):
         self.metadata_frame = tk.ttk.Frame(parent)

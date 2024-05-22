@@ -94,7 +94,7 @@ class SearchViewer(Viewer):
             text_view = text.viewer.view
             found = []
             elided_tags = set()
-            for tag in text_view.tag_names():   # Elide bug workaround. See above.
+            for tag in text_view.tag_names():  # Elide bug workaround. See above.
                 if text_view.tag_cget(tag, "elide"):
                     elided_tags.add(tag)
                     text_view.tag_configure(tag, elide=False)
@@ -118,7 +118,7 @@ class SearchViewer(Viewer):
                     stopindex=tk.END,
                     count=count_var,
                 )
-            for tag in elided_tags:             # Elide bug workaround. See above.
+            for tag in elided_tags:  # Elide bug workaround. See above.
                 text_view.tag_configure(tag, elide=True)
             if found:
                 self.result.append((text, found))

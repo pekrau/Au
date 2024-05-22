@@ -58,15 +58,9 @@ class Editor(TextViewer):
 
         self.menu_edit = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_edit, label=Tr("Edit"))
-        self.menu_edit.add_command(
-            label=Tr("Copy"), command=self.clipboard_copy
-        )
-        self.menu_edit.add_command(
-            label=Tr("Cut"), command=self.clipboard_cut
-        )
-        self.menu_edit.add_command(
-            label=Tr("Paste"), command=self.clipboard_paste
-        )
+        self.menu_edit.add_command(label=Tr("Copy"), command=self.clipboard_copy)
+        self.menu_edit.add_command(label=Tr("Cut"), command=self.clipboard_cut)
+        self.menu_edit.add_command(label=Tr("Paste"), command=self.clipboard_paste)
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(
@@ -74,9 +68,7 @@ class Editor(TextViewer):
         )
         self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
         self.menu_format.add_command(label=Tr("Bold"), command=self.bold_add)
-        self.menu_format.add_command(
-            label=Tr("Italic"), command=self.italic_add
-        )
+        self.menu_format.add_command(label=Tr("Italic"), command=self.italic_add)
         self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
 
         self.menubar.add_command(
@@ -205,7 +197,7 @@ class Editor(TextViewer):
             return
         try:
             first, last = self.view.tag_prevrange(constants.ITALIC, tk.CURRENT)
-        except ValueError:      # XXX Not sure why this is needed?
+        except ValueError:  # XXX Not sure why this is needed?
             first, last = self.view.tag_nextrange(constants.ITALIC, tk.CURRENT)
         self.view.tag_remove(constants.ITALIC, first, last)
         self.modified = True
@@ -456,7 +448,6 @@ class Editor(TextViewer):
     def undump_tagon(self, entry, tags):
         tags[entry[1]] = dict(first=self.view.index(tk.INSERT))
         if entry[1].startswith(constants.FOOTNOTE_REF_PREFIX):
-
             tags[entry[1]]["label"] = self.get_new_footnote_label()
             self.skip_text = True
         elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
@@ -509,8 +500,6 @@ class Editor(TextViewer):
         self.save_after_dump()
         self.text.write(self.outfile.getvalue())
         self.menubar.configure(background=self.original_menubar_background)
-        # self.ignore_modified_event = True
-        # self.view.edit_modified(False)
         self.modified = False
         self.save_finalize()
 
@@ -570,8 +559,6 @@ class Editor(TextViewer):
         try:
             method = getattr(self, f"markdown_tagon_{item[1]}")
         except AttributeError:
-            # if item[1].startswith(constants.LIST_PREFIX):
-            #     self.markdown_start_list(item[1])
             pass
         else:
             method(item)
@@ -580,8 +567,6 @@ class Editor(TextViewer):
         try:
             method = getattr(self, f"markdown_tagoff_{item[1]}")
         except AttributeError:
-            # if item[1].startswith(constants.LIST_PREFIX):
-            #     self.markdown_finish_list(item[1])
             pass
         else:
             method(item)

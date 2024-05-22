@@ -321,7 +321,6 @@ class Main:
         else:
             if item.is_text:
                 self.texts_notebook.select(item.tabid)
-                item.viewer.view.focus_set()
 
     def treeview_open(self, event=None):
         fullname = self.treeview.focus()
@@ -416,7 +415,7 @@ class Main:
             self.treeview.focus(text.fullname)
             self.treeview.update()
 
-        # Must be done after having set current tab.
+        # This must be done after having set current tab.
         self.texts_notebook.bind(
             "<<NotebookTabChanged>>", self.texts_notebook_tab_changed
         )
@@ -432,7 +431,7 @@ class Main:
         self.meta_notebook = tk.ttk.Notebook(self.panedwindow)
         self.panedwindow.add(self.meta_notebook)
 
-        # key: tabid; value: instance
+        # Key: tabid; value: instance
         self.meta_notebook_lookup = {}
 
         self.title_viewer = TitleViewer(self.meta_notebook, self)
@@ -450,7 +449,9 @@ class Main:
         self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
         self.references_viewer = ReferencesViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.references_viewer.super_frame, text=Tr("References"))
+        self.meta_notebook.add(
+            self.references_viewer.super_frame, text=Tr("References")
+        )
         self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
         self.references_viewer.view.bind("<Control-q>", self.quit)
         self.references_viewer.view.bind("<Control-Q>", self.quit)
@@ -557,7 +558,6 @@ class Main:
         self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index - 1)
         self.texts_notebook_reorder_tabs(item)
-        self.title_viewer.update_statistics()
         self.config_save()
         return "break"
 
@@ -577,7 +577,6 @@ class Main:
         self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index + 1)
         self.texts_notebook_reorder_tabs(item)
-        self.title_viewer.update_statistics()
         self.config_save()
         return "break"
 
@@ -600,14 +599,14 @@ class Main:
         except ValueError:
             return "break"
         self.source.check_integrity()
-        self.treeview_display()  # XXX Optimize!
+        self.treeview_display()
         self.treeview.update()
-        self.texts_notebook_display()  # XXX Optimize!
+        self.texts_notebook_display()
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.see(item.fullname)
         self.treeview.focus(item.fullname)
-        self.title_viewer.update_statistics()
+        self.meta_notebook_display()
         self.config_save()
         return "break"
 
@@ -623,13 +622,13 @@ class Main:
         except ValueError:
             return "break"
         self.source.check_integrity()
-        self.treeview_display()  # XXX Optimize!
+        self.treeview_display()
         self.treeview.update()
-        self.texts_notebook_display()  # XXX Optimize!
+        self.texts_notebook_display()
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
-        self.title_viewer.update_statistics()
+        self.meta_notebook_display()
         self.config_save()
         return "break"
 
@@ -665,9 +664,9 @@ class Main:
             self.texts_notebook.tab(item.tabid, text=item.name)
             item.viewer.display()
         elif item.is_section:
-            self.treeview_display()  # XXX Optimize!
+            self.treeview_display()
             self.treeview.update()
-            self.texts_notebook_display()  # XXX Optimize!
+            self.texts_notebook_display()
             self.texts_notebook.update()
         self.source.check_integrity()
         self.treeview.selection_set(item.fullname)
@@ -697,9 +696,9 @@ class Main:
             )
             return
         self.source.check_integrity()
-        self.treeview_display()  # XXX Optimize!
+        self.treeview_display()
         self.treeview.update()
-        self.texts_notebook_display()  # XXX Optimize!
+        self.texts_notebook_display()
         self.texts_notebook.update()
         self.treeview.selection_set(newitem.fullname)
         self.treeview.focus(newitem.fullname)
@@ -733,9 +732,9 @@ class Main:
             item.delete()
         else:
             item.delete()
-            self.treeview_display()  # XXX Optimize!
+            self.treeview_display()
             self.treeview.update()
-            self.texts_notebook_display()  # XXX Optimize!
+            self.texts_notebook_display()
             self.texts_notebook.update()
         self.source.check_integrity()
         self.title_viewer.update_statistics()
@@ -800,9 +799,9 @@ class Main:
             )
             return
         self.source.check_integrity()
-        self.treeview_display()  # XXX Optimize!
+        self.treeview_display()
         self.treeview.update()
-        self.texts_notebook_display()  # XXX Optimize!
+        self.texts_notebook_display()
         self.texts_notebook.update()
         self.treeview.selection_set(text.fullname)
         self.treeview.see(text.fullname)
@@ -831,9 +830,9 @@ class Main:
             )
             return
         self.source.check_integrity()
-        self.treeview_display()  # XXX Optimize!
+        self.treeview_display()
         self.treeview.update()
-        self.texts_notebook_display()  # XXX Optimize!
+        self.texts_notebook_display()
         self.texts_notebook.update()
         self.treeview.selection_set(section.fullname)
         self.treeview.see(section.fullname)

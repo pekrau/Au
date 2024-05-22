@@ -100,10 +100,12 @@ class ReferencesViewer(Viewer):
     def display_initialize(self):
         super().display_initialize()
         self.reference_pos = {}  # Key: reference id; value: position here.
-        self.texts_pos = {}      # Position in the source text.
+        self.texts_pos = {}  # Position in the source text.
         for text in self.main.source.all_texts:
             for id, positions in text.viewer.references.items():
-                self.texts_pos.setdefault(id, {})[text.fullname] = list(sorted(positions))
+                self.texts_pos.setdefault(id, {})[text.fullname] = list(
+                    sorted(positions)
+                )
 
     def display_view(self):
         for reference in self.reference_texts:
