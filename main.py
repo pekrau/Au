@@ -54,6 +54,7 @@ class Main:
 
         self.root = tk.Tk()
         font_families = set(tk.font.families())
+        # ic(font_families)
         assert constants.FONT in font_families
         assert constants.QUOTE_FONT in font_families
 

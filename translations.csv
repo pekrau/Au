@@ -54,8 +54,17 @@ reference id,referens id
 cut,klipp
 paste,klistra
 bold,fetstil
+remove bold?,ta bort fetstil?
+really remove bold?,verkligen ta bort fetstil?
 italic,kursiv
+remove italic?,ta bort kursiv?
+really remove italic?,verkligen ta bort kursiv?
 quote,citat
+remove quote?,ta bort citat?
+really remove quote?,verkligen ta bort citat?
+code,kod
+remove code?,ta bort kod?
+really remove code?,verkligen ta bort kod?
 heading,rubrik
 ordered,numrerad
 unordered,onumrerad

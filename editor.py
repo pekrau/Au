@@ -70,6 +70,7 @@ class Editor(TextViewer):
         self.menu_format.add_command(label=Tr("Bold"), command=self.bold_add)
         self.menu_format.add_command(label=Tr("Italic"), command=self.italic_add)
         self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
+        self.menu_format.add_command(label=Tr("Code"), command=self.code_add)
 
         self.menubar.add_command(
             label=Tr("Link"), command=self.link_add, state=tk.DISABLED
@@ -81,6 +82,7 @@ class Editor(TextViewer):
         self.view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
         self.view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
         self.view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
+        self.view.tag_bind(constants.CODE, "<Button-1>", self.code_remove)
         self.view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
     def bind_events(self):
@@ -142,6 +144,7 @@ class Editor(TextViewer):
                 menu.add_command(label=Tr("Bold"), command=self.bold_add)
                 menu.add_command(label=Tr("Italic"), command=self.italic_add)
                 menu.add_command(label=Tr("Quote"), command=self.quote_add)
+                menu.add_command(label=Tr("Code"), command=self.code_add)
                 menu.add_separator()
                 menu.add_command(label=Tr("Link"), command=self.link_add)
                 self.popup_menu_add_selected(menu)
@@ -170,8 +173,8 @@ class Editor(TextViewer):
             return
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
-            title=f"{Tr('Remove')} {Tr('bold')}?",
-            message=f"{Tr('Really')} {Tr('remove')} {Tr('bold')}?",
+            title=f"{Tr('Remove bold?')}",
+            message=f"{Tr('Really remove bold?')}",
         ):
             return
         first, last = self.view.tag_prevrange(constants.BOLD, tk.CURRENT)
@@ -191,8 +194,8 @@ class Editor(TextViewer):
             return
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
-            title=f"{Tr('Remove')} {Tr('italic')}?)",
-            message=f"{Tr('Really')} {Tr('remove')} {Tr('italic')}?)",
+            title=f"{Tr('Remove italic?')}",
+            message=f"{Tr('Really remove italic?')}",
         ):
             return
         try:
@@ -219,12 +222,37 @@ class Editor(TextViewer):
             return
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
-            title=f"{Tr('Remove')} {Tr('quote')}?)",
-            message=f"{Tr('Really')} {Tr('remove')} {Tr('quote')}?)",
+            title=f"{Tr('Remove quote?')}",
+            message=f"{Tr('Really remove quote?')}",
         ):
             return
         first, last = self.view.tag_prevrange(constants.QUOTE, tk.CURRENT)
         self.view.tag_remove(constants.QUOTE, first, last)
+        self.modified = True
+
+    def code_add(self):
+        try:
+            first, last = self.get_selection()
+        except ValueError:
+            return
+        self.view.tag_add(constants.CODE, first, last)
+        if "\n\n" not in self.view.get(last, last + "+2c"):
+            self.view.insert(last, "\n\n")
+        if "\n\n" not in self.view.get(first + "-2c", first):
+            self.view.insert(first, "\n\n")
+        self.modified = True
+
+    def code_remove(self, event):
+        if constants.CODE not in self.view.tag_names(tk.CURRENT):
+            return
+        if not tk.messagebox.askokcancel(
+            parent=self.toplevel,
+            title=f"{Tr('Remove code?')}",
+            message=f"{Tr('Really remove code?')}",
+        ):
+            return
+        first, last = self.view.tag_prevrange(constants.CODE, tk.CURRENT)
+        self.view.tag_remove(constants.CODE, first, last)
         self.modified = True
 
     def link_action(self, event):
@@ -588,6 +616,14 @@ class Editor(TextViewer):
 
     def markdown_tagoff_quote(self, item):
         self.line_indents.pop()
+
+    def markdown_tagon_code(self, item):
+        self.save_characters("```\n")
+
+    def markdown_tagoff_code(self, item):
+        self.outfile.write("\n")
+        self.line_indented = False
+        self.save_characters("```")
 
     def markdown_tagon_thematic_break(self, item):
         self.skip_text = True

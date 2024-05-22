@@ -76,6 +76,12 @@ class Viewer:
             font=constants.QUOTE_FONT,
         )
         self.view.tag_configure(
+            constants.CODE,
+            lmargin1=constants.CODE_INDENT,
+            lmargin2=constants.CODE_INDENT,
+            font=constants.CODE_FONT,
+        )
+        self.view.tag_configure(
             constants.THEMATIC_BREAK, font=constants.FONT_BOLD, justify=tk.CENTER
         )
         self.view.tag_configure(constants.INDEXED, underline=True)
@@ -285,7 +291,7 @@ class Viewer:
         children = ast["children"]
         if type(children) == str:
             if children[-1] == "\n":
-                children[-1] = " "
+                children = children[:-1] + " "
             self.view.insert(tk.INSERT, children)
 
     def render_line_break(self, ast):
@@ -301,6 +307,16 @@ class Viewer:
         for child in ast["children"]:
             self.render(child)
         self.view.tag_add(constants.QUOTE, first, tk.INSERT)
+
+    def render_code_block(self, ast):
+        self.render_fenced_code(ast)
+
+    def render_fenced_code(self, ast):
+        self.conditional_line_break(flag=True)
+        first = self.view.index(tk.INSERT)
+        for child in ast["children"]:
+            self.render(child)
+        self.view.tag_add(constants.CODE, first, tk.INSERT)
 
     def render_literal(self, ast):
         self.view.insert(tk.INSERT, ast["children"])
