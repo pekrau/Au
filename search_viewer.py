@@ -1,30 +1,33 @@
 "Viewer for the search feature and resulting list."
 
-from icecream import ic
-
 import functools
 
 import tkinter as tk
 import tkinter.ttk
 
+from icecream import ic
+
 import constants
 import utils
-from base_viewer import BaseViewer
+
+from viewer import Viewer
 from utils import Tr
 
 
-class SearchViewer(BaseViewer):
+class SearchViewer(Viewer):
     "Viewer for the search feature and resulting list."
 
-    # self.main.search_viewer.clear()
+    def __init__(self, parent, main):
+        super().__init__(parent, main)
+        self.result = []
 
     def __str__(self):
         return "Search"
 
     def view_create(self, parent):
-        self.frame = tk.ttk.Frame(parent)
-        self.frame.pack(fill=tk.BOTH, expand=True)
-        self.entry_frame = tk.ttk.Frame(self.frame, padding=6)
+        self.super_frame = tk.ttk.Frame(parent)
+        self.super_frame.pack(fill=tk.BOTH, expand=True)
+        self.entry_frame = tk.ttk.Frame(self.super_frame, padding=6)
         self.entry_frame.pack(fill=tk.X)
         self.entry_frame.columnconfigure(1, weight=1)
 
@@ -54,60 +57,43 @@ class SearchViewer(BaseViewer):
         )
         self.search_regexp.grid(row=2, column=1, sticky=tk.W)
 
-        self.result_frame = tk.ttk.Frame(self.frame)
-        self.result_frame.pack(fill=tk.BOTH, expand=True)
-        self.result_frame.rowconfigure(0, weight=1)
-        self.result_frame.columnconfigure(0, weight=1)
+        super().view_create(self.super_frame)
 
-        self.view = tk.Text(
-            self.result_frame,
-            background=self.TEXT_COLOR,
-            padx=constants.TEXT_PADX,
-            font=constants.FONT,
-            wrap=tk.WORD,
-            spacing1=constants.TEXT_SPACING1,
-            spacing2=constants.TEXT_SPACING2,
-            spacing3=constants.TEXT_SPACING3,
-        )
-        self.view.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-        self.scroll_y = tk.ttk.Scrollbar(
-            self.result_frame, orient=tk.VERTICAL, command=self.view.yview
-        )
-        self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.view.configure(yscrollcommand=self.scroll_y.set)
+    def configure_tags(self):
+        "Add a tag configuration."
+        super().configure_tags()
+        self.view.tag_configure(constants.SEARCH, lmargin1=constants.SEARCH_INDENT)
 
-    def view_configure_tags(self, view=None):
-        "Configure the tags used in the 'tk.Text' instance."
-        view = view or self.view
-        super().view_configure_tags(view=view)
-        view.tag_configure(constants.SEARCH, lmargin1=constants.SEARCH_INDENT)
-
-    def view_bind_tags(self, view=None):
-        "Configure the tag bindings used in the 'tk.Text' instance."
-        view = view or self.view
-        super().view_bind_tags(view=view)
-        view.tag_bind(constants.SEARCH, "<Enter>", self.link_enter)
-        view.tag_bind(constants.SEARCH, "<Leave>", self.link_leave)
+    def bind_tags(self):
+        "Add tag bindings."
+        super().bind_tags()
+        self.view.tag_bind(constants.SEARCH, "<Enter>", self.xref_enter)
+        self.view.tag_bind(constants.SEARCH, "<Leave>", self.xref_leave)
 
     def search(self, event=None):
-        """Search the viewer texts.
+        """Search the viewer texts and display the result.
         Due to an apparent Tk/Tcl bug that affects searches of with
         tags for elided parts, a work-around has been implemented.
-        Ugly, but it makes it work.
+        Temporarily, all tags with elide set are unset, then restored
+        after the search. Ugly, but it works.
         """
         term = self.search_entry.get()
         if not term:
             return
         self.display()
-        tag_counter = 0
         case = self.search_case_var.get()
         regexp = self.search_regexp_var.get()
         count_var = tk.IntVar()
+        self.result = []
         for text in self.main.source.all_texts:
-            view = text.viewer.view
+            text_view = text.viewer.view
             found = []
-            text.viewer.tags_inhibit_elide()  # Bug workaround. See above.
-            first = view.search(
+            elided_tags = set()
+            for tag in text_view.tag_names():   # Elide bug workaround. See above.
+                if text_view.tag_cget(tag, "elide"):
+                    elided_tags.add(tag)
+                    text_view.tag_configure(tag, elide=False)
+            first = text_view.search(
                 term,
                 "1.0",
                 nocase=not case,
@@ -117,9 +103,9 @@ class SearchViewer(BaseViewer):
             )
             while first:
                 length = count_var.get()
-                item = view.get(first, view.index(first + f"+{length}c"))
+                item = text_view.get(first, text_view.index(first + f"+{length}c"))
                 found.append((first, length))
-                first = view.search(
+                first = text_view.search(
                     term,
                     first + f"+{length}c",
                     nocase=not case,
@@ -127,9 +113,19 @@ class SearchViewer(BaseViewer):
                     stopindex=tk.END,
                     count=count_var,
                 )
-            text.viewer.tags_restore_elide()  # Bug workaround. See above.
-            if not found:
-                continue
+            for tag in elided_tags:             # Elide bug workaround. See above.
+                text_view.tag_configure(tag, elide=True)
+            if found:
+                self.result.append((text, found))
+        self.display()
+
+    def display_title(self):
+        pass
+
+    def display_view(self):
+        tag_counter = 0
+        for text, found in self.result:
+            view = text.viewer.view
             self.view.insert(tk.INSERT, text.fullname, (constants.BOLD,))
             self.view.insert(tk.INSERT, "\n")
             for first, length in found:
@@ -154,25 +150,23 @@ class SearchViewer(BaseViewer):
                     tag,
                     "<Button-1>",
                     functools.partial(
-                        self.link_action, text=text, first=first, last=last
+                        self.xref_action, text=text, first=first, last=last
                     ),
                 )
                 self.view.insert(tk.INSERT, "\n")
             self.view.insert(tk.INSERT, "\n")
 
-    def link_enter(self, event):
+    def xref_enter(self, event):
         self.view.configure(cursor="hand2")
 
-    def link_leave(self, event):
+    def xref_leave(self, event):
         self.view.configure(cursor="")
 
-    def link_action(self, event=None, text=None, first=None, last=None):
+    def xref_action(self, event=None, text=None, first=None, last=None):
         self.main.texts_notebook.select(text.tabid)
         text.viewer.highlight(first=first, last=last)
 
-    def display(self):
-        self.view.delete("1.0", tk.END)
-
     def clear(self):
+        self.result = []
         self.search_entry.delete(0, tk.END)
         self.display()

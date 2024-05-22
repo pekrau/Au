@@ -8,10 +8,10 @@ import tkinter as tk
 import tkinter.messagebox
 import tkinter.ttk
 
+from icecream import ic
+
 import constants
 import utils
-
-from icecream import ic
 
 
 class Viewer:
@@ -386,9 +386,9 @@ class Viewer:
                 return None
         return self.links.get(tag)
 
-    def xref_create(self, fullname, position, target_tag):
+    def xref_create(self, fullname, position, target_tag, label=None):
         tag = f"{constants.XREF_PREFIX}{len(self.xrefs) + 1}"
-        self.view.insert(tk.INSERT, fullname, (constants.XREF, tag))
+        self.view.insert(tk.INSERT, label or fullname, (constants.XREF, tag))
         self.xrefs[tag] = dict(tag=target_tag, fullname=fullname, position=position)
 
     def xref_enter(self, event):
@@ -466,19 +466,6 @@ class Viewer:
             return
         self.tag_toggle_elide(constants.FOOTNOTE_DEF_PREFIX + label)
 
-    @property
-    def elided_tags(self):
-        """Horrible work-around for apparent Tk/Tcl bug that affects
-        searches ot text with tags for elided parts.
-        Keep track of all tags set as elided, so that they can be
-        temporarily be unelided before a search, and restored after.
-        """
-        try:
-            return self._elided_tags
-        except AttributeError:
-            self._elided_tags = set()
-            return self._elided_tags
-
     def tag_toggle_elide(self, tag):
         if int(self.view.tag_cget(tag, "elide")):
             self.tag_not_elide(tag)
@@ -487,21 +474,9 @@ class Viewer:
 
     def tag_elide(self, tag):
         self.view.tag_configure(tag, elide=True)
-        self.elided_tags.add(tag)
 
     def tag_not_elide(self, tag):
         self.view.tag_configure(tag, elide=False)
-        self.elided_tags.remove(tag)
-
-    def tags_inhibit_elide(self):
-        "Before search, temporarily set all elide tags to not elide."
-        for tag in self.elided_tags:
-            self.view.tag_configure(tag, elide=False)
-
-    def tags_restore_elide(self):
-        "After search, set all elide tags to elide again."
-        for tag in self.elided_tags:
-            self.view.tag_configure(tag, elide=True)
 
     def get_selection(self, allow_boundary=False, strip=False):
         """Raise ValueError if no current selection.

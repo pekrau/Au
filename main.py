@@ -1,8 +1,6 @@
 """Authoring editor tool based on Tkinter.
 """
 
-from icecream import ic
-
 import functools
 import json
 import os
@@ -14,6 +12,8 @@ import tkinter.simpledialog
 import tkinter.ttk
 import tkinter.font
 
+from icecream import ic
+
 import constants
 import utils
 import docx_export
@@ -23,18 +23,18 @@ from source import Source
 from text_viewer import TextViewer
 from text_editor import TextEditor
 from title_viewer import TitleViewer
+from indexed_viewer import IndexedViewer
 # from references_viewer import ReferencesViewer
 # from reference_editor import ReferenceEditor
-# from indexed_viewer import IndexedViewer
-# from search_viewer import SearchViewer
+from search_viewer import SearchViewer
 from help_viewer import HelpViewer
 
 
 class Main:
     """Main window containing three panes:
-    1) The tree of sections and texts.
-    2) The notebook containing tabs for all top-level texts.
-    3) The notebook with references, indexed and help.
+    1) The treeview of sections and texts.
+    2) The texts notebook containing tabs for all top-level texts.
+    3) The meta notebook with indexed, references, search and help.
     """
 
     def __init__(self, absdirpath):
@@ -442,6 +442,13 @@ class Main:
         self.title_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.title_viewer.tabid] = self.title_viewer
 
+        self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.indexed_viewer.view_frame, text=Tr("Index"))
+        self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.indexed_viewer.view.bind("<Control-q>", self.quit)
+        self.indexed_viewer.view.bind("<Control-Q>", self.quit)
+        self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
+
         # self.references_viewer = ReferencesViewer(self.meta_notebook, self)
         # self.meta_notebook.add(self.references_viewer.view_frame, text=Tr("References"))
         # self.references_viewer.tabid = self.meta_notebook.tabs()[-1]
@@ -449,19 +456,12 @@ class Main:
         # self.references_viewer.view.bind("<Control-Q>", self.quit)
         # self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
 
-        # self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
-        # self.meta_notebook.add(self.indexed_viewer.view_frame, text=Tr("Index"))
-        # self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
-        # self.indexed_viewer.view.bind("<Control-q>", self.quit)
-        # self.indexed_viewer.view.bind("<Control-Q>", self.quit)
-        # self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
-
-        # self.search_viewer = SearchViewer(self.meta_notebook, self)
-        # self.meta_notebook.add(self.search_viewer.view_frame, text=Tr("Search"))
-        # self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
-        # self.search_viewer.view.bind("<Control-q>", self.quit)
-        # self.search_viewer.view.bind("<Control-Q>", self.quit)
-        # self.meta_notebook_lookup[self.search_viewer.tabid] = self.search_viewer
+        self.search_viewer = SearchViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.search_viewer.super_frame, text=Tr("Search"))
+        self.search_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.search_viewer.view.bind("<Control-q>", self.quit)
+        self.search_viewer.view.bind("<Control-Q>", self.quit)
+        self.meta_notebook_lookup[self.search_viewer.tabid] = self.search_viewer
 
         self.help_viewer = HelpViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.help_viewer.view_frame, text=Tr("Help"))
@@ -469,6 +469,7 @@ class Main:
         self.help_viewer.view.bind("<Control-q>", self.quit)
         self.help_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.help_viewer.tabid] = self.help_viewer
+        self.help_viewer.display()
 
         # Set selected meta tab in notebook.
         selected = self.config["meta"].get("selected")
@@ -480,13 +481,12 @@ class Main:
                     pass
                 break
 
-
     def meta_notebook_display(self):
         "Display the meta notebook with contents; help panel does not change."
         self.title_viewer.display()
+        self.indexed_viewer.display()
         # self.references_viewer.display()
-        # self.indexed_viewer.display()
-        # self.search_viewer.display()
+        self.search_viewer.display()
 
     def archive(self):
         try:
