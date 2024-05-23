@@ -138,11 +138,15 @@ class Editor(TextViewer):
         "Display a popup menu according to the current state."
         menu = tk.Menu(self.view)
         try:
-            first, last = self.get_selection(allow_boundary=True)
+            first, last = self.get_selection()
         except ValueError:  # No current selection.
             menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
         else:  # There is current selection.
-            if not self.selection_contains_boundary(first, last, complain=False):
+            try:
+                self.check_broken_selection(first, last)
+            except ValueError:
+                pass
+            else:
                 menu.add_command(label=Tr("Copy"), command=self.clipboard_copy)
                 menu.add_command(label=Tr("Cut"), command=self.clipboard_cut)
                 menu.add_separator()
@@ -170,9 +174,11 @@ class Editor(TextViewer):
 
     def bold_add(self):
         try:
-            first, last = self.get_selection(strip=True)
+            first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
+        first, last = self.selection_strip_whitespace(first, last)
         self.view.tag_add(constants.BOLD, first, last)
         self.modified = True
 
@@ -191,9 +197,11 @@ class Editor(TextViewer):
 
     def italic_add(self):
         try:
-            first, last = self.get_selection(strip=True)
+            first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
+        first, last = self.selection_strip_whitespace(first, last)
         self.view.tag_add(constants.ITALIC, first, last)
         self.modified = True
 
@@ -216,6 +224,7 @@ class Editor(TextViewer):
     def code_span_add(self):
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
         self.view.tag_add(constants.CODE_SPAN, first, last)
@@ -237,14 +246,19 @@ class Editor(TextViewer):
     def quote_add(self):
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
         self.view.tag_add(constants.QUOTE, first, last)
+        self.make_paragraph(first, last)
+        self.modified = True
+
+    def make_paragraph(self, first, last):
+        "Make the selected region into a proper paragraph, if not already."
         if "\n\n" not in self.view.get(last, last + "+2c"):
             self.view.insert(last, "\n\n")
         if "\n\n" not in self.view.get(first + "-2c", first):
             self.view.insert(first, "\n\n")
-        self.modified = True
 
     def quote_remove(self, event):
         if constants.QUOTE not in self.view.tag_names(tk.CURRENT):
@@ -262,13 +276,11 @@ class Editor(TextViewer):
     def code_block_add(self):
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
         self.view.tag_add(constants.CODE_BLOCK, first, last)
-        if "\n\n" not in self.view.get(last, last + "+2c"):
-            self.view.insert(last, "\n\n")
-        if "\n\n" not in self.view.get(first + "-2c", first):
-            self.view.insert(first, "\n\n")
+        self.make_paragraph(first, last)
         self.modified = True
 
     def code_block_remove(self, event):
@@ -287,13 +299,11 @@ class Editor(TextViewer):
     def fenced_code_add(self):
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
         self.view.tag_add(constants.FENCED_CODE, first, last)
-        if "\n\n" not in self.view.get(last, last + "+2c"):
-            self.view.insert(last, "\n\n")
-        if "\n\n" not in self.view.get(first + "-2c", first):
-            self.view.insert(first, "\n\n")
+        self.make_paragraph(first, last)
         self.modified = True
 
     def fenced_code_remove(self, event):
@@ -309,29 +319,13 @@ class Editor(TextViewer):
         self.view.tag_remove(constants.CODE, first, last)
         self.modified = True
 
-    def link_action(self, event):
-        "Allow viewing, editing and opening the link."
-        link = self.get_link()
-        if not link:
-            return
-        edit = EditLink(self.view, link)
-        if not edit.result:
-            return
-        if edit.result["url"]:
-            link["url"] = edit.result["url"]
-            link["title"] = edit.result["title"]
-        else:
-            first, last = self.view.tag_nextrange(link["tag"], "1.0")
-            self.view.tag_remove(constants.LINK, first, last)
-            self.view.tag_delete(link["tag"])
-            # Do not remove entry from 'links': the count must be preserved.
-        self.modified = True
-
     def link_add(self):
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
+        first, last = self.selection_strip_whitespace(first, last)
         url = tk.simpledialog.askstring(
             parent=self.toplevel, title=Tr("Link URL?"), prompt=Tr("Give URL for link:")
         )
@@ -352,11 +346,31 @@ class Editor(TextViewer):
         self.view.tag_remove(tk.SEL, first, last)
         self.modified = True
 
+    def link_action(self, event):
+        "Allow viewing, editing and opening the link."
+        link = self.get_link()
+        if not link:
+            return
+        edit = EditLink(self.view, link)
+        if not edit.result:
+            return
+        if edit.result["url"]:
+            link["url"] = edit.result["url"]
+            link["title"] = edit.result["title"]
+        else:
+            first, last = self.view.tag_nextrange(link["tag"], "1.0")
+            self.view.tag_remove(constants.LINK, first, last)
+            self.view.tag_delete(link["tag"])
+            # Do not remove entry from 'links': the count must be preserved.
+        self.modified = True
+
     def indexed_add(self):
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
+        first, last = self.selection_strip_whitespace(first, last)
         term = self.view.get(first, last)
         canonical = tk.simpledialog.askstring(
             parent=self.toplevel,
@@ -366,6 +380,7 @@ class Editor(TextViewer):
         )
         if canonical is None:
             return
+        canonical = canonical.strip()
         if not canonical:
             canonical = term
         self.view.tag_add(constants.INDEXED, first, last)
@@ -428,6 +443,7 @@ class Editor(TextViewer):
     def footnote_add(self):
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
         label = self.get_new_footnote_label()
@@ -475,6 +491,15 @@ class Editor(TextViewer):
         self.view.tag_delete(tag)
         self.view.tag_add(tk.SEL, first, last)
 
+    def tag_toggle_elide(self, tag):
+        pass
+
+    def tag_elide(self, tag):
+        pass
+
+    def tag_not_elide(self, tag):
+        pass
+
     def clipboard_cut(self, event=None):
         """Cut the current selection into the clipboard.
         Two variants: dump containing formatting for intra-Au use,
@@ -482,6 +507,7 @@ class Editor(TextViewer):
         """
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
         self.main.clipboard = self.get_dump(first, last)
@@ -511,17 +537,9 @@ class Editor(TextViewer):
                 method(entry, tags)
             self.view.tag_remove(tk.SEL, first, tk.INSERT)
         else:
+            ic("clipboard_paste chars")
             self.view.insert(tk.INSERT, chars)
         return "break"  # When called by keyboard event.
-
-    def tag_toggle_elide(self, tag):
-        pass
-
-    def tag_elide(self, tag):
-        pass
-
-    def tag_not_elide(self, tag):
-        pass
 
     def selection_changed(self, event):
         "Selection changed; normalize or disable menu items accordingly."
@@ -569,7 +587,7 @@ class Editor(TextViewer):
             self.footnotes[label] = dict(label=label, tag=tag)
         elif entry[1].startswith(constants.FOOTNOTE_DEF_PREFIX):
             tag = constants.FOOTNOTE_DEF_PREFIX + data["label"]
-            self.tag_configure_elide(tag)
+            self.tag_elide(tag)
             self.view.tag_add(tag, data["first"], tk.INSERT)
         else:
             self.view.tag_add(entry[1], data["first"], self.view.index(tk.INSERT))
@@ -902,7 +920,6 @@ class AddReference(tk.simpledialog.Dialog):
     "Dialog window for selecting a reference to add."
 
     def __init__(self, toplevel, references):
-        ic(references)
         self.result = None
         self.selected = None
         self.references = references

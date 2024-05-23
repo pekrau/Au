@@ -219,6 +219,7 @@ class Viewer:
         """
         try:
             first, last = self.get_selection()
+            self.check_broken_selection(first, last, showerror=True)
         except ValueError:
             return
         self.main.clipboard = self.get_dump(first, last)
@@ -226,29 +227,6 @@ class Viewer:
         self.view.clipboard_clear()
         self.view.clipboard_append(self.main.clipboard_chars)
         return "break"
-
-    def get_dump(self, first, last):
-        "Get the dump of the 'view' tk.Text contents; cleanup and preprocess it."
-        # Get rid of irrelevant marks.
-        dump = [
-            e
-            for e in self.view.dump(first, last)
-            if not (
-                e[0] == "mark"
-                and (e[1] in (tk.INSERT, tk.CURRENT) or e[1].startswith("tk::"))
-            )
-        ]
-        # Get rid of tag SEL.
-        dump = [e for e in dump if not (e[0] == "tagon" and e[1] == tk.SEL)]
-        # Get link data to make a copy. Skip the position; not relevant.
-        result = []
-        for kind, value, pos in dump:
-            if kind == "tagoff" and value.startswith(constants.LINK_PREFIX):
-                link = self.get_link(value)
-                result.append((kind, value, link["url"], link["title"]))
-            else:
-                result.append((kind, value))
-        return result
 
     def key_press(self, event):
         "Stop all key presses that produce a character."
@@ -511,52 +489,78 @@ class Viewer:
     def tag_not_elide(self, tag):
         self.view.tag_configure(tag, elide=False)
 
-    def get_selection(self, allow_boundary=False, strip=False):
-        """Raise ValueError if no current selection.
-        Optionally allow tag region boundaries in the selection.
-        Optionally modify range to have non-blank beginning and end.
-        """
+    def get_selection(self):
+        "Raise ValueError if no current selection."
         try:
-            first = self.view.index(tk.SEL_FIRST)
-            last = self.view.index(tk.SEL_LAST)
+            return self.view.index(tk.SEL_FIRST), self.view.index(tk.SEL_LAST)
         except tk.TclError:
             raise ValueError("no current selection")
-        if strip:
-            while self.view.get(first) in string.whitespace:
-                if self.view.compare(first, ">=", last):
+
+    def check_broken_selection(self, first, last, showerror=False):
+        "Raise ValueError if any incomplete tag run in selection."
+        tags = list()           # Allow multiple entries of same value.
+        for entry in self.get_dump(first, last):
+            if entry[0] == "tagon":
+                tags.append(entry[1])
+            elif entry[0] == "tagoff":
+                try:
+                    tags.remove(entry[1])
+                except ValueError:
+                    tags.append(entry[1])
                     break
-                first = self.view.index(first + "+1c")
-            while self.view.get(last + "-1c") in string.whitespace:
-                if self.view.compare(first, ">=", last):
-                    break
-                last = self.view.index(last + "-1c")
-        if not allow_boundary:
-            if self.selection_contains_boundary(first, last):
-                raise ValueError
+        if tags:
+            if showerror:
+                tk.messagebox.showerror(
+                    parent=self.view_frame,
+                    title="Broken selection",
+                    message="Selection start and end have different tag sets.",
+                )
+            raise ValueError("Broken selection.")
+        
+    def selection_strip_whitespace(self, first, last):
+        "Return the selection having stripped whitespace from the start and end."
+        while self.view.get(first) in string.whitespace:
+            if self.view.compare(first, ">=", last):
+                break
+            first = self.view.index(first + "+1c")
+        while self.view.get(last + "-1c") in string.whitespace:
+            if self.view.compare(first, ">=", last):
+                break
+            last = self.view.index(last + "-1c")
         return first, last
 
-    def selection_contains_boundary(self, first=None, last=None, complain=True):
-        try:
-            if first is None or last is None:
-                first, last = self.get_selection()
-        except ValueError:
-            return False
-        first_tags = set(self.view.tag_names(first))
-        first_tags.discard("sel")
-        last_tags = set(self.view.tag_names(last))
-        last_tags.discard("sel")
-        result = first_tags != last_tags
-        if result and complain:
-            tk.messagebox.showerror(
-                parent=self.toplevel,
-                title="Range boundary",
-                message="Selection contains a range boundary.",
-            )
+    def get_dump(self, first, last):
+        """Get the dump of the 'view' tk.Text contents from first to last.
+        Cleanup and preprocess the entries.
+        """
+        entries = self.view.dump(first, last)
+        # Get rid of starting tagoff entries.
+        while entries and entries[0][0] == "tagoff":
+            entries = entries[1:]
+        # Get rid of ending tagon entries.
+        while entries and entries[-1][0] == "tagon":
+            entries = entries[:-1]
+        # Get rid of irrelevant marks.
+        entries = [e for e in entries if not(
+            e[0] == "mark"
+            and (e[1] in (tk.INSERT, tk.CURRENT) or e[1].startswith("tk::"))
+        )
+                   ]
+        # Get rid of tagon SEL.
+        entries = [e for e in entries if not (e[0] == "tagon" and e[1] == tk.SEL)]
+        # Get link data to make a copy. Skip the position; not relevant.
+        result = []
+        for kind, value, pos in entries:
+            if kind == "tagoff" and value.startswith(constants.LINK_PREFIX):
+                link = self.get_link(value)
+                result.append((kind, value, link["url"], link["title"]))
+            else:
+                result.append((kind, value))
         return result
 
     def debug_tags(self, event=None):
         ic(
-            "--- insert ---",
+            "--- tags at insert ---",
             self.view.index(tk.INSERT),
             self.cursor,
             self.view.tag_names(tk.INSERT),
@@ -564,7 +568,7 @@ class Viewer:
 
     def debug_selected(self, event=None):
         try:
-            first, last = self.get_selection(allow_boundary=True)
+            first, last = self.get_selection()
         except ValueError:
             return
         ic(
@@ -579,4 +583,4 @@ class Viewer:
 
     def debug_dump(self, event=None):
         dump = self.view.dump("1.0", tk.END)
-        ic("--- dump ---", dump)
+        ic("--- complete dump ---", dump)

@@ -97,7 +97,11 @@ class Main:
         self.treeview_display()
         self.treeview_update_ages()
         self.texts_notebook_display()
-        self.meta_notebook_display()
+        self.title_viewer.display()
+        self.indexed_viewer.display()
+        self.references_viewer.display()
+        self.search_viewer.display()
+        self.help_viewer.display()
 
     @property
     def configpath(self):
@@ -483,13 +487,6 @@ class Main:
                     pass
                 break
 
-    def meta_notebook_display(self):
-        "Display the meta notebook with contents; help panel does not change."
-        self.title_viewer.display()
-        self.indexed_viewer.display()
-        self.references_viewer.display()
-        self.search_viewer.display()
-
     def archive(self):
         try:
             count = self.source.archive(sources=self.references_viewer.source)
@@ -607,7 +604,7 @@ class Main:
         self.treeview.selection_set(item.fullname)
         self.treeview.see(item.fullname)
         self.treeview.focus(item.fullname)
-        self.meta_notebook_display()
+        self.refresh_meta_notebook()
         self.config_save()
         return "break"
 
@@ -629,7 +626,7 @@ class Main:
         self.texts_notebook.update()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
-        self.meta_notebook_display()
+        self.refresh_meta_notebook()
         self.config_save()
         return "break"
 
@@ -703,7 +700,7 @@ class Main:
         self.texts_notebook.update()
         self.treeview.selection_set(newitem.fullname)
         self.treeview.focus(newitem.fullname)
-        self.title_viewer.update_statistics()
+        self.refresh_meta_notebook()
         self.config_save()
 
     def delete(self):
@@ -738,7 +735,7 @@ class Main:
             self.texts_notebook_display()
             self.texts_notebook.update()
         self.source.check_integrity()
-        self.title_viewer.update_statistics()
+        self.refresh_meta_notebook()
         self.config_save()
 
     def open_text_editor(self, event=None, text=None):
@@ -771,6 +768,9 @@ class Main:
         editor.text.viewer.display()
         editor.text.viewer.cursor = editor.cursor
         self.treeview_set_info(editor.text)
+        self.refresh_meta_notebook()
+
+    def refresh_meta_notebook(self):
         self.title_viewer.update_statistics()
         self.indexed_viewer.display()
         self.references_viewer.display()
