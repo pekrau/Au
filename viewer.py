@@ -13,6 +13,8 @@ from icecream import ic
 import constants
 import utils
 
+from utils import Tr
+
 
 class Viewer:
     """Abstract viewer class containing a tk.Text instance, defining tags and callbacks.
@@ -147,6 +149,7 @@ class Viewer:
         self.view.bind("<Key>", self.key_press)
         self.view.bind("<Control-c>", self.clipboard_copy)
         self.view.bind("<Control-C>", self.clipboard_copy)
+        self.view.bind("<Button-3>", self.popup_menu)
         self.view.bind("<F1>", self.debug_tags)
         self.view.bind("<F2>", self.debug_selected)
         self.view.bind("<F3>", self.debug_clipboard)
@@ -475,19 +478,56 @@ class Viewer:
                 break
         else:
             return
-        self.tag_toggle_elide(constants.FOOTNOTE_DEF_PREFIX + label)
-
-    def tag_toggle_elide(self, tag):
+        tag = constants.FOOTNOTE_DEF_PREFIX + label
         if int(self.view.tag_cget(tag, "elide")):
             self.tag_not_elide(tag)
         else:
             self.tag_elide(tag)
 
+    def footnotes_show(self, event=None):
+        "Display all footnotes."
+        for tag in self.view.tag_names():
+            if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                self.tag_not_elide(tag)
+
+    def footnotes_hide(self, event=None):
+        "Hide all footnotes."
+        for tag in self.view.tag_names():
+            if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                self.tag_elide(tag)
+
     def tag_elide(self, tag):
+        "Keep separate to allow override."
         self.view.tag_configure(tag, elide=True)
 
     def tag_not_elide(self, tag):
+        "Keep separate to allow override."
         self.view.tag_configure(tag, elide=False)
+
+    def popup_menu(self, event):
+        "Display a popup menu according to the current state."
+        menu = self.get_popup_menu()
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def get_popup_menu(self):
+        "Create a popup menu according to the current state."
+        menu = tk.Menu(self.view)
+        try:
+            first, last = self.get_selection()
+        except ValueError:  # No current selection.
+            pass
+        else:  # There is current selection.
+            try:
+                self.check_broken_selection(first, last)
+            except ValueError:
+                pass
+            else:
+                menu.add_command(label=Tr("Copy"), command=self.clipboard_copy)
+        if menu.index(tk.END) is not None:
+            menu.add_separator()
+        menu.add_command(label=Tr("Show footnotes"), command=self.footnotes_show)
+        menu.add_command(label=Tr("Hide footnotes"), command=self.footnotes_hide)
+        return menu
 
     def get_selection(self):
         "Raise ValueError if no current selection."
@@ -508,14 +548,15 @@ class Viewer:
                 except ValueError:
                     tags.append(entry[1])
                     break
-        if tags:
-            if showerror:
-                tk.messagebox.showerror(
-                    parent=self.view_frame,
-                    title="Broken selection",
-                    message="Selection start and end have different tag sets.",
-                )
-            raise ValueError("Broken selection.")
+        if not tags:
+            return
+        if showerror:
+            tk.messagebox.showerror(
+                parent=self.view_frame,
+                title="Broken selection",
+                message="Selection start and end have different tag sets.",
+            )
+        raise ValueError("Broken selection.")
         
     def selection_strip_whitespace(self, first, last):
         "Return the selection having stripped whitespace from the start and end."

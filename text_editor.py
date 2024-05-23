@@ -44,10 +44,12 @@ class TextEditor(Editor):
                 command=self.set_status,
             )
 
-    def popup_menu_add_selected(self, menu):
+    def get_popup_menu(self):
         "Add items to the popup menu for when text is selected."
+        menu = super().get_popup_menu()
         menu.add_command(label=Tr("Index"), command=self.indexed_add)
         menu.add_command(label=Tr("Footnote"), command=self.footnote_add)
+        return menu
 
     def get_cursor(self):
         "Get the position of cursor in absolute number of characters."

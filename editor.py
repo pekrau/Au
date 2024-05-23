@@ -8,14 +8,13 @@ import tkinter.ttk
 import tkinter.simpledialog
 import tkinter.messagebox
 
+from icecream import ic
+
 import constants
 import utils
 
 from utils import Tr
-
 from text_viewer import TextViewer
-
-from icecream import ic
 
 
 class Editor(TextViewer):
@@ -97,7 +96,6 @@ class Editor(TextViewer):
         self.view.bind("<Control-v>", self.clipboard_paste)
         self.view.bind("<Control-V>", self.clipboard_paste)
         self.view.bind("<<Modified>>", self.handle_modified)
-        self.view.bind("<Button-3>", self.popup_menu)
         self.view.bind("<<Selection>>", self.selection_changed)
 
     def key_press(self, event):
@@ -134,8 +132,8 @@ class Editor(TextViewer):
         else:
             self.menubar.configure(background=self.original_menubar_background)
 
-    def popup_menu(self, event):
-        "Display a popup menu according to the current state."
+    def get_popup_menu(self, event):
+        "Create a popup menu according to the current state."
         menu = tk.Menu(self.view)
         try:
             first, last = self.get_selection()
@@ -159,12 +157,7 @@ class Editor(TextViewer):
                 menu.add_command(label=Tr("Fenced code"), command=self.fenced_code_add)
                 menu.add_separator()
                 menu.add_command(label=Tr("Link"), command=self.link_add)
-                self.popup_menu_add_selected(menu)
-        menu.tk_popup(event.x_root, event.y_root)
-
-    def popup_menu_add_selected(self, menu):
-        "Add items to the popup menu for when text is selected."
-        pass
+        return menu
 
     def clipboard_cut(self, event=None):
         pass
@@ -292,8 +285,8 @@ class Editor(TextViewer):
             message=f"{Tr('Really remove code block?')}",
         ):
             return
-        first, last = self.view.tag_prevrange(constants.CODE, tk.CURRENT)
-        self.view.tag_remove(constants.CODE, first, last)
+        first, last = self.view.tag_prevrange(constants.CODE_BLOCK, tk.CURRENT)
+        self.view.tag_remove(constants.CODE_BLOCK, first, last)
         self.modified = True
 
     def fenced_code_add(self):
@@ -315,8 +308,8 @@ class Editor(TextViewer):
             message=f"{Tr('Really remove fenced code?')}",
         ):
             return
-        first, last = self.view.tag_prevrange(constants.CODE, tk.CURRENT)
-        self.view.tag_remove(constants.CODE, first, last)
+        first, last = self.view.tag_prevrange(constants.FENCED_CODE, tk.CURRENT)
+        self.view.tag_remove(constants.FENCED_CODE, first, last)
         self.modified = True
 
     def link_add(self):
@@ -490,9 +483,6 @@ class Editor(TextViewer):
         self.view.tag_remove(constants.FOOTNOTE_DEF, first, last)
         self.view.tag_delete(tag)
         self.view.tag_add(tk.SEL, first, last)
-
-    def tag_toggle_elide(self, tag):
-        pass
 
     def tag_elide(self, tag):
         pass
