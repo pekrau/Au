@@ -40,10 +40,13 @@ add author,lägg till författare
 add reference,lägg till referens
 language,språk
 index,index
-indexed,indexerad
+remove indexing?,ta bort indexering?
+really remove indexing for,verkligen ta bort indexering för
 search,sök
 help,hjälp
 canonical,kanonisk
+canonical?,kanonisk?
+give canonical term:,ange kanonisk term
 ok,ok
 show,visa
 remove,ta bort
@@ -65,12 +68,22 @@ really remove quote?,verkligen ta bort citat?
 code,kod
 remove code?,ta bort kod?
 really remove code?,verkligen ta bort kod?
+fenced code,avgränsad kod
+remove fenced code?,ta bort avgränsad kod?
+really remove fenced code?,verkligen ta bort avgränsad kod?
+code block,kodblock
+remove code block?,ta bort kodblock?
+really remove code block?,verkligen ta bort kodblock?
 heading,rubrik
 ordered,numrerad
 unordered,onumrerad
 link,länk
 edit link,editera länk
+Link URL?,URL för länk?
+Give URL for link:,Ange URL for länk:
 footnote,fotnot
+remove footnote?,ta bort fotnot?
+really remove footnote?,verkligen ta bort fotnot?
 list,lista
 add list item,lägg till listpunkt
 remove list item,ta bort listpunkt

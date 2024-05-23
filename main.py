@@ -765,6 +765,22 @@ class Main:
         editor.view.focus_set()
         return "break"
 
+    def save_text_editor(self, editor):
+        "Updates following text save."
+        editor.text.read()
+        editor.text.viewer.display()
+        editor.text.viewer.cursor = editor.cursor
+        self.treeview_set_info(editor.text)
+        self.title_viewer.update_statistics()
+        self.indexed_viewer.display()
+        self.references_viewer.display()
+        self.search_viewer.clear()
+
+    def close_text_editor(self, editor):
+        "Remove editor from lookup and update."
+        self.text_editors.pop(editor.text.fullname)
+        self.set_menubar_state()
+
     def open_reference_editor(self, viewer, reference, event=None):
         try:
             editor = self.reference_editors[reference.fullname]

@@ -67,6 +67,10 @@ class Viewer:
         self.view.tag_configure(constants.ITALIC, font=constants.FONT_ITALIC)
         self.view.tag_configure(constants.BOLD, font=constants.FONT_BOLD)
         self.view.tag_configure(
+            constants.CODE_SPAN,
+            font=constants.CODE_FONT,
+        )
+        self.view.tag_configure(
             constants.QUOTE,
             lmargin1=constants.QUOTE_LEFT_INDENT,
             lmargin2=constants.QUOTE_LEFT_INDENT,
@@ -76,7 +80,13 @@ class Viewer:
             font=constants.QUOTE_FONT,
         )
         self.view.tag_configure(
-            constants.CODE,
+            constants.CODE_BLOCK,
+            lmargin1=constants.CODE_INDENT,
+            lmargin2=constants.CODE_INDENT,
+            font=constants.CODE_FONT,
+        )
+        self.view.tag_configure(
+            constants.FENCED_CODE,
             lmargin1=constants.CODE_INDENT,
             lmargin2=constants.CODE_INDENT,
             font=constants.CODE_FONT,
@@ -308,15 +318,22 @@ class Viewer:
             self.render(child)
         self.view.tag_add(constants.QUOTE, first, tk.INSERT)
 
+    def render_code_span(self, ast):
+        self.view.insert(tk.INSERT, ast["children"], (constants.CODE_SPAN,))
+
     def render_code_block(self, ast):
-        self.render_fenced_code(ast)
+        self.conditional_line_break(flag=True)
+        first = self.view.index(tk.INSERT)
+        for child in ast["children"]:
+            self.render(child)
+        self.view.tag_add(constants.CODE_BLOCK, first, tk.INSERT)
 
     def render_fenced_code(self, ast):
         self.conditional_line_break(flag=True)
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.view.tag_add(constants.CODE, first, tk.INSERT)
+        self.view.tag_add(constants.FENCED_CODE, first, tk.INSERT)
 
     def render_literal(self, ast):
         self.view.insert(tk.INSERT, ast["children"])

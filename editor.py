@@ -69,8 +69,11 @@ class Editor(TextViewer):
         self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
         self.menu_format.add_command(label=Tr("Bold"), command=self.bold_add)
         self.menu_format.add_command(label=Tr("Italic"), command=self.italic_add)
+        self.menu_format.add_command(label=Tr("Code"), command=self.code_span_add)
+        self.menu_format.add_separator()
         self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
-        self.menu_format.add_command(label=Tr("Code"), command=self.code_add)
+        self.menu_format.add_command(label=Tr("Code block"), command=self.code_block_add)
+        self.menu_format.add_command(label=Tr("Fenced code"), command=self.fenced_code_add)
 
         self.menubar.add_command(
             label=Tr("Link"), command=self.link_add, state=tk.DISABLED
@@ -82,7 +85,9 @@ class Editor(TextViewer):
         self.view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
         self.view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
         self.view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
-        self.view.tag_bind(constants.CODE, "<Button-1>", self.code_remove)
+        self.view.tag_bind(constants.CODE_SPAN, "<Button-1>", self.code_span_remove)
+        self.view.tag_bind(constants.CODE_BLOCK, "<Button-1>", self.code_block_remove)
+        self.view.tag_bind(constants.FENCED_CODE, "<Button-1>", self.fenced_code_remove)
         self.view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
 
     def bind_events(self):
@@ -143,8 +148,11 @@ class Editor(TextViewer):
                 menu.add_separator()
                 menu.add_command(label=Tr("Bold"), command=self.bold_add)
                 menu.add_command(label=Tr("Italic"), command=self.italic_add)
+                menu.add_command(label=Tr("Code"), command=self.code_span_add)
+                menu.add_separator()
                 menu.add_command(label=Tr("Quote"), command=self.quote_add)
-                menu.add_command(label=Tr("Code"), command=self.code_add)
+                menu.add_command(label=Tr("Code block"), command=self.code_block_add)
+                menu.add_command(label=Tr("Fenced code"), command=self.fenced_code_add)
                 menu.add_separator()
                 menu.add_command(label=Tr("Link"), command=self.link_add)
                 self.popup_menu_add_selected(menu)
@@ -205,6 +213,27 @@ class Editor(TextViewer):
         self.view.tag_remove(constants.ITALIC, first, last)
         self.modified = True
 
+    def code_span_add(self):
+        try:
+            first, last = self.get_selection()
+        except ValueError:
+            return
+        self.view.tag_add(constants.CODE_SPAN, first, last)
+        self.modified = True
+
+    def code_span_remove(self, event):
+        if constants.CODE_SPAN not in self.view.tag_names(tk.CURRENT):
+            return
+        if not tk.messagebox.askokcancel(
+            parent=self.toplevel,
+            title=f"{Tr('Remove code span?')}",
+            message=f"{Tr('Really remove code span?')}",
+        ):
+            return
+        first, last = self.view.tag_prevrange(constants.CODE_SPAN, tk.CURRENT)
+        self.view.tag_remove(constants.CODE_SPAN, first, last)
+        self.modified = True
+
     def quote_add(self):
         try:
             first, last = self.get_selection()
@@ -230,25 +259,50 @@ class Editor(TextViewer):
         self.view.tag_remove(constants.QUOTE, first, last)
         self.modified = True
 
-    def code_add(self):
+    def code_block_add(self):
         try:
             first, last = self.get_selection()
         except ValueError:
             return
-        self.view.tag_add(constants.CODE, first, last)
+        self.view.tag_add(constants.CODE_BLOCK, first, last)
         if "\n\n" not in self.view.get(last, last + "+2c"):
             self.view.insert(last, "\n\n")
         if "\n\n" not in self.view.get(first + "-2c", first):
             self.view.insert(first, "\n\n")
         self.modified = True
 
-    def code_remove(self, event):
-        if constants.CODE not in self.view.tag_names(tk.CURRENT):
+    def code_block_remove(self, event):
+        if constants.CODE_BLOCK not in self.view.tag_names(tk.CURRENT):
             return
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
-            title=f"{Tr('Remove code?')}",
-            message=f"{Tr('Really remove code?')}",
+            title=f"{Tr('Remove code block?')}",
+            message=f"{Tr('Really remove code block?')}",
+        ):
+            return
+        first, last = self.view.tag_prevrange(constants.CODE, tk.CURRENT)
+        self.view.tag_remove(constants.CODE, first, last)
+        self.modified = True
+
+    def fenced_code_add(self):
+        try:
+            first, last = self.get_selection()
+        except ValueError:
+            return
+        self.view.tag_add(constants.FENCED_CODE, first, last)
+        if "\n\n" not in self.view.get(last, last + "+2c"):
+            self.view.insert(last, "\n\n")
+        if "\n\n" not in self.view.get(first + "-2c", first):
+            self.view.insert(first, "\n\n")
+        self.modified = True
+
+    def fenced_code_remove(self, event):
+        if constants.FENCED_CODE not in self.view.tag_names(tk.CURRENT):
+            return
+        if not tk.messagebox.askokcancel(
+            parent=self.toplevel,
+            title=f"{Tr('Remove fenced code?')}",
+            message=f"{Tr('Really remove fenced code?')}",
         ):
             return
         first, last = self.view.tag_prevrange(constants.CODE, tk.CURRENT)
@@ -279,7 +333,7 @@ class Editor(TextViewer):
         except ValueError:
             return
         url = tk.simpledialog.askstring(
-            parent=self.toplevel, title="Link URL?", prompt="Give URL for link:"
+            parent=self.toplevel, title=Tr("Link URL?"), prompt=Tr("Give URL for link:")
         )
         if not url:
             return
@@ -306,8 +360,8 @@ class Editor(TextViewer):
         term = self.view.get(first, last)
         canonical = tk.simpledialog.askstring(
             parent=self.toplevel,
-            title="Canonical?",
-            prompt="Give canonical term:",
+            title=Tr("Canonical?"),
+            prompt=Tr("Give canonical term:"),
             initialvalue=term,
         )
         if canonical is None:
@@ -324,8 +378,8 @@ class Editor(TextViewer):
             return
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
-            title="Remove indexed?",
-            message=f"Really remove indexing for '{term}'?",
+            title=Tr("Remove indexing?"),
+            message=f"{Tr('Really remove indexing for')} '{term}'?",
         ):
             return
         first, last = self.view.tag_prevrange(constants.INDEXED, tk.CURRENT)
@@ -339,7 +393,7 @@ class Editor(TextViewer):
             return
         tag = constants.INDEXED_PREFIX + term
         first, last = self.view.tag_prevrange(tag, tk.CURRENT)
-        edit = IndexedEdit(self.main, self.view, term)
+        edit = EditIndexed(self.main, self.view, term)
         if edit.result is None or edit.result == term:
             return
         self.view.tag_remove(tag, first, last)
@@ -350,7 +404,7 @@ class Editor(TextViewer):
         self.modified = True
 
     def reference_add(self):
-        add = ReferenceAdd(self.view, self.main.references_viewer.references)
+        add = AddReference(self.view, self.main.references_viewer.reference_texts)
         if not add.result:
             return
         tag = constants.REFERENCE_PREFIX + add.result
@@ -405,8 +459,8 @@ class Editor(TextViewer):
         first, last = self.view.tag_nextrange(tag, "1.0")
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
-            title="Remove footnote?",
-            message=f"Really remove footnote (text will remain)?",
+            title=Tr("Remove footnote?"),
+            message=Tr("Really remove footnote?"),
         ):
             return
         self.view.tag_remove(constants.FOOTNOTE_REF, first, last)
@@ -550,27 +604,27 @@ class Editor(TextViewer):
     def outfile(self):
         return self.outfile_stack[-1]
 
-    def save_line_indent(self, force=False):
+    def write_line_indent(self, force=False):
         if self.line_indented and not force:
             return
         self.outfile.write("".join(self.line_indents))
         self.line_indented = True
 
-    def save_characters(self, characters):
+    def write_characters(self, characters):
         if not characters:
             return
         segments = characters.split("\n")
         if len(segments) == 1:
-            self.save_line_indent()
+            self.write_line_indent()
             self.outfile.write(segments[0])
         else:
             for segment in segments[:-1]:
-                self.save_line_indent()
+                self.write_line_indent()
                 self.outfile.write(segment)
                 self.outfile.write("\n")
                 self.line_indented = False
             if segments[-1]:
-                self.save_line_indent()
+                self.write_line_indent()
                 self.outfile.write(segments[-1])
                 self.outfile.write("\n")
                 self.line_indented = False
@@ -578,7 +632,7 @@ class Editor(TextViewer):
     def markdown_text(self, item):
         if self.skip_text:
             return
-        self.save_characters(item[1])
+        self.write_characters(item[1])
 
     def markdown_mark(self, item):
         pass
@@ -600,16 +654,22 @@ class Editor(TextViewer):
             method(item)
 
     def markdown_tagon_italic(self, item):
-        self.save_characters("*")
+        self.write_characters("*")
 
     def markdown_tagoff_italic(self, item):
-        self.save_characters("*")
+        self.write_characters("*")
 
     def markdown_tagon_bold(self, item):
-        self.save_characters("**")
+        self.write_characters("**")
 
     def markdown_tagoff_bold(self, item):
-        self.save_characters("**")
+        self.write_characters("**")
+
+    def markdown_tagon_code_span(self, item):
+        self.write_characters("`")
+
+    def markdown_tagoff_code_span(self, item):
+        self.write_characters("`")
 
     def markdown_tagon_quote(self, item):
         self.line_indents.append("> ")
@@ -617,20 +677,26 @@ class Editor(TextViewer):
     def markdown_tagoff_quote(self, item):
         self.line_indents.pop()
 
-    def markdown_tagon_code(self, item):
-        self.save_characters("```\n")
+    def markdown_tagon_code_block(self, item):
+        self.line_indents.append("    ")
 
-    def markdown_tagoff_code(self, item):
+    def markdown_tagoff_code_block(self, item):
+        self.line_indents.pop()
+
+    def markdown_tagon_fenced_code(self, item):
+        self.write_characters("```\n")
+
+    def markdown_tagoff_fenced_code(self, item):
         self.outfile.write("\n")
         self.line_indented = False
-        self.save_characters("```")
+        self.write_characters("```")
 
     def markdown_tagon_thematic_break(self, item):
         self.skip_text = True
 
     def markdown_tagoff_thematic_break(self, item):
-        self.save_characters("---")
-        self.save_line_indent(force=True)
+        self.write_characters("---")
+        self.write_line_indent(force=True)
         self.outfile.write("\n")
         self.skip_text = False
 
@@ -639,15 +705,64 @@ class Editor(TextViewer):
             if tag.startswith(constants.LINK_PREFIX):
                 self.current_link_tag = tag
                 break
-        self.save_characters("[")
+        self.write_characters("[")
 
     def markdown_tagoff_link(self, item):
         link = self.get_link(self.current_link_tag)
         if link["title"]:
-            self.save_characters(f"""]({link['url']} "{link['title']}")""")
+            self.write_characters(f"""]({link['url']} "{link['title']}")""")
         else:
-            self.save_characters(f"]({link['url']})")
+            self.write_characters(f"]({link['url']})")
         self.current_link_tag = None
+
+    def markdown_tagon_indexed(self, item):
+        for tag in self.view.tag_names(item[2]):
+            if tag.startswith(constants.INDEXED_PREFIX):
+                first, last = self.view.tag_nextrange(tag, item[2])
+                self.current_indexed_term = self.view.get(first, last)
+                self.current_indexed_tag = tag
+                break
+        self.write_characters("[#")
+
+    def markdown_tagoff_indexed(self, item):
+        canonical = self.current_indexed_tag[len(constants.INDEXED_PREFIX) :]
+        if self.current_indexed_term == canonical:
+            self.write_characters("]")
+        else:
+            self.write_characters(f"|{canonical}]")
+
+    def markdown_tagon_reference(self, item):
+        self.write_characters("[@")
+
+    def markdown_tagoff_reference(self, item):
+        self.write_characters("]")
+
+    def markdown_tagon_footnote_ref(self, item):
+        for tag in self.view.tag_names(item[2]):
+            if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                old_label = tag[len(constants.FOOTNOTE_REF_PREFIX) :]
+                footnote = self.footnotes[old_label]
+                new_label = str(len(self.markdown_footnotes) + 1)
+                footnote["new_label"] = new_label
+                self.markdown_footnotes[old_label] = footnote
+                break
+        self.write_characters(f"[^{new_label}]")
+        self.skip_text = True
+
+    def markdown_tagoff_footnote_ref(self, item):
+        pass
+
+    def markdown_tagon_footnote_def(self, item):
+        for tag in self.view.tag_names(item[2]):
+            if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
+                old_label = tag[len(constants.FOOTNOTE_DEF_PREFIX) :]
+        footnote = self.markdown_footnotes[old_label]
+        footnote["outfile"] = io.StringIO()
+        self.outfile_stack.append(footnote["outfile"])
+        self.skip_text = False
+
+    def markdown_tagoff_footnote_def(self, item):
+        self.outfile_stack.pop()
 
     def close(self, event=None, force=False):
         if self.modified and not force:
@@ -721,3 +836,110 @@ class EditLink(tk.simpledialog.Dialog):
 
     def visit(self):
         webbrowser.open_new_tab(self.url_entry.get())
+
+
+class EditIndexed(tk.simpledialog.Dialog):
+    "Dialog window for editing the canonical term for an indexed term."
+
+    def __init__(self, main, toplevel, canonical):
+        self.main = main
+        self.canonical = canonical
+        self.result = None
+        super().__init__(toplevel, title="Edit indexed")
+
+    def body(self, body):
+        label = tk.ttk.Label(body, text=Tr("Canonical"))
+        label.grid(row=0, column=0, padx=4, sticky=tk.E)
+        self.canonical_entry = tk.Entry(body, width=50)
+        self.canonical_entry.insert(0, self.canonical)
+        self.canonical_entry.grid(row=0, column=1)
+        return self.canonical_entry
+
+    def remove(self):
+        "Remove the indexed entry."
+        self.canonical_entry.delete(0, tk.END)
+        try:
+            self.apply()
+        finally:
+            self.cancel()
+
+    def apply(self):
+        self.result = self.canonical_entry.get()
+
+    def buttonbox(self):
+        box = tk.Frame(self)
+        w = tk.ttk.Button(
+            box, text=Tr("OK"), width=10, command=self.ok, default=tk.ACTIVE
+        )
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = tk.ttk.Button(box, text=Tr("Show"), width=10, command=self.show)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = tk.ttk.Button(box, text=Tr("Remove"), width=10, command=self.remove)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        w = tk.ttk.Button(box, text=Tr("Cancel"), width=10, command=self.cancel)
+        w.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bind("<Return>", self.ok)
+        self.bind("<Escape>", self.cancel)
+        box.pack()
+
+    def show(self):
+        self.main.indexed_viewer.highlight(self.canonical)
+
+
+class AddReference(tk.simpledialog.Dialog):
+    "Dialog window for selecting a reference to add."
+
+    def __init__(self, toplevel, references):
+        ic(references)
+        self.result = None
+        self.selected = None
+        self.references = references
+        super().__init__(toplevel, title=Tr("Add reference"))
+
+    def body(self, body):
+        body.rowconfigure(0, weight=1)
+        body.columnconfigure(0, weight=1)
+        self.treeview = tk.ttk.Treeview(
+            body,
+            height=min(20, len(self.references)),
+            columns=("title",),
+            selectmode="browse",
+        )
+        self.treeview.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+        self.treeview.heading("#0", text=Tr("Reference id"))
+        self.treeview.column(
+            "#0",
+            anchor=tk.W,
+            minwidth=8 * constants.FONT_NORMAL_SIZE,
+            width=12 * constants.FONT_NORMAL_SIZE,
+        )
+        self.treeview.heading("title", text=Tr("Title"), anchor=tk.W)
+        self.treeview.column(
+            "title",
+            minwidth=16 * constants.FONT_NORMAL_SIZE,
+            width=20 * constants.FONT_NORMAL_SIZE,
+            anchor=tk.W,
+            stretch=True,
+        )
+        self.treeview_scroll_y = tk.ttk.Scrollbar(
+            body, orient=tk.VERTICAL, command=self.treeview.yview
+        )
+        self.treeview_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.treeview.configure(yscrollcommand=self.treeview_scroll_y.set)
+
+        self.treeview.bind("<<TreeviewSelect>>", self.select)
+        for reference in self.references:
+            self.treeview.insert(
+                "",
+                tk.END,
+                reference["id"],
+                text=str(reference),
+                values=(reference["title"],),
+            )
+        return self.treeview
+
+    def select(self, event):
+        self.selected = self.treeview.selection()[0]
+
+    def apply(self):
+        self.result = self.selected

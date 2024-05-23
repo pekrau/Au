@@ -312,14 +312,14 @@ class BibtexImport(tk.simpledialog.Dialog):
         entries = list(library.entries)
         if len(entries) > 1:
             tk.messagebox.showerror(
-                parent=self.view,
+                parent=self.viewer.view_frame,
                 title="Error",
                 message="More than one BibTeX entry in data.",
             )
             return False
         elif len(entries) == 0:
             tk.messagebox.showerror(
-                parent=self.view, title="Error", message="No BibTeX entry in data."
+                parent=self.viewer.view_frame, title="Error", message="No BibTeX entry in data."
             )
             return False
         entry = entries[0]
