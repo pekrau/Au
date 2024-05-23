@@ -12,9 +12,9 @@ DEFAULT_ROOT_GEOMETRY = "1500x400+700+0"
 MARKDOWN_EXT = ".md"
 CONFIG_FILENAME = "config.json"
 ARCHIVE_DIRNAME = "au_archive"
-assert os.extsep not in ARCHIVE_DIRNAME  # Code relies on this!
+assert os.extsep not in ARCHIVE_DIRNAME
 REFERENCES_DIRNAME = "au_references"
-assert os.extsep not in REFERENCES_DIRNAME  # Code relies on this!
+assert os.extsep not in REFERENCES_DIRNAME
 TRANSLATIONS_FILE = "translations.csv"
 
 TEXT_COLOR = "oldlace"

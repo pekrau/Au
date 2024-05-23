@@ -411,16 +411,16 @@ class Editor(TextViewer):
         self.view.insert(tk.INSERT, add.result, (constants.REFERENCE, tag))
 
     def reference_action(self, event):
-        refid = self.get_refid()
-        if not refid:
+        reference = self.get_reference()
+        if not reference:
             return
         if not tk.messagebox.askokcancel(
             parent=self.toplevel,
             title="Remove reference?",
-            message=f"Really remove reference '{refid}'?",
+            message=f"Really remove reference '{reference}'?",
         ):
             return
-        tag = f"{constants.REFERENCE_PREFIX}{refid}"
+        tag = f"{constants.REFERENCE_PREFIX}{reference}"
         first, last = self.view.tag_prevrange(tag, tk.CURRENT)
         self.view.delete(first, last)
         self.modified = True
@@ -433,9 +433,12 @@ class Editor(TextViewer):
         label = self.get_new_footnote_label()
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         self.tag_elide(tag)
+        if (self.view.get(last + "-1c", last) != "\n" and
+            self.view.get(last, last + "+1c") != "\n"):
+            self.view.insert(last, "\n")
+            last = self.view.index(last + "+1c")
         self.view.tag_add(constants.FOOTNOTE_DEF, first, last)
         self.view.tag_add(tag, first, last)
-        self.view.insert(self.view.tag_nextrange(tag, "1.0")[0], "\n", (tag,))
         tag = constants.FOOTNOTE_REF_PREFIX + label
         self.footnotes[label] = dict(label=label, tag=tag)
         self.view.insert(first, f"^{label}", (constants.FOOTNOTE_REF, (tag,)))
@@ -465,7 +468,7 @@ class Editor(TextViewer):
             return
         self.view.tag_remove(constants.FOOTNOTE_REF, first, last)
         self.view.tag_delete(tag)
-        self.view.delete(first, self.view.index(last + "+1c"))  # Remove newline.
+        self.view.delete(first, last)
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         first, last = self.view.tag_nextrange(tag, "1.0")
         self.view.tag_remove(constants.FOOTNOTE_DEF, first, last)
@@ -510,6 +513,15 @@ class Editor(TextViewer):
         else:
             self.view.insert(tk.INSERT, chars)
         return "break"  # When called by keyboard event.
+
+    def tag_toggle_elide(self, tag):
+        pass
+
+    def tag_elide(self, tag):
+        pass
+
+    def tag_not_elide(self, tag):
+        pass
 
     def selection_changed(self, event):
         "Selection changed; normalize or disable menu items accordingly."
