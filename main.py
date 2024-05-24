@@ -493,7 +493,7 @@ class Main:
 
     def archive(self):
         try:
-            count = self.source.archive(sources=self.references_viewer.source)
+            filepath, count = self.source.archive(sources=self.references_viewer.source)
         except OSError as error:
             tk.messagebox.showerror(
                 title="Error", message=f"Could not write .tgz file: {error}"
@@ -501,7 +501,7 @@ class Main:
         else:
             tk.messagebox.showinfo(
                 title=Tr("Wrote archive file"),
-                message=f"{count} {Tr('items written to archive file')}.",
+                message=f"{count} {Tr('items written to archive file')} '{filepath}'.",
             )
 
     def export_docx(self):

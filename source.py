@@ -173,7 +173,7 @@ class Source:
         """Write all files for texts to a gzipped tar file.
         Optionally include items from other sources, using the name of each
         source as prefix; effectively a subdirectory.
-        Return the number of items written.
+        Return the archive filepath and the number of items written.
         Raise an OSError if any error.
         """
         filename = time.strftime(constants.TIME_ISO_FORMAT, time.localtime()) + ".tgz"
@@ -192,7 +192,7 @@ class Source:
                     archivefile.add(source.abspath, arcname=source.name, recursive=True)
         with tarfile.open(archivefilepath) as archivefile:
             result = len(archivefile.getnames())
-        return result
+        return archivefilepath, result
 
     def check_integrity(self):
         assert os.path.exists(self.abspath), (self, self.abspath)

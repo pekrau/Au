@@ -1,5 +1,6 @@
 "Base text editor."
 
+import functools
 import io
 import webbrowser
 
@@ -132,12 +133,20 @@ class Editor(TextViewer):
         else:
             self.menubar.configure(background=self.original_menubar_background)
 
-    def get_popup_menu(self, event):
+    def get_popup_menu(self, event=None):
         "Create a popup menu according to the current state."
         menu = tk.Menu(self.view)
         try:
             first, last = self.get_selection()
         except ValueError:  # No current selection.
+            list_item_tag = self.get_list_item_tag()
+            if list_item_tag:
+                menu.add_command(label=Tr("Add list item"),
+                                 command=functools.partial(self.list_item_add,
+                                                           list_item_tag=list_item_tag))
+                menu.add_command(label=Tr("Remove list item"),
+                                 command=functools.partial(self.list_item_remove,
+                                                           list_item_tag=list_item_tag))
             menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
         else:  # There is current selection.
             try:
@@ -311,6 +320,13 @@ class Editor(TextViewer):
         first, last = self.view.tag_prevrange(constants.FENCED_CODE, tk.CURRENT)
         self.view.tag_remove(constants.FENCED_CODE, first, last)
         self.modified = True
+
+    def list_item_add(self, event=None, list_item_tag=None):
+        ic(event, list_item_tag)
+
+    def list_item_remove(self, event=None, list_item_tag=None):
+        
+        ic(event, list_item_tag)
 
     def link_add(self):
         try:
@@ -661,7 +677,10 @@ class Editor(TextViewer):
         try:
             method = getattr(self, f"markdown_tagon_{item[1]}")
         except AttributeError:
-            pass
+            if item[1].startswith(constants.LIST_ITEM_PREFIX):
+                data = self.list_lookup[item[1]]
+                self.line_indents.append(data["level"] * "   ")
+                self.line_indented = True
         else:
             method(item)
 
@@ -669,7 +688,8 @@ class Editor(TextViewer):
         try:
             method = getattr(self, f"markdown_tagoff_{item[1]}")
         except AttributeError:
-            pass
+            if item[1].startswith(constants.LIST_ITEM_PREFIX):
+                self.line_indents.pop()
         else:
             method(item)
 
