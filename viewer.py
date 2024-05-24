@@ -353,7 +353,6 @@ class Viewer:
         self.link_create(ast["dest"], ast["title"], first, self.view.index(tk.INSERT))
 
     def render_list(self, ast):
-        ic(ast)
         number = len(self.list_lookup) + 1
         list_tag = f"{constants.LIST_PREFIX}{number}"
         item_tag_prefix = f"{constants.LIST_ITEM_PREFIX}{number}-"
@@ -361,7 +360,9 @@ class Viewer:
         self.view.tag_configure(bullet_tag,
                                 font=constants.FONT_BOLD,
                                 lmargin1=constants.LIST_INDENT * len(self.list_stack))
+        level = len(self.list_stack) + 1
         data = dict(
+            number=number,
             list_tag=list_tag,
             item_tag_prefix=item_tag_prefix,
             bullet_tag=bullet_tag,
@@ -370,16 +371,20 @@ class Viewer:
             start=ast["start"],
             tight=ast["tight"],
             count=0,
-            level=len(self.list_stack) + 1,
+            level=level,
         )
         self.list_lookup[list_tag] = data
+        if level > 1:
+            self.view.insert(tk.INSERT, "\n")
+            if not self.list_stack[-1]["tight"]:
+                self.view.insert(tk.INSERT, "\n")
         self.list_stack.append(data)
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.prev_line_blank = True
             self.render(child)
-        self.view.tag_add(data["list_tag"], first, tk.INSERT)
-        if data["tight"]:
+        self.view.tag_add(list_tag, first, tk.INSERT)
+        if level == 1 and data["tight"]:
             self.line_break()
         self.list_stack.pop()
 
@@ -406,10 +411,15 @@ class Viewer:
         self.view.tag_add(item_tag, first, tk.INSERT)
 
     def get_list_item_tag(self):
+        result = []
         for tag in self.view.tag_names(tk.CURRENT):
             if tag.startswith(constants.LIST_ITEM_PREFIX):
-                return tag
-        return None
+                result.append(tag)
+        if result:
+            result.sort(key=lambda t: int(t.split("-")[1]))
+            return result[-1]
+        else:
+            return None
 
     def render_indexed(self, ast):
         # Position at this time is not useful; will be affected by footnotes.

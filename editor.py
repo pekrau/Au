@@ -323,24 +323,31 @@ class Editor(TextViewer):
 
     def list_item_add(self, event=None, list_item_tag=None):
         data = self.list_lookup[list_item_tag]
+        ic(data)
         data["count"] += 1
         self.view.mark_set(tk.INSERT,
                            self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1])
+        outer_tags = [t for t in self.view.tag_names(tk.INSERT + "-1c") 
+                      if int(t.split("-")[1]) != data["number"]]
+        tags = [data["bullet_tag"], data["list_tag"]]
         if data["ordered"]:
             self.view.insert(tk.INSERT,
                              f"{data['start'] + data['count'] - 1}. ",
-                             (data["bullet_tag"], ))
+                             tags + outer_tags)
         else:
-            self.view.insert(tk.INSERT, f"{data['bullet']}  ", (data["bullet_tag"], ))
+            self.view.insert(tk.INSERT, f"{data['bullet']}  ", tags + outer_tags)
         item_tag = f"{data['item_tag_prefix']}{data['count']}"
         self.list_lookup[item_tag] = data
         indent = constants.LIST_INDENT * len(self.list_stack)
         self.view.tag_configure(item_tag, lmargin1=indent, lmargin2=indent)
         first = self.view.index(tk.INSERT)
-        self.view.insert(tk.INSERT, "\n", (item_tag,))
+        self.view.insert(tk.INSERT, " \n", (item_tag, ))
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n", (item_tag,))
-        self.view.tag_add(item_tag, first)
+        self.view.tag_add(item_tag, first, tk.INSERT)
+        self.view.tag_add(data["list_tag"], first, tk.INSERT)
+        for tag in outer_tags:
+            self.view.tag_add(tag, first, tk.INSERT)
         self.view.mark_set(tk.INSERT, first)
 
     def list_item_remove(self, event=None, list_item_tag=None):

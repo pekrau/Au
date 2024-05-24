@@ -623,14 +623,25 @@ class Text(Item):
         self.source = None
         self.parent = None
 
-    def write(self, content=None):
-        "Write the text, with current frontmatter and the given Markdown content."
+    def write(self, content=""):
+        """Write the text, with current frontmatter and the given Markdown content."
+        Do some cleanup:
+        - Strip each line from the right.
+        - Do not write out multiple empty lines after another.
+        """
         with open(self.abspath, "w") as outfile:
             outfile.write("---\n")
             outfile.write(yaml.dump(self.frontmatter))
             outfile.write("---\n")
-            if content:
-                outfile.write(content)
+            prev_empty = False
+            for line in content.split("\n"):
+                line = line.rstrip()
+                empty = not bool(line)
+                if empty and prev_empty:
+                    continue
+                prev_empty = empty
+                outfile.write(line)
+                outfile.write("\n")
 
     def check_integrity(self):
         super().check_integrity()
