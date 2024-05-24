@@ -353,6 +353,7 @@ class Viewer:
         self.link_create(ast["dest"], ast["title"], first, self.view.index(tk.INSERT))
 
     def render_list(self, ast):
+        ic(ast)
         number = len(self.list_lookup) + 1
         list_tag = f"{constants.LIST_PREFIX}{number}"
         item_tag_prefix = f"{constants.LIST_ITEM_PREFIX}{number}-"
@@ -384,15 +385,14 @@ class Viewer:
 
     def render_list_item(self, ast):
         data = self.list_stack[-1]
+        data["count"] += 1
         data["first_paragraph"] = True
         if data["ordered"]:
             self.view.insert(tk.INSERT,
-                             f"{data['start'] + data['count']}. ",
+                             f"{data['start'] + data['count'] - 1}. ",
                              (data["bullet_tag"], ))
         else:
-            ic(ast)
             self.view.insert(tk.INSERT, f"{data['bullet']}  ", (data["bullet_tag"], ))
-        data["count"] += 1
         item_tag = f"{data['item_tag_prefix']}{data['count']}"
         self.list_lookup[item_tag] = data
         indent = constants.LIST_INDENT * len(self.list_stack)

@@ -322,11 +322,41 @@ class Editor(TextViewer):
         self.modified = True
 
     def list_item_add(self, event=None, list_item_tag=None):
-        ic(event, list_item_tag)
+        data = self.list_lookup[list_item_tag]
+        data["count"] += 1
+        self.view.mark_set(tk.INSERT,
+                           self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1])
+        if data["ordered"]:
+            self.view.insert(tk.INSERT,
+                             f"{data['start'] + data['count'] - 1}. ",
+                             (data["bullet_tag"], ))
+        else:
+            self.view.insert(tk.INSERT, f"{data['bullet']}  ", (data["bullet_tag"], ))
+        item_tag = f"{data['item_tag_prefix']}{data['count']}"
+        self.list_lookup[item_tag] = data
+        indent = constants.LIST_INDENT * len(self.list_stack)
+        self.view.tag_configure(item_tag, lmargin1=indent, lmargin2=indent)
+        first = self.view.index(tk.INSERT)
+        self.view.insert(tk.INSERT, "\n", (item_tag,))
+        if not data["tight"]:
+            self.view.insert(tk.INSERT, "\n", (item_tag,))
+        self.view.tag_add(item_tag, first)
+        self.view.mark_set(tk.INSERT, first)
 
     def list_item_remove(self, event=None, list_item_tag=None):
-        
-        ic(event, list_item_tag)
+        if not tk.messagebox.askokcancel(
+            parent=self.toplevel,
+            title=f"{Tr('Remove list item?')}",
+            message=f"{Tr('Really remove list item and all its contents?')}",
+        ):
+            return
+        data = self.list_lookup[list_item_tag]
+        first = self.view.tag_prevrange(data["bullet_tag"], tk.CURRENT)[0]
+        try:
+            last = self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1]
+        except IndexError:      # Not sure why this is needed.
+            last = self.view.tag_nextrange(list_item_tag, tk.CURRENT)[1]
+        self.view.delete(first, last)
 
     def link_add(self):
         try:
