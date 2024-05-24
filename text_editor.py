@@ -64,7 +64,7 @@ class TextEditor(Editor):
 
     def handle_modified(self, event=None):
         super().handle_modified(event=event)
-        self.main.treeview_set_info(self.text, modified=self.modified)
+        self.main.treeview_update_info(self.text, modified=self.modified)
 
     def set_status(self):
         try:

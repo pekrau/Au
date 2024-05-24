@@ -95,7 +95,6 @@ class Main:
             self.panedwindow.sashpos(1, sash[1])
 
         self.treeview_display()
-        self.treeview_update_ages()
         self.texts_notebook_display()
         self.title_viewer.display()
         self.indexed_viewer.display()
@@ -158,10 +157,11 @@ class Main:
         "Save configuration after root window resize."
         if event.widget != self.root:
             return
-        if getattr(self, "_after_id", None):
-            self.root.after_cancel(self._after_id)
-        self._after_id = self.root.after(
-            constants.CONFIG_UPDATE_DELAY, self.config_save
+        if getattr(self, "_after_config_save_id", None):
+            self.root.after_cancel(self._after_config_save_id)
+        self.config_save()
+        self._after_config_save_id = self.root.after(
+            constants.CONFIG_SAVE_DELAY, self.config_save
         )
 
     def menubar_setup(self):
@@ -301,6 +301,7 @@ class Main:
             self.treeview.delete(child)
         for item in self.source.all_items:
             self.add_treeview_entry(item)
+        self.treeview_update_ages()
 
     def add_treeview_entry(self, item, index=None):
         if item.is_text:
@@ -346,7 +347,7 @@ class Main:
         for text in item.all_texts:
             self.texts_notebook.hide(text.tabid)
 
-    def treeview_set_info(self, text, modified=None):
+    def treeview_update_info(self, text, modified=None):
         if modified is None:
             try:
                 modified = self.text_editors[text.fullname].modified
@@ -402,7 +403,7 @@ class Main:
             viewer.view.bind("<Return>", opener)
             viewer.view.bind("<Control-q>", self.quit)
             viewer.view.bind("<Control-Q>", self.quit)
-            self.treeview_set_info(text)
+            self.treeview_update_info(text)
             # Place the cursor in the text view.
             try:
                 text.viewer.cursor = self.config["source"]["cursor"][text.fullname]
@@ -418,15 +419,18 @@ class Main:
             self.treeview.selection_set(text.fullname)
             self.treeview.see(text.fullname)
             self.treeview.focus(text.fullname)
-            self.treeview.update()
+            # This is a kludge; not sure why it is needed.
+            self.ignore_texts_notebook_tab_changed = True
 
-        # This must be done after having set current tab.
         self.texts_notebook.bind(
             "<<NotebookTabChanged>>", self.texts_notebook_tab_changed
         )
 
     def texts_notebook_tab_changed(self, event):
         "Synchronize selected in treeview with change of text tab."
+        if self.ignore_texts_notebook_tab_changed:
+            self.ignore_texts_notebook_tab_changed = False
+            return
         text = self.texts_notebook_lookup[self.texts_notebook.select()]
         self.treeview.selection_set(text.fullname)
         self.treeview.focus(text.fullname)
@@ -598,9 +602,9 @@ class Main:
             return "break"
         self.source.check_integrity()
         self.treeview_display()
-        self.treeview.update()
+        self.treeview.update_idletasks()
         self.texts_notebook_display()
-        self.texts_notebook.update()
+        self.texts_notebook.update_idletasks()
         self.treeview.selection_set(item.fullname)
         self.treeview.see(item.fullname)
         self.treeview.focus(item.fullname)
@@ -621,9 +625,9 @@ class Main:
             return "break"
         self.source.check_integrity()
         self.treeview_display()
-        self.treeview.update()
+        self.treeview.update_idletasks()
         self.texts_notebook_display()
-        self.texts_notebook.update()
+        self.texts_notebook.update_idletasks()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
         self.refresh_meta_notebook()
@@ -658,14 +662,14 @@ class Main:
             index = self.treeview.index(fullname)
             self.treeview.delete(fullname)
             self.add_treeview_entry(item, index=index)
-            self.treeview_set_info(item)
+            self.treeview_update_info(item)
             self.texts_notebook.tab(item.tabid, text=item.name)
             item.viewer.display()
         elif item.is_section:
             self.treeview_display()
-            self.treeview.update()
+            self.treeview.update_idletasks()
             self.texts_notebook_display()
-            self.texts_notebook.update()
+            self.texts_notebook.update_idletasks()
         self.source.check_integrity()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
@@ -695,9 +699,9 @@ class Main:
             return
         self.source.check_integrity()
         self.treeview_display()
-        self.treeview.update()
+        self.treeview.update_idletasks()
         self.texts_notebook_display()
-        self.texts_notebook.update()
+        self.texts_notebook.update_idletasks()
         self.treeview.selection_set(newitem.fullname)
         self.treeview.focus(newitem.fullname)
         self.refresh_meta_notebook()
@@ -731,9 +735,9 @@ class Main:
         else:
             item.delete()
             self.treeview_display()
-            self.treeview.update()
+            self.treeview.update_idletasks()
             self.texts_notebook_display()
-            self.texts_notebook.update()
+            self.texts_notebook.update_idletasks()
         self.source.check_integrity()
         self.refresh_meta_notebook()
         self.config_save()
@@ -758,7 +762,7 @@ class Main:
         else:
             editor.toplevel.lift()
         self.set_menubar_state()
-        editor.view.update()
+        editor.view.update_idletasks()
         editor.view.focus_set()
         return "break"
 
@@ -767,7 +771,7 @@ class Main:
         editor.text.read()
         editor.text.viewer.display()
         editor.text.viewer.cursor = editor.cursor
-        self.treeview_set_info(editor.text)
+        self.treeview_update_info(editor.text)
         self.refresh_meta_notebook()
 
     def refresh_meta_notebook(self):
@@ -792,7 +796,7 @@ class Main:
             self.reference_editors[reference.fullname] = editor
         else:
             editor.toplevel.lift()
-        editor.view.update()
+        editor.view.update_idletasks()
         editor.view.focus_set()
         return "break"
 
@@ -817,9 +821,9 @@ class Main:
             return
         self.source.check_integrity()
         self.treeview_display()
-        self.treeview.update()
+        self.treeview.update_idletasks()
         self.texts_notebook_display()
-        self.texts_notebook.update()
+        self.texts_notebook.update_idletasks()
         self.treeview.selection_set(text.fullname)
         self.treeview.see(text.fullname)
         self.treeview.focus(text.fullname)
@@ -848,9 +852,9 @@ class Main:
             return
         self.source.check_integrity()
         self.treeview_display()
-        self.treeview.update()
+        self.treeview.update_idletasks()
         self.texts_notebook_display()
-        self.texts_notebook.update()
+        self.texts_notebook.update_idletasks()
         self.treeview.selection_set(section.fullname)
         self.treeview.see(section.fullname)
         self.treeview.focus(section.fullname)

@@ -154,6 +154,7 @@ class Viewer:
         self.view.bind("<F2>", self.debug_selected)
         self.view.bind("<F3>", self.debug_clipboard)
         self.view.bind("<F4>", self.debug_dump)
+        self.view.bind("<F5>", self.debug_ast)
 
     def display(self):
         self.display_initialize()
@@ -165,6 +166,8 @@ class Viewer:
         self.prev_line_blank = True
         self.links = {}
         self.xrefs = {}
+        self.list_lookup = {}
+        self.list_stack = []
         self.indexed = {}
         self.references = {}
         self.footnotes = {}
@@ -236,11 +239,11 @@ class Viewer:
         if event.char:
             return "break"
 
-    def conditional_line_break(self, flag=False):
+    def conditional_line_break(self, prev_line_blank=False):
         if self.prev_line_blank:
             return
         self.view.insert(tk.INSERT, "\n")
-        self.prev_line_blank = flag
+        self.prev_line_blank = prev_line_blank
 
     def render(self, ast):
         try:
@@ -262,7 +265,7 @@ class Viewer:
             self.render(child)
 
     def render_paragraph(self, ast):
-        self.conditional_line_break(flag=True)
+        self.conditional_line_break(prev_line_blank=True)
         for child in ast["children"]:
             self.render(child)
 
@@ -293,7 +296,7 @@ class Viewer:
         self.prev_line_blank = False
 
     def render_quote(self, ast):
-        self.conditional_line_break(flag=True)
+        self.conditional_line_break(prev_line_blank=True)
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
@@ -303,14 +306,14 @@ class Viewer:
         self.view.insert(tk.INSERT, ast["children"], (constants.CODE_SPAN,))
 
     def render_code_block(self, ast):
-        self.conditional_line_break(flag=True)
+        self.conditional_line_break(prev_line_blank=True)
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
         self.view.tag_add(constants.CODE_BLOCK, first, tk.INSERT)
 
     def render_fenced_code(self, ast):
-        self.conditional_line_break(flag=True)
+        self.conditional_line_break(prev_line_blank=True)
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
@@ -328,6 +331,52 @@ class Viewer:
         for child in ast["children"]:
             self.render(child)
         self.link_create(ast["dest"], ast["title"], first, self.view.index(tk.INSERT))
+
+    def render_list(self, ast):
+        number = len(self.list_lookup) + 1
+        list_tag = f"{constants.LIST_PREFIX}{number}"
+        item_tag = f"{constants.LIST_ITEM_PREFIX}{number}"
+        indent = constants.LIST_INDENT * (len(self.list_stack) + 1)
+        self.view.tag_configure(item_tag, lmargin1=indent, lmargin2=indent)
+        bullet_tag = f"{constants.LIST_BULLET_PREFIX}{number}"
+        self.view.tag_configure(bullet_tag,
+                                font=constants.FONT_BOLD,
+                                lmargin1=constants.LIST_INDENT * len(self.list_stack))
+        data = dict(
+            list_tag=list_tag,
+            item_tag=item_tag,
+            bullet_tag=bullet_tag,
+            ordered=ast["ordered"],
+            bullet=ast["bullet"],
+            start=ast["start"],
+            tight=ast["tight"],
+            count=0,
+        )
+        self.list_lookup[list_tag] = data
+        self.list_stack.append(data)
+        first = self.view.index(tk.INSERT)
+        for child in ast["children"]:
+            self.prev_line_blank = True
+            self.render(child)
+        self.view.tag_add(data["list_tag"], first, tk.INSERT)
+        self.list_stack.pop()
+
+    def render_list_item(self, ast):
+        data = self.list_stack[-1]
+        if data["ordered"]:
+            self.view.insert(tk.INSERT,
+                             f"{data['start'] + data['count']}. ",
+                             (data["bullet_tag"], ))
+        else:
+            self.view.insert(tk.INSERT, f"{data['bullet']} ", (data["bullet_tag"], ))
+        data["count"] += 1
+        first = self.view.index(tk.INSERT)
+        for child in ast["children"]:
+            self.render(child)
+        self.view.insert(tk.INSERT, "\n")
+        if not data["tight"]:
+            self.view.insert(tk.INSERT, "\n")
+        self.view.tag_add(data["item_tag"], first, tk.INSERT)
 
     def render_indexed(self, ast):
         # Position at this time is not useful; will be affected by footnotes.
@@ -368,7 +417,7 @@ class Viewer:
         self.view.tag_add(constants.HIGHLIGHT, first, last)
         self.highlighted = (first, last)
         self.view.see(first)
-        self.view.update()
+        self.view.update_idletasks()
 
     def link_create(self, url, title, first, last):
         tag = f"{constants.LINK_PREFIX}{len(self.links) + 1}"
@@ -601,7 +650,7 @@ class Viewer:
 
     def debug_tags(self, event=None):
         ic(
-            "--- tags at insert ---",
+            "--- insert ---",
             self.view.index(tk.INSERT),
             self.cursor,
             self.view.tag_names(tk.INSERT),
@@ -623,5 +672,7 @@ class Viewer:
         ic("--- clipboard ---", self.main.clipboard)
 
     def debug_dump(self, event=None):
-        dump = self.view.dump("1.0", tk.END)
-        ic("--- complete dump ---", dump)
+        ic(self.view.dump("1.0", tk.END))
+
+    def debug_ast(self, event=None):
+        ic(self.text.ast)
