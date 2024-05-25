@@ -61,6 +61,11 @@ class Editor(TextViewer):
         self.menu_edit.add_command(label=Tr("Copy"), command=self.clipboard_copy)
         self.menu_edit.add_command(label=Tr("Cut"), command=self.clipboard_cut)
         self.menu_edit.add_command(label=Tr("Paste"), command=self.clipboard_paste)
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label=Tr("New ordered list"),
+                                   command=self.list_ordered_add)
+        self.menu_edit.add_command(label=Tr("New unordered list"),
+                                   command=self.list_unordered_add)
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(
@@ -147,6 +152,11 @@ class Editor(TextViewer):
                 menu.add_command(label=Tr("Remove list item"),
                                  command=functools.partial(self.list_item_remove,
                                                            list_item_tag=list_item_tag))
+            menu.add_command(label=Tr("New ordered list"),
+                             command=self.list_ordered_add)
+            menu.add_command(label=Tr("New unordered list"),
+                             command=self.list_unordered_add)
+            menu.add_separator()
             menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
         else:  # There is current selection.
             try:
@@ -321,9 +331,14 @@ class Editor(TextViewer):
         self.view.tag_remove(constants.FENCED_CODE, first, last)
         self.modified = True
 
+    def list_ordered_add(self, event=None):
+        raise NotImplementedError
+
+    def list_unordered_add(self, event=None):
+        raise NotImplementedError
+    
     def list_item_add(self, event=None, list_item_tag=None):
         data = self.list_lookup[list_item_tag]
-        ic(data)
         data["count"] += 1
         self.view.mark_set(tk.INSERT,
                            self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1])

@@ -297,14 +297,15 @@ class Viewer:
 
     def render_raw_text(self, ast):
         children = ast["children"]
-        if type(children) == str:
-            if children[-1] == "\n":
-                children = children[:-1] + " "
-            self.view.insert(tk.INSERT, children)
+        if not type(children) == str:
+            ic("could not handle", ast)
+            return
+        if children[-1] == "\n":
+            children = children[:-1] + " "
+        self.view.insert(tk.INSERT, children)
 
     def render_line_break(self, ast):
         pass
-
 
     def render_blank_line(self, ast):
         pass
@@ -342,7 +343,7 @@ class Viewer:
 
     def render_thematic_break(self, ast):
         self.conditional_line_break()
-        self.view.insert(tk.INSERT, "\u2014" * 20, (constants.THEMATIC_BREAK,))
+        self.view.insert(tk.INSERT, constants.EM_DASH * 20, (constants.THEMATIC_BREAK,))
         self.line_break()
         self.line_break()
 
@@ -387,6 +388,8 @@ class Viewer:
         if level == 1 and data["tight"]:
             self.line_break()
         self.list_stack.pop()
+        if self.list_stack:
+            self.list_stack[-1]["previous_was_list"] = True
 
     def render_list_item(self, ast):
         data = self.list_stack[-1]
@@ -405,7 +408,8 @@ class Viewer:
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        self.view.insert(tk.INSERT, "\n")
+        if not (self.list_stack and self.list_stack[-1].get("previous_was_list")):
+            self.view.insert(tk.INSERT, "\n")
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n")
         self.view.tag_add(item_tag, first, tk.INSERT)

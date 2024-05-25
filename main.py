@@ -506,19 +506,17 @@ class Main:
 
     def export_docx(self):
         config = self.config["export"].get("docx") or {}
-        if "title" not in config:
-            config["title"] = self.title
-        answer = docx_export.Dialog(self.root, config)
-        if not answer.result:
+        response = docx_export.Dialog(self.root, config)
+        if not response.result:
             return
-        filepath = os.path.join(answer.result["dirpath"], answer.result["filename"])
-        exporter = docx_export.Exporter(self.source, answer.result)
+        filepath = os.path.join(response.result["dirpath"], response.result["filename"])
+        exporter = docx_export.Exporter(self, self.source, response.result)
         exporter.write(filepath)
         tk.messagebox.showinfo(
             title=Tr("Wrote DOCX file"),
             message=f"{Tr('Wrote DOCX file')} '{filepath}'.",
         )
-        self.config["export"]["docx"] = answer.result
+        self.config["export"]["docx"] = response.result
 
     def export_pdf(self):
         raise NotImplementedError

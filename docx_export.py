@@ -1,8 +1,7 @@
 "DOCX export."
 
-from icecream import ic
-
 import copy
+import datetime
 import os.path
 
 import tkinter as tk
@@ -10,8 +9,7 @@ import tkinter.simpledialog
 import tkinter.filedialog
 
 import docx
-
-# from docx.enum.style import WD_STYLE_TYPE
+from icecream import ic
 
 import constants
 import utils
@@ -21,7 +19,8 @@ from utils import Tr
 class Exporter:
     "DOCX exporter."
 
-    def __init__(self, source, config):
+    def __init__(self, main, source, config):
+        self.main = main
         self.source = source
         self.config = config
 
@@ -41,8 +40,9 @@ class Exporter:
             rpr_default = styles_element.xpath("./w:docDefaults/w:rPrDefault/w:rPr")[0]
             lang_default = rpr_default.xpath("w:lang")[0]
             lang_default.set(docx.oxml.shared.qn("w:val"), language)
+        now = datetime.datetime.now()
 
-        # Create a new style for quote.
+        # Create style for quote.
         style = self.document.styles.add_style(
             constants.DOCX_QUOTE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
         )
@@ -56,19 +56,40 @@ class Exporter:
 
         # Set Dublin core metadata.
         self.document.core_properties.language = language
+        self.document.core_properties.modified = now
 
-        self.document.add_heading(self.config.get("title") or self.source.name, 0)
+        # Title page.
+        paragraph = self.document.add_paragraph(style="Title")
+        paragraph.paragraph_format.space_after = docx.shared.Pt(40)
+        run = paragraph.add_run(self.main.title)
+        run.font.size = docx.shared.Pt(28)
+        run.font.bold = True
+        if self.main.subtitle:
+            self.write_heading(self.main.subtitle, 1)
+        for author in self.main.authors:
+            self.write_heading(author, 2)
+        paragraph = self.document.add_paragraph()
+        paragraph.add_run(now.strftime(constants.TIME_ISO_FORMAT))
+
+        self.current_text = None
+
+        self.indexed = {}       # Key: canonical; value: dict(id, fullname)
+        self.indexed_count = 0
+        self.footnotes = {}     # Key: fullname; value: dict(label, ast_children)
+
+        # Book chapters and texts.
         for item in self.source.items:
             if item.is_section:
                 self.write_section(item, level=1)
             else:
                 self.write_text(item, level=1)
         self.document.save(filepath)
+        ic(self.indexed)
 
     def write_section(self, section, level):
         if level <= constants.DOCX_PAGEBREAK_LEVEL:
             self.document.add_page_break()
-        self.document.add_heading(section.name, level)
+        self.write_heading(section.name, level)
         for item in section.items:
             if item.is_section:
                 self.write_section(item, level=level + 1)
@@ -78,11 +99,31 @@ class Exporter:
     def write_text(self, text, level):
         if level < constants.DOCX_PAGEBREAK_LEVEL:
             self.document.add_page_break()
-        self.document.add_heading(text.name, level)
+        self.write_heading(text.name, level)
         self.style_stack = ["Normal"]
         self.bold = False
         self.italic = False
+        self.current_text = text
         self.render(text.ast)
+        # Footnotes at end of the text.
+        try:
+            footnotes = self.footnotes[text.fullname]
+        except KeyError:
+            return
+        self.document.add_heading(Tr("Footnotes"), 6)
+        for label in sorted(footnotes.keys()):
+            self.document.add_heading(str(label), 7)
+            for child in footnotes[label]["ast_children"]:
+                self.render(child)
+
+    def write_heading(self, title, level):
+        level = min(level, constants.MAX_H_LEVEL)
+        h = constants.H_LOOKUP[level]
+        paragraph = self.document.add_paragraph(style=f"Heading {level}")
+        paragraph.paragraph_format.left_indent = docx.shared.Pt(h["left_margin"])
+        paragraph.paragraph_format.space_after = docx.shared.Pt(h["spacing"])
+        run = paragraph.add_run(title)
+        run.font.size = docx.shared.Pt(h["font"][1])
 
     def render(self, ast):
         try:
@@ -134,6 +175,41 @@ class Exporter:
             self.render(child)
         self.bold = False
 
+    def render_thematic_break(self, ast):
+        paragraph = self.document.add_paragraph(constants.EM_DASH * 20)
+        paragraph.alignment = docx.enum.text.WD_ALIGN_PARAGRAPH.CENTER
+
+    def render_link(self, ast):
+        raw_text = []
+        for child in ast["children"]:
+            if child["element"] == "raw_text" and type(child["children"]) == str:
+                raw_text.append(child["children"])
+        raw_text = "".join(raw_text)
+        add_hyperlink(self.paragraph, ast["dest"], raw_text)
+
+    def render_indexed(self, ast):
+        entries = self.indexed.setdefault(ast["canonical"], [])
+        self.indexed_count += 1
+        entries.append(dict(id=f"i{self.indexed_count}",
+                            fullname=self.current_text.fullname))
+        self.paragraph.add_run(ast["term"])
+
+    def render_footnote_ref(self, ast):
+        entries = self.footnotes.setdefault(self.current_text.fullname, {})
+        label = int(ast["label"])
+        entries[label] = dict(label=label)
+        run = self.paragraph.add_run(str(label))
+        run.font.superscript = True
+        run.font.bold = True
+
+    def render_footnote_def(self, ast):
+        label = int(ast["label"])
+        self.footnotes[self.current_text.fullname][label]["ast_children"] = ast["children"]
+    def render_reference(self, ast):
+        run = self.paragraph.add_run(ast["reference"])
+        run.font.italic = True
+        run.font.underline = True
+
 
 class Dialog(tk.simpledialog.Dialog):
     "Dialog to confirm or modify configuration before export."
@@ -161,13 +237,6 @@ class Dialog(tk.simpledialog.Dialog):
         button.grid(row=row, column=3)
 
         row += 1
-        label = tk.ttk.Label(body, text=Tr("Title"))
-        label.grid(row=row, column=0, padx=4, sticky=tk.E)
-        self.title_entry = tk.ttk.Entry(body, width=40)
-        self.title_entry.insert(0, self.config.get("title") or self.source.name)
-        self.title_entry.grid(row=row, column=1, sticky=tk.W)
-
-        row += 1
         label = tk.ttk.Label(body, text=Tr("Language"))
         label.grid(row=row, column=0, padx=4, sticky=tk.E)
         self.language_var = tk.StringVar(value=self.config.get("language") or "")
@@ -182,7 +251,6 @@ class Dialog(tk.simpledialog.Dialog):
         self.config["dirpath"] = self.dirpath_entry.get().strip() or "."
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
-        self.config["title"] = self.title_entry.get().strip()
         self.config["language"] = self.language_var.get().strip()
         self.result = self.config
 
@@ -196,3 +264,51 @@ class Dialog(tk.simpledialog.Dialog):
         if dirpath:
             self.dirpath_entry.delete(0, tk.END)
             self.dirpath_entry.insert(0, dirpath)
+
+
+# From https://github.com/python-openxml/python-docx/issues/74#issuecomment-261169410
+def add_hyperlink(paragraph, url, text, color="2222FF", underline=True):
+    """
+    A function that places a hyperlink within a paragraph object.
+
+    :param paragraph: The paragraph we are adding the hyperlink to.
+    :param url: A string containing the required url
+    :param text: The text displayed for the url
+    :return: The hyperlink object
+    """
+
+    # This gets access to the document.xml.rels file and gets a new relation id value
+    part = paragraph.part
+    r_id = part.relate_to(url, docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
+
+    # Create the w:hyperlink tag and add needed values
+    hyperlink = docx.oxml.shared.OxmlElement('w:hyperlink')
+    hyperlink.set(docx.oxml.shared.qn('r:id'), r_id, )
+
+    # Create a w:r element
+    new_run = docx.oxml.shared.OxmlElement('w:r')
+
+    # Create a new w:rPr element
+    rPr = docx.oxml.shared.OxmlElement('w:rPr')
+
+    # Add color if it is given
+    if not color is None:
+      c = docx.oxml.shared.OxmlElement('w:color')
+      c.set(docx.oxml.shared.qn('w:val'), color)
+      rPr.append(c)
+
+    # Remove underlining if it is requested
+    # XXX Does not seem to work? /Per Kraulis
+    if not underline:
+      u = docx.oxml.shared.OxmlElement('w:u')
+      u.set(docx.oxml.shared.qn('w:val'), 'none')
+      rPr.append(u)
+
+    # Join all the xml elements together add add the required text to the w:r element
+    new_run.append(rPr)
+    new_run.text = text
+    hyperlink.append(new_run)
+
+    paragraph._p.append(hyperlink)
+
+    return hyperlink
