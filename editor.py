@@ -484,7 +484,8 @@ class Editor(TextViewer):
         if not add.result:
             return
         tag = constants.REFERENCE_PREFIX + add.result
-        self.view.insert(tk.INSERT, add.result, (constants.REFERENCE, tag))
+        tags = (constants.REFERENCE, tag) + self.view.tag_names(tk.INSERT)
+        self.view.insert(tk.INSERT, add.result, tags)
 
     def reference_action(self, event):
         reference = self.get_reference()

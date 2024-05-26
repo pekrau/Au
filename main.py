@@ -874,7 +874,9 @@ class Main:
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) == 2:
+    if len(sys.argv) == 1:
+        absdirpath = os.getcwd()
+    elif len(sys.argv) == 2:
         dirpath = sys.argv[1]
         if not os.path.isabs(dirpath):
             absdirpath = os.path.normpath(os.path.join(os.getcwd(), dirpath))
@@ -882,8 +884,6 @@ if __name__ == "__main__":
                 sys.exit(f"{Tr('Error')}: '{absdirpath}' does not exist.")
             if not os.path.isdir(absdirpath):
                 sys.exit(f"{Tr('Error')}: '{absdirpath}' is not a directory.")
-    elif len(sys.argv) == 1:
-        absdirpath = os.getcwd()
     else:
         sys.exit(f"{Tr('Error')}: at most one directory path can be provided.")
     main = Main(absdirpath)

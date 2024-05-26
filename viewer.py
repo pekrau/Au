@@ -107,9 +107,9 @@ class Viewer:
         )
         self.view.tag_configure(
             constants.FOOTNOTE_DEF,
-            background=constants.FOOTNOTE_DEF_COLOR,
             borderwidth=1,
             relief=tk.SOLID,
+            background=constants.FOOTNOTE_DEF_COLOR,
             lmargin1=constants.FOOTNOTE_MARGIN,
             lmargin2=constants.FOOTNOTE_MARGIN,
             rmargin=constants.FOOTNOTE_MARGIN,
@@ -445,8 +445,12 @@ class Viewer:
         tag = self.footnotes[ast["label"]]["tag"]
         first = self.view.tag_nextrange(tag, "1.0")[1]
         self.view.mark_set(tk.INSERT, first)
+        self.view.insert(tk.INSERT, "\n")        # For nicer appearance; do not save.
         for child in ast["children"]:
             self.render(child)
+        # Remove newline from last paragraph in footnote def, for nicer appearance.
+        if self.view.get(tk.INSERT + "-1c") == "\n":
+            self.view.delete(tk.INSERT + "-1c")
         self.view.tag_add(constants.FOOTNOTE_DEF, first + "+1c", tk.INSERT)
         tag = constants.FOOTNOTE_DEF_PREFIX + ast["label"]
         self.tag_elide(tag)

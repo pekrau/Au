@@ -69,6 +69,8 @@ class Exporter:
         for author in self.main.authors:
             self.write_heading(author, 2)
         paragraph = self.document.add_paragraph()
+        paragraph.add_run(Tr("Written"))
+        paragraph.add_run(": ")
         paragraph.add_run(now.strftime(constants.TIME_ISO_FORMAT))
 
         self.current_text = None
