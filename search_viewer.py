@@ -162,7 +162,7 @@ class SearchViewer(Viewer):
             self.view.insert(tk.INSERT, "\n")
 
     def xref_enter(self, event):
-        self.view.configure(cursor="hand2")
+        self.view.configure(cursor=contants.XREF_CURSOR)
 
     def xref_leave(self, event):
         self.view.configure(cursor="")

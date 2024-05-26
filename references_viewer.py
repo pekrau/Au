@@ -244,7 +244,7 @@ class ReferencesViewer(Viewer):
                 self.xref_create(str(i), position, constants.REFERENCE)
 
     def reference_enter(self, event):
-        self.view.configure(cursor="hand2")
+        self.view.configure(cursor=constants.REFERENCE_CURSOR)
 
     def reference_leave(self, event):
         self.view.configure(cursor="")

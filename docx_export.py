@@ -40,7 +40,6 @@ class Exporter:
             rpr_default = styles_element.xpath("./w:docDefaults/w:rPrDefault/w:rPr")[0]
             lang_default = rpr_default.xpath("w:lang")[0]
             lang_default.set(docx.oxml.shared.qn("w:val"), language)
-        now = datetime.datetime.now()
 
         # Create style for quote.
         style = self.document.styles.add_style(
@@ -56,54 +55,51 @@ class Exporter:
 
         # Set Dublin core metadata.
         self.document.core_properties.language = language
-        self.document.core_properties.modified = now
-
-        # Title page.
-        paragraph = self.document.add_paragraph(style="Title")
-        paragraph.paragraph_format.space_after = docx.shared.Pt(40)
-        run = paragraph.add_run(self.main.title)
-        run.font.size = docx.shared.Pt(28)
-        run.font.bold = True
-        if self.main.subtitle:
-            self.write_heading(self.main.subtitle, 1)
-        for author in self.main.authors:
-            self.write_heading(author, 2)
-        paragraph = self.document.add_paragraph()
-        paragraph.add_run(Tr("Written"))
-        paragraph.add_run(": ")
-        paragraph.add_run(now.strftime(constants.TIME_ISO_FORMAT))
-
-        self.current_text = None
+        self.document.core_properties.modified = datetime.datetime.now()
 
         self.indexed = {}       # Key: canonical; value: dict(id, fullname)
         self.indexed_count = 0
         self.footnotes = {}     # Key: fullname; value: dict(label, ast_children)
 
-        # Book chapters and texts.
+        self.write_title()
+        self.current_text = None
         for item in self.source.items:
             if item.is_section:
                 self.write_section(item, level=1)
             else:
                 self.write_text(item, level=1)
-
-        # References.
-        self.document.add_page_break()
-        self.write_heading(Tr("References"), 1)
-        for reference in self.main.references_viewer.reference_texts:
-            paragraph = self.document.add_paragraph()
-            run = paragraph.add_run(reference["id"])
-            run.bold = True
-            paragraph.add_run("  ")
-            self.write_reference_authors(paragraph, reference)
-            try:
-                method = getattr(self, f"write_reference_{reference['type']}")
-            except AttributeError:
-                ic("unknown", reference["type"])
-            else:
-                method(paragraph, reference)
-            self.write_reference_external_links(paragraph, reference)
-                
+        self.write_references(references=self.main.references_viewer.references)
+        self.write_indexed(self.main.indexed_viewer.terms)
         self.document.save(filepath)
+
+    def write_title(self):
+        paragraph = self.document.add_paragraph(style="Title")
+        paragraph.paragraph_format.space_after = docx.shared.Pt(40)
+        run = paragraph.add_run(self.main.title)
+        run.font.size = docx.shared.Pt(28)
+        run.font.bold = True
+
+        if self.main.subtitle:
+            paragraph = self.document.add_paragraph(style=f"Heading 1")
+            paragraph.paragraph_format.space_after = docx.shared.Pt(30)
+            paragraph.add_run(self.main.subtitle)
+
+        for author in self.main.authors:
+            paragraph = self.document.add_paragraph(style=f"Heading 2")
+            paragraph.add_run(author)
+
+        statuses = [t.status for t in self.source.all_texts] + [max(constants.STATUSES)]
+        paragraph = self.document.add_paragraph()
+        paragraph.paragraph_format.space_before = docx.shared.Pt(100)
+        paragraph.add_run(Tr("Status"))
+        paragraph.add_run(": ")
+        statuses = [t.status for t in self.source.all_texts] + [max(constants.STATUSES)]
+        paragraph.add_run(Tr(str(min(statuses))))
+        
+        paragraph = self.document.add_paragraph()
+        paragraph.add_run(Tr("Created"))
+        paragraph.add_run(": ")
+        paragraph.add_run(datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT))
 
     def write_section(self, section, level):
         if level <= constants.DOCX_PAGEBREAK_LEVEL:
@@ -143,6 +139,23 @@ class Exporter:
         paragraph.paragraph_format.space_after = docx.shared.Pt(h["spacing"])
         run = paragraph.add_run(title)
         run.font.size = docx.shared.Pt(h["font"][1])
+
+    def write_references(self, references):
+        self.document.add_page_break()
+        self.write_heading(Tr("References"), 1)
+        for reference in self.main.references_viewer.reference_texts:
+            paragraph = self.document.add_paragraph()
+            run = paragraph.add_run(reference["id"])
+            run.bold = True
+            paragraph.add_run("  ")
+            self.write_reference_authors(paragraph, reference)
+            try:
+                method = getattr(self, f"write_reference_{reference['type']}")
+            except AttributeError:
+                ic("unknown", reference["type"])
+            else:
+                method(paragraph, reference)
+            self.write_reference_external_links(paragraph, reference)
 
     def write_reference_authors(self, paragraph, reference):
         count = len(reference["authors"])
@@ -216,6 +229,16 @@ class Exporter:
                 any_item = True
             except KeyError:
                 pass
+
+    def write_indexed(self, terms):
+        self.document.add_page_break()
+        self.write_heading(Tr("Index"), 1)
+        for term, fullnames in terms:
+            paragraph = self.document.add_paragraph()
+            run = paragraph.add_run(term)
+            run.bold = True
+            for fullname, positions in sorted(fullnames.items()):
+                paragraph.add_run(f" {fullname}")
 
     def render(self, ast):
         try:
@@ -404,21 +427,3 @@ def add_hyperlink(paragraph, url, text, color="2222FF", underline=True):
     paragraph._p.append(hyperlink)
 
     return hyperlink
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

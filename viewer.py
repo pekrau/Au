@@ -480,7 +480,7 @@ class Viewer:
         link = self.get_link()
         if not link:
             return
-        self.view.configure(cursor="hand2")
+        self.view.configure(cursor=constants.LINK_CURSOR)
 
     def link_leave(self, event):
         self.view.configure(cursor="")
@@ -509,7 +509,7 @@ class Viewer:
         xref = self.get_xref()
         if not xref:
             return
-        self.view.configure(cursor="hand1")
+        self.view.configure(cursor=constants.XREF_CURSOR)
 
     def xref_leave(self, event):
         self.view.configure(cursor="")
@@ -533,7 +533,7 @@ class Viewer:
         return self.xrefs.get(tag)
 
     def indexed_enter(self, event):
-        self.view.configure(cursor="hand2")
+        self.view.configure(cursor=constants.INDEXED_CURSOR)
 
     def indexed_leave(self, event):
         self.view.configure(cursor="")
@@ -550,7 +550,7 @@ class Viewer:
                 return tag[len(constants.INDEXED_PREFIX) :]
 
     def reference_enter(self, event):
-        self.view.configure(cursor="hand2")
+        self.view.configure(cursor=constants.REFERENCE_CURSOR)
 
     def reference_leave(self, event):
         self.view.configure(cursor="")
@@ -566,7 +566,7 @@ class Viewer:
                 return tag[len(constants.REFERENCE_PREFIX) :]
 
     def footnote_enter(self, event=None):
-        self.view.configure(cursor="hand2")
+        self.view.configure(cursor=constants.FOOTNOTE_CURSOR)
 
     def footnote_leave(self, event=None):
         self.view.configure(cursor="")

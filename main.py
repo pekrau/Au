@@ -23,9 +23,9 @@ from source import Source
 from text_viewer import TextViewer
 from text_editor import TextEditor
 from title_viewer import TitleViewer
-from indexed_viewer import IndexedViewer
 from references_viewer import ReferencesViewer
 from reference_editor import ReferenceEditor
+from indexed_viewer import IndexedViewer
 from search_viewer import SearchViewer
 from help_viewer import HelpViewer
 
@@ -97,8 +97,8 @@ class Main:
         self.treeview_display()
         self.texts_notebook_display()
         self.title_viewer.display()
-        self.indexed_viewer.display()
         self.references_viewer.display()
+        self.indexed_viewer.display()
         self.search_viewer.display()
         self.help_viewer.display()
 
@@ -451,13 +451,6 @@ class Main:
         self.title_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.title_viewer.tabid] = self.title_viewer
 
-        self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
-        self.meta_notebook.add(self.indexed_viewer.view_frame, text=Tr("Index"))
-        self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
-        self.indexed_viewer.view.bind("<Control-q>", self.quit)
-        self.indexed_viewer.view.bind("<Control-Q>", self.quit)
-        self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
-
         self.references_viewer = ReferencesViewer(self.meta_notebook, self)
         self.meta_notebook.add(
             self.references_viewer.super_frame, text=Tr("References")
@@ -466,6 +459,13 @@ class Main:
         self.references_viewer.view.bind("<Control-q>", self.quit)
         self.references_viewer.view.bind("<Control-Q>", self.quit)
         self.meta_notebook_lookup[self.references_viewer.tabid] = self.references_viewer
+
+        self.indexed_viewer = IndexedViewer(self.meta_notebook, self)
+        self.meta_notebook.add(self.indexed_viewer.view_frame, text=Tr("Index"))
+        self.indexed_viewer.tabid = self.meta_notebook.tabs()[-1]
+        self.indexed_viewer.view.bind("<Control-q>", self.quit)
+        self.indexed_viewer.view.bind("<Control-Q>", self.quit)
+        self.meta_notebook_lookup[self.indexed_viewer.tabid] = self.indexed_viewer
 
         self.search_viewer = SearchViewer(self.meta_notebook, self)
         self.meta_notebook.add(self.search_viewer.super_frame, text=Tr("Search"))
@@ -511,9 +511,11 @@ class Main:
         if not response.result:
             return
         filepath = os.path.join(response.result["dirpath"], response.result["filename"])
+        self.root.config(cursor=constants.WRITE_CURSOR)
         exporter = docx_export.Exporter(self, self.source, response.result)
         exporter.write(filepath)
         self.config["export"]["docx"] = response.result
+        self.root.config(cursor="")
 
     def export_pdf(self):
         raise NotImplementedError
@@ -771,8 +773,8 @@ class Main:
 
     def refresh_meta_notebook(self):
         self.title_viewer.update_statistics()
-        self.indexed_viewer.display()
         self.references_viewer.display()
+        self.indexed_viewer.display()
         self.search_viewer.clear()
 
     def close_text_editor(self, editor):
