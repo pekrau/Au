@@ -1,5 +1,6 @@
-"""Authoring editor tool based on Tkinter.
-"""
+"Au: Authoring tool storing text in Markdown."
+
+from icecream import ic
 
 import functools
 import json
@@ -11,8 +12,6 @@ import tkinter.messagebox
 import tkinter.simpledialog
 import tkinter.ttk
 import tkinter.font
-
-from icecream import ic
 
 import constants
 import utils

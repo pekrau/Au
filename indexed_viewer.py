@@ -1,8 +1,8 @@
 "Viewer for the list of indexed terms."
 
-import tkinter as tk
-
 from icecream import ic
+
+import tkinter as tk
 
 import constants
 import utils

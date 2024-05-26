@@ -1,5 +1,7 @@
 "Title page viewer."
 
+from icecream import ic
+
 import functools
 
 import tkinter as tk
@@ -11,8 +13,6 @@ import utils
 
 from viewer import Viewer
 from utils import Tr
-
-from icecream import ic
 
 
 class TitleViewer(Viewer):
@@ -111,7 +111,9 @@ class TitleViewer(Viewer):
         self.view.window_create(tk.INSERT, window=frame)
 
     def update_statistics(self, event=None):
-        statuses = [t.status for t in self.main.source.all_texts] + [max(constants.STATUSES)]
+        statuses = [t.status for t in self.main.source.all_texts] + [
+            max(constants.STATUSES)
+        ]
         self.status_var.set(Tr(str(min(statuses))))
         self.chapters_var.set(len(self.main.source.items))
         self.texts_var.set(len(self.main.source.all_texts))

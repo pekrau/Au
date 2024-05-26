@@ -159,9 +159,7 @@ class ReferencesViewer(Viewer):
         except KeyError:
             pass
         try:
-            self.view.insert(
-                tk.INSERT, reference["journal"], (constants.ITALIC,)
-            )
+            self.view.insert(tk.INSERT, reference["journal"], (constants.ITALIC,))
         except KeyError:
             pass
         try:
@@ -328,7 +326,9 @@ class BibtexImport(tk.simpledialog.Dialog):
             return False
         elif len(entries) == 0:
             tk.messagebox.showerror(
-                parent=self.viewer.view_frame, title="Error", message="No BibTeX entry in data."
+                parent=self.viewer.view_frame,
+                title="Error",
+                message="No BibTeX entry in data.",
             )
             return False
         entry = entries[0]

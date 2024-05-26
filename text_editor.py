@@ -1,5 +1,7 @@
 "Editor window for text Markdown file."
 
+from icecream import ic
+
 import io
 
 import tkinter as tk
@@ -12,8 +14,6 @@ import utils
 
 from utils import Tr
 from editor import Editor
-
-from icecream import ic
 
 
 class TextEditor(Editor):

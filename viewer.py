@@ -1,14 +1,15 @@
 """Abstract viewer class containing a tk.Text instance, defining tags and callbacks.
 Methods for rendering Marko AST to the tk.Text instance.
 """
+
+from icecream import ic
+
 import string
 import webbrowser
 
 import tkinter as tk
 import tkinter.messagebox
 import tkinter.ttk
-
-from icecream import ic
 
 import constants
 import utils
@@ -358,9 +359,11 @@ class Viewer:
         list_tag = f"{constants.LIST_PREFIX}{number}"
         item_tag_prefix = f"{constants.LIST_ITEM_PREFIX}{number}-"
         bullet_tag = f"{constants.LIST_BULLET_PREFIX}{number}"
-        self.view.tag_configure(bullet_tag,
-                                font=constants.FONT_BOLD,
-                                lmargin1=constants.LIST_INDENT * len(self.list_stack))
+        self.view.tag_configure(
+            bullet_tag,
+            font=constants.FONT_BOLD,
+            lmargin1=constants.LIST_INDENT * len(self.list_stack),
+        )
         level = len(self.list_stack) + 1
         data = dict(
             number=number,
@@ -396,11 +399,13 @@ class Viewer:
         data["count"] += 1
         data["first_paragraph"] = True
         if data["ordered"]:
-            self.view.insert(tk.INSERT,
-                             f"{data['start'] + data['count'] - 1}. ",
-                             (data["bullet_tag"], ))
+            self.view.insert(
+                tk.INSERT,
+                f"{data['start'] + data['count'] - 1}. ",
+                (data["bullet_tag"],),
+            )
         else:
-            self.view.insert(tk.INSERT, f"{data['bullet']}  ", (data["bullet_tag"], ))
+            self.view.insert(tk.INSERT, f"{data['bullet']}  ", (data["bullet_tag"],))
         item_tag = f"{data['item_tag_prefix']}{data['count']}"
         self.list_lookup[item_tag] = data
         indent = constants.LIST_INDENT * len(self.list_stack)
@@ -445,7 +450,7 @@ class Viewer:
         tag = self.footnotes[ast["label"]]["tag"]
         first = self.view.tag_nextrange(tag, "1.0")[1]
         self.view.mark_set(tk.INSERT, first)
-        self.view.insert(tk.INSERT, "\n")        # For nicer appearance; do not save.
+        self.view.insert(tk.INSERT, "\n")  # For nicer appearance; do not save.
         for child in ast["children"]:
             self.render(child)
         # Remove newline from last paragraph in footnote def, for nicer appearance.
@@ -638,7 +643,7 @@ class Viewer:
 
     def check_broken_selection(self, first, last, showerror=False):
         "Raise ValueError if any incomplete tag run in selection."
-        tags = list()           # Allow multiple entries of same value.
+        tags = list()  # Allow multiple entries of same value.
         for entry in self.get_dump(first, last):
             if entry[0] == "tagon":
                 tags.append(entry[1])
@@ -657,7 +662,7 @@ class Viewer:
                 message="Selection start and end have different tag sets.",
             )
         raise ValueError("Broken selection.")
-        
+
     def selection_strip_whitespace(self, first, last):
         "Return the selection having stripped whitespace from the start and end."
         while self.view.get(first) in string.whitespace:
@@ -682,11 +687,14 @@ class Viewer:
         while entries and entries[-1][0] == "tagon":
             entries = entries[:-1]
         # Get rid of irrelevant marks.
-        entries = [e for e in entries if not(
-            e[0] == "mark"
-            and (e[1] in (tk.INSERT, tk.CURRENT) or e[1].startswith("tk::"))
-        )
-                   ]
+        entries = [
+            e
+            for e in entries
+            if not (
+                e[0] == "mark"
+                and (e[1] in (tk.INSERT, tk.CURRENT) or e[1].startswith("tk::"))
+            )
+        ]
         # Get rid of tagon SEL.
         entries = [e for e in entries if not (e[0] == "tagon" and e[1] == tk.SEL)]
         # Get link data to make a copy. Skip the position; not relevant.

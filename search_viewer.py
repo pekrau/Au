@@ -1,11 +1,11 @@
 "Viewer for the search feature and resulting list."
 
+from icecream import ic
+
 import functools
 
 import tkinter as tk
 import tkinter.ttk
-
-from icecream import ic
 
 import constants
 import utils

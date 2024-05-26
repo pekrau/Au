@@ -1,8 +1,8 @@
 "View of the help file Markdown contents."
 
-import tkinter as tk
-
 from icecream import ic
+
+import tkinter as tk
 
 import constants
 

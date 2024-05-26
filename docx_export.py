@@ -1,5 +1,7 @@
 "DOCX export."
 
+from icecream import ic
+
 import copy
 import datetime
 import os.path
@@ -9,7 +11,6 @@ import tkinter.simpledialog
 import tkinter.filedialog
 
 import docx
-from icecream import ic
 
 import constants
 import utils
@@ -30,7 +31,7 @@ class Exporter:
         self.document = docx.Document()
 
         # Set the default document-wide language.
-        # See https://stackoverflow.com/questions/36967416/how-can-i-set-the-language-in-text-with-python-docx
+        # From https://stackoverflow.com/questions/36967416/how-can-i-set-the-language-in-text-with-python-docx
         try:
             language = self.config["language"]
         except KeyError:
@@ -40,6 +41,17 @@ class Exporter:
             rpr_default = styles_element.xpath("./w:docDefaults/w:rPrDefault/w:rPr")[0]
             lang_default = rpr_default.xpath("w:lang")[0]
             lang_default.set(docx.oxml.shared.qn("w:val"), language)
+
+        # Set to A4 page size.
+        section = self.document.sections[0]
+        section.page_height = docx.shared.Mm(297)
+        section.page_width = docx.shared.Mm(210)
+        section.left_margin = docx.shared.Mm(25.4)
+        section.right_margin = docx.shared.Mm(25.4)
+        section.top_margin = docx.shared.Mm(25.4)
+        section.bottom_margin = docx.shared.Mm(25.4)
+        section.header_distance = docx.shared.Mm(12.7)
+        section.footer_distance = docx.shared.Mm(12.7)
 
         # Create style for quote.
         style = self.document.styles.add_style(
@@ -57,9 +69,9 @@ class Exporter:
         self.document.core_properties.language = language
         self.document.core_properties.modified = datetime.datetime.now()
 
-        self.indexed = {}       # Key: canonical; value: dict(id, fullname)
+        self.indexed = {}  # Key: canonical; value: dict(id, fullname)
         self.indexed_count = 0
-        self.footnotes = {}     # Key: fullname; value: dict(label, ast_children)
+        self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
 
         self.write_title()
         self.current_text = None
@@ -95,7 +107,7 @@ class Exporter:
         paragraph.add_run(": ")
         statuses = [t.status for t in self.source.all_texts] + [max(constants.STATUSES)]
         paragraph.add_run(Tr(str(min(statuses))))
-        
+
         paragraph = self.document.add_paragraph()
         paragraph.add_run(Tr("Created"))
         paragraph.add_run(": ")
@@ -225,7 +237,9 @@ class Exporter:
                     paragraph.add_run(", ")
                 else:
                     paragraph.add_run("  ")
-                add_hyperlink(paragraph, template.format(value=value), f"{label}:{value}")
+                add_hyperlink(
+                    paragraph, template.format(value=value), f"{label}:{value}"
+                )
                 any_item = True
             except KeyError:
                 pass
@@ -305,8 +319,9 @@ class Exporter:
     def render_indexed(self, ast):
         entries = self.indexed.setdefault(ast["canonical"], [])
         self.indexed_count += 1
-        entries.append(dict(id=f"i{self.indexed_count}",
-                            fullname=self.current_text.fullname))
+        entries.append(
+            dict(id=f"i{self.indexed_count}", fullname=self.current_text.fullname)
+        )
         self.paragraph.add_run(ast["term"])
 
     def render_footnote_ref(self, ast):
@@ -319,7 +334,10 @@ class Exporter:
 
     def render_footnote_def(self, ast):
         label = int(ast["label"])
-        self.footnotes[self.current_text.fullname][label]["ast_children"] = ast["children"]
+        self.footnotes[self.current_text.fullname][label]["ast_children"] = ast[
+            "children"
+        ]
+
     def render_reference(self, ast):
         run = self.paragraph.add_run(ast["reference"])
         run.font.italic = True
@@ -394,30 +412,35 @@ def add_hyperlink(paragraph, url, text, color="2222FF", underline=True):
 
     # This gets access to the document.xml.rels file and gets a new relation id value.
     part = paragraph.part
-    r_id = part.relate_to(url, docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
+    r_id = part.relate_to(
+        url, docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK, is_external=True
+    )
 
     # Create the w:hyperlink tag and add needed values.
-    hyperlink = docx.oxml.shared.OxmlElement('w:hyperlink')
-    hyperlink.set(docx.oxml.shared.qn('r:id'), r_id, )
+    hyperlink = docx.oxml.shared.OxmlElement("w:hyperlink")
+    hyperlink.set(
+        docx.oxml.shared.qn("r:id"),
+        r_id,
+    )
 
     # Create a w:r element.
-    new_run = docx.oxml.shared.OxmlElement('w:r')
+    new_run = docx.oxml.shared.OxmlElement("w:r")
 
     # Create a new w:rPr element.
-    rPr = docx.oxml.shared.OxmlElement('w:rPr')
+    rPr = docx.oxml.shared.OxmlElement("w:rPr")
 
     # Add color if it is given.
     if not color is None:
-      c = docx.oxml.shared.OxmlElement('w:color')
-      c.set(docx.oxml.shared.qn('w:val'), color)
-      rPr.append(c)
+        c = docx.oxml.shared.OxmlElement("w:color")
+        c.set(docx.oxml.shared.qn("w:val"), color)
+        rPr.append(c)
 
     # Remove underlining if it is requested.
     # XXX Does not seem to work? /Per Kraulis
     if not underline:
-      u = docx.oxml.shared.OxmlElement('w:u')
-      u.set(docx.oxml.shared.qn('w:val'), 'none')
-      rPr.append(u)
+        u = docx.oxml.shared.OxmlElement("w:u")
+        u.set(docx.oxml.shared.qn("w:val"), "none")
+        rPr.append(u)
 
     # Join all the xml elements together add add the required text to the w:r element.
     new_run.append(rPr)

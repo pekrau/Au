@@ -1,5 +1,7 @@
 "Base text editor."
 
+from icecream import ic
+
 import functools
 import io
 import webbrowser
@@ -8,8 +10,6 @@ import tkinter as tk
 import tkinter.ttk
 import tkinter.simpledialog
 import tkinter.messagebox
-
-from icecream import ic
 
 import constants
 import utils
@@ -62,10 +62,12 @@ class Editor(TextViewer):
         self.menu_edit.add_command(label=Tr("Cut"), command=self.clipboard_cut)
         self.menu_edit.add_command(label=Tr("Paste"), command=self.clipboard_paste)
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label=Tr("New ordered list"),
-                                   command=self.list_ordered_add)
-        self.menu_edit.add_command(label=Tr("New unordered list"),
-                                   command=self.list_unordered_add)
+        self.menu_edit.add_command(
+            label=Tr("New ordered list"), command=self.list_ordered_add
+        )
+        self.menu_edit.add_command(
+            label=Tr("New unordered list"), command=self.list_unordered_add
+        )
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(
@@ -77,8 +79,12 @@ class Editor(TextViewer):
         self.menu_format.add_command(label=Tr("Code"), command=self.code_span_add)
         self.menu_format.add_separator()
         self.menu_format.add_command(label=Tr("Quote"), command=self.quote_add)
-        self.menu_format.add_command(label=Tr("Code block"), command=self.code_block_add)
-        self.menu_format.add_command(label=Tr("Fenced code"), command=self.fenced_code_add)
+        self.menu_format.add_command(
+            label=Tr("Code block"), command=self.code_block_add
+        )
+        self.menu_format.add_command(
+            label=Tr("Fenced code"), command=self.fenced_code_add
+        )
 
         self.menubar.add_command(
             label=Tr("Link"), command=self.link_add, state=tk.DISABLED
@@ -146,16 +152,24 @@ class Editor(TextViewer):
         except ValueError:  # No current selection.
             list_item_tag = self.get_list_item_tag()
             if list_item_tag:
-                menu.add_command(label=Tr("Add list item"),
-                                 command=functools.partial(self.list_item_add,
-                                                           list_item_tag=list_item_tag))
-                menu.add_command(label=Tr("Remove list item"),
-                                 command=functools.partial(self.list_item_remove,
-                                                           list_item_tag=list_item_tag))
-            menu.add_command(label=Tr("New ordered list"),
-                             command=self.list_ordered_add)
-            menu.add_command(label=Tr("New unordered list"),
-                             command=self.list_unordered_add)
+                menu.add_command(
+                    label=Tr("Add list item"),
+                    command=functools.partial(
+                        self.list_item_add, list_item_tag=list_item_tag
+                    ),
+                )
+                menu.add_command(
+                    label=Tr("Remove list item"),
+                    command=functools.partial(
+                        self.list_item_remove, list_item_tag=list_item_tag
+                    ),
+                )
+            menu.add_command(
+                label=Tr("New ordered list"), command=self.list_ordered_add
+            )
+            menu.add_command(
+                label=Tr("New unordered list"), command=self.list_unordered_add
+            )
             menu.add_separator()
             menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
         else:  # There is current selection.
@@ -336,19 +350,23 @@ class Editor(TextViewer):
 
     def list_unordered_add(self, event=None):
         raise NotImplementedError
-    
+
     def list_item_add(self, event=None, list_item_tag=None):
         data = self.list_lookup[list_item_tag]
         data["count"] += 1
-        self.view.mark_set(tk.INSERT,
-                           self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1])
-        outer_tags = [t for t in self.view.tag_names(tk.INSERT + "-1c") 
-                      if int(t.split("-")[1]) != data["number"]]
+        self.view.mark_set(
+            tk.INSERT, self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1]
+        )
+        outer_tags = [
+            t
+            for t in self.view.tag_names(tk.INSERT + "-1c")
+            if int(t.split("-")[1]) != data["number"]
+        ]
         tags = [data["bullet_tag"], data["list_tag"]]
         if data["ordered"]:
-            self.view.insert(tk.INSERT,
-                             f"{data['start'] + data['count'] - 1}. ",
-                             tags + outer_tags)
+            self.view.insert(
+                tk.INSERT, f"{data['start'] + data['count'] - 1}. ", tags + outer_tags
+            )
         else:
             self.view.insert(tk.INSERT, f"{data['bullet']}  ", tags + outer_tags)
         item_tag = f"{data['item_tag_prefix']}{data['count']}"
@@ -356,7 +374,7 @@ class Editor(TextViewer):
         indent = constants.LIST_INDENT * len(self.list_stack)
         self.view.tag_configure(item_tag, lmargin1=indent, lmargin2=indent)
         first = self.view.index(tk.INSERT)
-        self.view.insert(tk.INSERT, " \n", (item_tag, ))
+        self.view.insert(tk.INSERT, " \n", (item_tag,))
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n", (item_tag,))
         self.view.tag_add(item_tag, first, tk.INSERT)
@@ -376,7 +394,7 @@ class Editor(TextViewer):
         first = self.view.tag_prevrange(data["bullet_tag"], tk.CURRENT)[0]
         try:
             last = self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1]
-        except IndexError:      # Not sure why this is needed.
+        except IndexError:  # Not sure why this is needed.
             last = self.view.tag_nextrange(list_item_tag, tk.CURRENT)[1]
         self.view.delete(first, last)
 
@@ -511,8 +529,10 @@ class Editor(TextViewer):
         label = self.get_new_footnote_label()
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         self.tag_elide(tag)
-        if (self.view.get(last + "-1c", last) != "\n" and
-            self.view.get(last, last + "+1c") != "\n"):
+        if (
+            self.view.get(last + "-1c", last) != "\n"
+            and self.view.get(last, last + "+1c") != "\n"
+        ):
             self.view.insert(last, "\n")
             last = self.view.index(last + "+1c")
         self.view.tag_add(constants.FOOTNOTE_DEF, first, last)
