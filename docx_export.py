@@ -85,8 +85,25 @@ class Exporter:
                 self.write_section(item, level=1)
             else:
                 self.write_text(item, level=1)
+
+        # References.
+        self.document.add_page_break()
+        self.write_heading(Tr("References"), 1)
+        for reference in self.main.references_viewer.reference_texts:
+            paragraph = self.document.add_paragraph()
+            run = paragraph.add_run(reference["id"])
+            run.bold = True
+            paragraph.add_run("  ")
+            self.write_reference_authors(paragraph, reference)
+            try:
+                method = getattr(self, f"write_reference_{reference['type']}")
+            except AttributeError:
+                ic("unknown", reference["type"])
+            else:
+                method(paragraph, reference)
+            self.write_reference_external_links(paragraph, reference)
+                
         self.document.save(filepath)
-        ic(self.indexed)
 
     def write_section(self, section, level):
         if level <= constants.DOCX_PAGEBREAK_LEVEL:
@@ -126,6 +143,79 @@ class Exporter:
         paragraph.paragraph_format.space_after = docx.shared.Pt(h["spacing"])
         run = paragraph.add_run(title)
         run.font.size = docx.shared.Pt(h["font"][1])
+
+    def write_reference_authors(self, paragraph, reference):
+        count = len(reference["authors"])
+        for pos, author in enumerate(reference["authors"]):
+            if pos > 0:
+                if pos == count - 1:
+                    paragraph.add_run(" & ")
+                else:
+                    paragraph.add_run(", ")
+            paragraph.add_run(utils.shortname(author))
+
+    def write_reference_article(self, paragraph, reference):
+        paragraph.add_run(f"({reference['year']}) ")
+        try:
+            paragraph.add_run(reference["title"].strip(".") + ". ")
+        except KeyError:
+            pass
+        try:
+            run = paragraph.add_run(f"{reference['journal']} ")
+            run.font.italic = True
+        except KeyError:
+            pass
+        try:
+            paragraph.add_run(f"{reference['volume']} ")
+        except KeyError:
+            pass
+        else:
+            try:
+                paragraph.add_run(f"({reference['number']})")
+            except KeyError:
+                pass
+        try:
+            paragraph.add_run(f": pp. {reference['pages'].replace('--', '-')}.")
+        except KeyError:
+            pass
+
+    def write_reference_book(self, paragraph, reference):
+        paragraph.add_run(f"({reference['year']}). ")
+        run = paragraph.add_run(reference["title"].strip(".") + ". ")
+        run.font.italic = True
+        try:
+            paragraph.add_run(f"{reference['publisher']}. ")
+        except KeyError:
+            pass
+
+    def write_reference_link(self, paragraph, reference):
+        paragraph.add_run(f"({reference['year']}). ")
+        try:
+            paragraph.add_run(reference["title"].strip(".") + ". ")
+        except KeyError:
+            pass
+        try:
+            add_hyperlink(paragraph, reference["url"], reference["title"])
+        except KeyError:
+            pass
+        try:
+            paragraph.add_run(f" Accessed {reference['accessed']}.")
+        except KeyError:
+            pass
+
+    def write_reference_external_links(self, paragraph, reference):
+        any_item = False
+        for key, label, template in constants.REFERENCE_LINKS:
+            try:
+                value = reference[key]
+                if any_item:
+                    paragraph.add_run(", ")
+                else:
+                    paragraph.add_run("  ")
+                add_hyperlink(paragraph, template.format(value=value), f"{label}:{value}")
+                any_item = True
+            except KeyError:
+                pass
 
     def render(self, ast):
         try:
@@ -279,34 +369,34 @@ def add_hyperlink(paragraph, url, text, color="2222FF", underline=True):
     :return: The hyperlink object
     """
 
-    # This gets access to the document.xml.rels file and gets a new relation id value
+    # This gets access to the document.xml.rels file and gets a new relation id value.
     part = paragraph.part
     r_id = part.relate_to(url, docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
 
-    # Create the w:hyperlink tag and add needed values
+    # Create the w:hyperlink tag and add needed values.
     hyperlink = docx.oxml.shared.OxmlElement('w:hyperlink')
     hyperlink.set(docx.oxml.shared.qn('r:id'), r_id, )
 
-    # Create a w:r element
+    # Create a w:r element.
     new_run = docx.oxml.shared.OxmlElement('w:r')
 
-    # Create a new w:rPr element
+    # Create a new w:rPr element.
     rPr = docx.oxml.shared.OxmlElement('w:rPr')
 
-    # Add color if it is given
+    # Add color if it is given.
     if not color is None:
       c = docx.oxml.shared.OxmlElement('w:color')
       c.set(docx.oxml.shared.qn('w:val'), color)
       rPr.append(c)
 
-    # Remove underlining if it is requested
+    # Remove underlining if it is requested.
     # XXX Does not seem to work? /Per Kraulis
     if not underline:
       u = docx.oxml.shared.OxmlElement('w:u')
       u.set(docx.oxml.shared.qn('w:val'), 'none')
       rPr.append(u)
 
-    # Join all the xml elements together add add the required text to the w:r element
+    # Join all the xml elements together add add the required text to the w:r element.
     new_run.append(rPr)
     new_run.text = text
     hyperlink.append(new_run)
@@ -314,3 +404,21 @@ def add_hyperlink(paragraph, url, text, color="2222FF", underline=True):
     paragraph._p.append(hyperlink)
 
     return hyperlink
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

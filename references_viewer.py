@@ -125,114 +125,123 @@ class ReferencesViewer(Viewer):
             )
             self.view.insert(tk.INSERT, reference["id"], (tag,))
             self.view.insert(tk.INSERT, "  ")
-
-            self.view.insert(tk.INSERT, utils.shortname(reference["authors"][0]))
-            number = min(len(reference["authors"]), constants.REFERENCE_MAX_AUTHORS)
-            for author in reference["authors"][1 : number - 1]:
-                self.view.insert(tk.INSERT, ", ")
-                self.view.insert(tk.INSERT, utils.shortname(author))
-            if len(reference["authors"]) > constants.REFERENCE_MAX_AUTHORS:
-                self.view.insert(tk.INSERT, " ...")
-            if len(reference["authors"]) > 1:
-                self.view.insert(tk.INSERT, " & ")
-                self.view.insert(tk.INSERT, utils.shortname(reference["authors"][-1]))
-            self.view.insert(tk.INSERT, " ")
-
-            if reference["type"] == constants.ARTICLE:
-                self.view.insert(tk.INSERT, f"({reference['year']}). ")
-                try:
-                    self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
-                except KeyError:
-                    pass
-                try:
-                    self.view.insert(
-                        tk.INSERT, reference["journal"], (constants.ITALIC,)
-                    )
-                except KeyError:
-                    pass
-                try:
-                    self.view.insert(tk.INSERT, f" {reference['volume']}")
-                except KeyError:
-                    pass
-                else:
-                    try:
-                        self.view.insert(tk.INSERT, f"({reference['number']})")
-                    except KeyError:
-                        pass
-                    self.view.insert(tk.INSERT, ": ")
-                try:
-                    self.view.insert(
-                        tk.INSERT, f"pp. {reference['pages'].replace('--', '-')}. "
-                    )
-                except KeyError:
-                    pass
-
-            elif reference["type"] == constants.BOOK:
-                self.view.insert(tk.INSERT, f"({reference['year']}). ")
-                self.view.insert(
-                    tk.INSERT, reference["title"].strip(".") + ". ", (constants.ITALIC,)
-                )
-                try:
-                    self.view.insert(tk.INSERT, f"{reference['publisher']}. ")
-                except KeyError:
-                    pass
-
-            elif reference["type"] == constants.LINK:
-                self.view.insert(tk.INSERT, f"({reference['year']}). ")
-                try:
-                    self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
-                except KeyError:
-                    pass
-                try:
-                    start = self.view.index(tk.INSERT)
-                    self.view.insert(tk.INSERT, reference["url"])
-                    self.link_create(
-                        url=reference["url"],
-                        title=reference["title"],
-                        first=start,
-                        last=self.view.index(tk.INSERT),
-                    )
-                except KeyError:
-                    pass
-                try:
-                    self.view.insert(tk.INSERT, f" Accessed {reference['accessed']}.")
-                except KeyError:
-                    pass
-
-            # Links for all types of references.
-            any_item = False
-            for key, label, template in constants.REFERENCE_LINKS:
-                try:
-                    value = reference[key]
-                    if any_item:
-                        self.view.insert(tk.INSERT, ", ")
-                    start = self.view.index(tk.INSERT)
-                    self.view.insert(tk.INSERT, f"{label}:{value}")
-                    self.link_create(
-                        url=template.format(value=value),
-                        title=value,
-                        first=start,
-                        last=self.view.index(tk.INSERT),
-                    )
-                    any_item = True
-                except KeyError:
-                    pass
-
-            # This is done at this stage to avoid mark from being moved by insert.
+            self.display_view_authors(reference)
+            try:
+                method = getattr(self, f"display_view_{reference['type']}")
+            except AttributeError:
+                ic("unknown", reference["type"])
+            else:
+                method(reference)
+            self.display_view_external_links(reference)
+            # Done at this stage to avoid mark from being moved by insert.
             self.view.mark_set(reference["id"].replace(" ", "_"), first)
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
-
-            # Get the texts that use this reference.
-            fullnames = self.texts_pos.get(reference["id"]) or {}
-            reference["orphan"] = not fullnames
-            for fullname, positions in sorted(fullnames.items()):
-                self.view.insert(tk.INSERT, "\n")
-                positions = sorted(positions, key=lambda p: int(p[: p.index(".")]))
-                self.xref_create(fullname, positions[0], constants.REFERENCE)
-                for i, position in enumerate(positions[1:], start=2):
-                    self.view.insert(tk.INSERT, ", ")
-                    self.xref_create(str(i), position, constants.REFERENCE)
+            self.display_view_xrefs(reference)
             self.view.insert(tk.INSERT, "\n")
+
+    def display_view_authors(self, reference):
+        self.view.insert(tk.INSERT, utils.shortname(reference["authors"][0]))
+        number = min(len(reference["authors"]), constants.REFERENCE_MAX_AUTHORS)
+        for author in reference["authors"][1 : number - 1]:
+            self.view.insert(tk.INSERT, ", ")
+            self.view.insert(tk.INSERT, utils.shortname(author))
+        if len(reference["authors"]) > constants.REFERENCE_MAX_AUTHORS:
+            self.view.insert(tk.INSERT, " ...")
+        if len(reference["authors"]) > 1:
+            self.view.insert(tk.INSERT, " & ")
+            self.view.insert(tk.INSERT, utils.shortname(reference["authors"][-1]))
+        self.view.insert(tk.INSERT, " ")
+
+    def display_view_article(self, reference):
+        self.view.insert(tk.INSERT, f"({reference['year']}). ")
+        try:
+            self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
+        except KeyError:
+            pass
+        try:
+            self.view.insert(
+                tk.INSERT, reference["journal"], (constants.ITALIC,)
+            )
+        except KeyError:
+            pass
+        try:
+            self.view.insert(tk.INSERT, f" {reference['volume']}")
+        except KeyError:
+            pass
+        else:
+            try:
+                self.view.insert(tk.INSERT, f"({reference['number']})")
+            except KeyError:
+                pass
+            self.view.insert(tk.INSERT, ": ")
+        try:
+            self.view.insert(
+                tk.INSERT, f"pp. {reference['pages'].replace('--', '-')}. "
+            )
+        except KeyError:
+            pass
+
+    def display_view_book(self, reference):
+        self.view.insert(tk.INSERT, f"({reference['year']}). ")
+        self.view.insert(
+            tk.INSERT, reference["title"].strip(".") + ". ", (constants.ITALIC,)
+        )
+        try:
+            self.view.insert(tk.INSERT, f"{reference['publisher']}. ")
+        except KeyError:
+            pass
+
+    def display_view_link(self, reference):
+        self.view.insert(tk.INSERT, f"({reference['year']}). ")
+        try:
+            self.view.insert(tk.INSERT, reference["title"].strip(".") + ". ")
+        except KeyError:
+            pass
+        try:
+            start = self.view.index(tk.INSERT)
+            self.view.insert(tk.INSERT, reference["url"])
+            self.link_create(
+                url=reference["url"],
+                title=reference["title"],
+                first=start,
+                last=self.view.index(tk.INSERT),
+            )
+        except KeyError:
+            pass
+        try:
+            self.view.insert(tk.INSERT, f" Accessed {reference['accessed']}.")
+        except KeyError:
+            pass
+
+    def display_view_external_links(self, reference):
+        any_item = False
+        for key, label, template in constants.REFERENCE_LINKS:
+            try:
+                value = reference[key]
+                if any_item:
+                    self.view.insert(tk.INSERT, ", ")
+                start = self.view.index(tk.INSERT)
+                self.view.insert(tk.INSERT, f"{label}:{value}")
+                self.link_create(
+                    url=template.format(value=value),
+                    title=value,
+                    first=start,
+                    last=self.view.index(tk.INSERT),
+                )
+                any_item = True
+            except KeyError:
+                pass
+
+    def display_view_xrefs(self, reference):
+        fullnames = self.texts_pos.get(reference["id"]) or {}
+        reference["orphan"] = not fullnames
+        for fullname, positions in sorted(fullnames.items()):
+            self.view.insert(tk.INSERT, "\n")
+            positions = sorted(positions, key=lambda p: int(p[: p.index(".")]))
+            self.xref_create(fullname, positions[0], constants.REFERENCE)
+            for i, position in enumerate(positions[1:], start=2):
+                self.view.insert(tk.INSERT, ", ")
+                self.xref_create(str(i), position, constants.REFERENCE)
 
     def reference_enter(self, event):
         self.view.configure(cursor="hand2")

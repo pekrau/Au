@@ -294,7 +294,7 @@ class Main:
         self.treeview.bind("<<TreeviewSelect>>", self.treeview_selected)
         self.treeview.bind("<<TreeviewOpen>>", self.treeview_open)
         self.treeview.bind("<<TreeviewClose>>", self.treeview_close)
-        self.treeview.focus_set()
+        # self.treeview.focus_set()
 
     def treeview_display(self):
         for child in self.treeview.get_children():
@@ -419,6 +419,7 @@ class Main:
             self.treeview.selection_set(text.fullname)
             self.treeview.see(text.fullname)
             self.treeview.focus(text.fullname)
+            text.viewer.view.focus_set()
             # This is a kludge; not sure why it is needed.
             self.ignore_texts_notebook_tab_changed = True
 
@@ -512,10 +513,6 @@ class Main:
         filepath = os.path.join(response.result["dirpath"], response.result["filename"])
         exporter = docx_export.Exporter(self, self.source, response.result)
         exporter.write(filepath)
-        tk.messagebox.showinfo(
-            title=Tr("Wrote DOCX file"),
-            message=f"{Tr('Wrote DOCX file')} '{filepath}'.",
-        )
         self.config["export"]["docx"] = response.result
 
     def export_pdf(self):
