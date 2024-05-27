@@ -297,13 +297,13 @@ class Viewer:
         self.view.tag_add(constants.BOLD, first, tk.INSERT)
 
     def render_raw_text(self, ast):
-        children = ast["children"]
-        if not type(children) == str:
+        line = ast["children"]
+        if not type(line) == str:
             ic("could not handle", ast)
             return
-        if children[-1] == "\n":
-            children = children[:-1] + " "
-        self.view.insert(tk.INSERT, children)
+        if line[-1] == "\n":
+            line = line[:-1] + " "
+        self.view.insert(tk.INSERT, line)
 
     def render_line_break(self, ast):
         pass

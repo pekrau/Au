@@ -53,6 +53,15 @@ class Exporter:
         section.header_distance = docx.shared.Mm(12.7)
         section.footer_distance = docx.shared.Mm(12.7)
 
+        # Create style for code.
+        style = self.document.styles.add_style(
+            constants.DOCX_CODE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
+        )
+        style.base_style = self.document.styles["macro"]
+        style.paragraph_format.left_indent = docx.shared.Pt(
+            constants.DOCX_CODE_LEFT_INDENT
+        )
+
         # Create style for quote.
         style = self.document.styles.add_style(
             constants.DOCX_QUOTE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
@@ -127,6 +136,7 @@ class Exporter:
         if level < constants.DOCX_PAGEBREAK_LEVEL:
             self.document.add_page_break()
         self.write_heading(text.name, level)
+        self.list_stack = []
         self.style_stack = ["Normal"]
         self.bold = False
         self.italic = False
@@ -269,14 +279,38 @@ class Exporter:
 
     def render_paragraph(self, ast):
         self.paragraph = self.document.add_paragraph()
-        self.paragraph.style = self.style_stack[-1]
+        if self.list_stack:
+            data = self.list_stack[-1]
+            level = min(3, data["level"]) # Max list level in predef styles.
+            if data["first_paragraph"]:
+                if data["ordered"]:
+                    if level == 1:
+                        style = self.document.styles["List Number"]
+                    else:
+                        style = self.document.styles[f"List Number {level}"]
+                else:
+                    if level == 1:
+                        style = self.document.styles["List Bullet"]
+                    else:
+                        style = self.document.styles[f"List Bullet {level}"]
+            else:
+                if level == 1:
+                    style = self.document.styles["List Continue"]
+                else:
+                    style = self.document.styles[f"List Continue {level}"]
+            data["first_paragraph"] = False
+            self.paragraph.style = style
+        else:
+            self.paragraph.style = self.style_stack[-1]
         for child in ast["children"]:
             self.render(child)
 
     def render_raw_text(self, ast):
         line = ast["children"]
-        if line[-1] == "\n":
-            line[-1] = " "
+        if not type(line) == str:
+            ic("could not handle", ast)
+            return
+        line = line.rstrip("\n")
         run = self.paragraph.add_run(line)
         if self.bold:
             run.bold = True
@@ -288,6 +322,24 @@ class Exporter:
 
     def render_quote(self, ast):
         self.style_stack.append(constants.DOCX_QUOTE_STYLE)
+        for child in ast["children"]:
+            self.render(child)
+        self.style_stack.pop()
+
+    def render_code_span(self, ast):
+        run = self.paragraph.add_run(ast["children"])
+        run.style = self.document.styles["Macro Text Char"]
+        
+    def render_code_block(self, ast):
+        self.paragraph = self.document.add_paragraph(style=constants.DOCX_CODE_STYLE)
+        self.style_stack.append(constants.DOCX_CODE_STYLE)
+        for child in ast["children"]:
+            self.render(child)
+        self.style_stack.pop()
+
+    def render_fenced_code(self, ast):
+        self.paragraph = self.document.add_paragraph(style=constants.DOCX_CODE_STYLE)
+        self.style_stack.append(constants.DOCX_CODE_STYLE)
         for child in ast["children"]:
             self.render(child)
         self.style_stack.pop()
@@ -316,6 +368,28 @@ class Exporter:
         raw_text = "".join(raw_text)
         add_hyperlink(self.paragraph, ast["dest"], raw_text)
 
+    def render_list(self, ast):
+        level = len(self.list_stack) + 1
+        data = dict(
+            ordered=ast["ordered"],
+            bullet=ast["bullet"], # Currently useless.
+            start=ast["start"],   # Currently useless.
+            tight=ast["tight"],   # Currently useless.
+            count=0,              # Currently useless.
+            level=level,
+        )
+        self.list_stack.append(data)
+        for child in ast["children"]:
+            self.render(child)
+        self.list_stack.pop()
+
+    def render_list_item(self, ast):
+        data = self.list_stack[-1]
+        data["count"] += 1      # Currently useless.
+        data["first_paragraph"] = True
+        for child in ast["children"]:
+            self.render(child)
+
     def render_indexed(self, ast):
         entries = self.indexed.setdefault(ast["canonical"], [])
         self.indexed_count += 1
@@ -340,8 +414,7 @@ class Exporter:
 
     def render_reference(self, ast):
         run = self.paragraph.add_run(ast["reference"])
-        run.font.italic = True
-        run.font.underline = True
+        run.font.bold = True
 
 
 class Dialog(tk.simpledialog.Dialog):
