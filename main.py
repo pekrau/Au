@@ -16,6 +16,7 @@ import tkinter.font
 import constants
 import utils
 import docx_export
+import html_export
 
 from utils import Tr
 from source import Source
@@ -509,10 +510,9 @@ class Main:
         response = docx_export.Dialog(self.root, self.source, config)
         if not response.result:
             return
-        filepath = os.path.join(response.result["dirpath"], response.result["filename"])
         self.root.config(cursor=constants.WRITE_CURSOR)
         exporter = docx_export.Exporter(self, self.source, response.result)
-        exporter.write(filepath)
+        exporter.write()
         self.config["export"]["docx"] = response.result
         self.root.config(cursor="")
 
@@ -523,7 +523,15 @@ class Main:
         raise NotImplementedError
 
     def export_html(self):
-        raise NotImplementedError
+        config = self.config["export"].get("html") or {}
+        response = html_export.Dialog(self.root, self.source, config)
+        if not response.result:
+            return
+        self.root.config(cursor=constants.WRITE_CURSOR)
+        exporter = html_export.Exporter(self, self.source, response.result)
+        exporter.write()
+        self.config["export"]["html"] = response.result
+        self.root.config(cursor="")
 
     def quit(self, event=None):
         modified = [e.modified for e in self.text_editors.values()] + [

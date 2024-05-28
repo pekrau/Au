@@ -4,7 +4,7 @@ from icecream import ic
 
 import copy
 import datetime
-import os.path
+import os
 
 import tkinter as tk
 import tkinter.simpledialog
@@ -34,9 +34,7 @@ class Exporter:
         self.source = source
         self.config = config
 
-    def write(self, filepath=None):
-        if filepath is None:
-            filepath = os.path.join(self.source.abspath, self.source.name + ".docx")
+    def write(self):
         self.document = docx.Document()
 
         # Set the default document-wide language.
@@ -100,9 +98,9 @@ class Exporter:
             else:
                 self.write_text(item, level=1)
         self.write_references(references=self.main.references_viewer.references)
-        if self.config["indexing"]:
-            self.write_indexed(self.main.indexed_viewer.terms)
-        self.document.save(filepath)
+        self.write_indexed(self.main.indexed_viewer.terms)
+
+        self.document.save(os.path.join(self.config["dirpath"], self.config["filename"]))
 
     def write_title(self):
         "Title page."
@@ -121,19 +119,14 @@ class Exporter:
             paragraph = self.document.add_paragraph(style=f"Heading 2")
             paragraph.add_run(author)
 
-        statuses = [t.status for t in self.source.all_texts] + [max(constants.STATUSES)]
         paragraph = self.document.add_paragraph()
         paragraph.paragraph_format.space_before = docx.shared.Pt(100)
 
-        paragraph.add_run(Tr("Status"))
-        paragraph.add_run(": ")
-        statuses = [t.status for t in self.source.all_texts] + [max(constants.STATUSES)]
-        paragraph.add_run(Tr(str(min(statuses))))
+        status = str(min([t.status for t in self.source.all_texts] + [max(constants.STATUSES)]))
+        paragraph.add_run(f"{Tr('Status')}: {Tr(status)}")
 
-        paragraph = self.document.add_paragraph()
-        paragraph.add_run(Tr("Created"))
-        paragraph.add_run(": ")
-        paragraph.add_run(datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT))
+        now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
+        self.document.add_paragraph(f"{Tr('Created')}: {now}")
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
@@ -424,14 +417,13 @@ class Exporter:
             dict(id=f"i{self.indexed_count}", fullname=self.current_text.fullname)
         )
         run = self.paragraph.add_run(ast["term"])
-        if self.config["indexing"]:
-            font = self.config["indexing_font"]
-            if font == constants.BOLD:
-                run.bold = True
-            elif font == constants.ITALIC:
-                run.italic = True
-            elif font == constants.UNDERLINE:
-                run.underline = True
+        font = self.config["indexing_font"]
+        if font == constants.BOLD:
+            run.bold = True
+        elif font == constants.ITALIC:
+            run.italic = True
+        elif font == constants.UNDERLINE:
+            run.underline = True
 
     def render_footnote_ref(self, ast):
         entries = self.footnotes.setdefault(self.current_text.fullname, {})
@@ -469,20 +461,22 @@ class Dialog(tk.simpledialog.Dialog):
 
     def body(self, body):
         row = 0
-        label = tk.ttk.Label(body, text=Tr("Filename"))
-        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.filename_entry = tk.ttk.Entry(body, width=40)
-        self.filename_entry.insert(0, self.config.get("filename") or "")
-        self.filename_entry.grid(row=row, column=1, sticky=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Directory"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.dirpath_entry = tk.ttk.Entry(body, width=40)
-        self.dirpath_entry.insert(0, self.config.get("dirpath") or ".")
+        self.dirpath_entry.insert(0, self.config.get("dirpath") or os.getcwd())
         self.dirpath_entry.grid(row=row, column=1, sticky=tk.W)
         button = tk.ttk.Button(body, text=Tr("Choose"), command=self.change_dirpath)
         button.grid(row=row, column=3)
+
+        row += 1
+        label = tk.ttk.Label(body, text=Tr("Filename"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.filename_entry = tk.ttk.Entry(body, width=40)
+        self.filename_entry.insert(0, self.config.get("filename") or "book.docx")
+        self.filename_entry.grid(row=row, column=1, sticky=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Language"))
@@ -509,20 +503,9 @@ class Dialog(tk.simpledialog.Dialog):
             button.pack(anchor=tk.W)
 
         row += 1
-        label = tk.ttk.Label(body, text=Tr("Indexing"))
-        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.indexing_var = tk.IntVar(value=self.config.get("indexing") or 1)
-        button = tk.ttk.Checkbutton(
-            body,
-            text=Tr("Output indexed section"),
-            variable=self.indexing_var,
-        )
-        button.grid(row=row, column=1, padx=4, sticky=tk.W)
-
-        row += 1
         label = tk.ttk.Label(body, text=Tr("Indexing font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.indexing_font_var = tk.StringVar(value=self.config.get("indexing_font") or constants.NORMAL)
+        self.indexing_font_var = tk.StringVar(value=self.config.get("indexing_font", constants.NORMAL))
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
         button = tk.ttk.Radiobutton(frame,
@@ -549,7 +532,7 @@ class Dialog(tk.simpledialog.Dialog):
         row += 1
         label = tk.ttk.Label(body, text=Tr("Reference font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.reference_font_var = tk.StringVar(value=self.config.get("reference_font") or constants.NORMAL)
+        self.reference_font_var = tk.StringVar(value=self.config.get("reference_font", constants.NORMAL))
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
         button = tk.ttk.Radiobutton(frame,
@@ -579,7 +562,6 @@ class Dialog(tk.simpledialog.Dialog):
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
         self.config["language"] = self.language_var.get().strip()
         self.config["page_break_level"] = self.page_break_level_var.get()
-        self.config["indexing"] = self.indexing_var.get()
         self.config["indexing_font"] = self.indexing_font_var.get()
         self.config["reference_font"] = self.reference_font_var.get()
         self.result = self.config

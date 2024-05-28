@@ -97,32 +97,38 @@ H1 = dict(
     font=(FONT, FONT_LARGE_SIZE + 10, BOLD),
     left_margin=40,
     spacing=30,
+    klass="mt-5",
 )
 H2 = dict(
     tag="h2",
     font=(FONT, FONT_LARGE_SIZE + 5, BOLD),
     left_margin=30,
     spacing=20,
+    klass="mt-5",
 )
 H3 = dict(
     tag="h3",
     font=(FONT, FONT_LARGE_SIZE + 3, BOLD),
     left_margin=20,
     spacing=15,
+    klass="mt-4",
 )
 H4 = dict(
     tag="h4",
     font=(FONT, FONT_NORMAL_SIZE, BOLD),
     left_margin=15,
     spacing=10,
+    klass="mt-3",
 )
 H5 = dict(
     tag="h5",
     font=(FONT, FONT_NORMAL_SIZE, BOLD),
     left_margin=10,
     spacing=5,
+    klass="mt-2",
 )
-H6 = dict(tag="h6", font=(FONT, FONT_NORMAL_SIZE), left_margin=10, spacing=5)
+H6 = dict(tag="h6", font=(FONT, FONT_NORMAL_SIZE), left_margin=10, spacing=5,    klass="mt-2",
+)
 H_LOOKUP = dict([(1, H1), (2, H2), (3, H3), (4, H4), (5, H5), (6, H6)])
 MAX_H_LEVEL = max(H_LOOKUP)
 
