@@ -17,7 +17,6 @@ import utils
 from utils import Tr
 
 TITLE_FONT_SIZE = 28
-PAGEBREAK_LEVEL = 2
 LANGUAGES = ("sv-SE", "en-US", "en-GB")
 CODE_STYLE = "Au Macro"
 CODE_LEFT_INDENT = 30
@@ -137,7 +136,7 @@ class Exporter:
         paragraph.add_run(datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT))
 
     def write_section(self, section, level):
-        if level <= PAGEBREAK_LEVEL:
+        if level <= self.config["page_break_level"]:
             self.document.add_page_break()
         self.write_heading(section.name, level)
         for item in section.items:
@@ -147,7 +146,7 @@ class Exporter:
                 self.write_text(item, level=level + 1)
 
     def write_text(self, text, level):
-        if level < PAGEBREAK_LEVEL:
+        if level <= self.config["page_break_level"]:
             self.document.add_page_break()
         if text.get("display_heading", True):
             self.write_heading(text.name, level)
@@ -462,7 +461,8 @@ class Exporter:
 class Dialog(tk.simpledialog.Dialog):
     "Dialog to confirm or modify configuration before export."
 
-    def __init__(self, master, config):
+    def __init__(self, master, source, config):
+        self.source = source
         self.config = copy.deepcopy(config)
         self.result = None
         super().__init__(master, title=Tr("DOCX export"))
@@ -470,14 +470,14 @@ class Dialog(tk.simpledialog.Dialog):
     def body(self, body):
         row = 0
         label = tk.ttk.Label(body, text=Tr("Filename"))
-        label.grid(row=row, column=0, padx=4, sticky=tk.E)
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.filename_entry = tk.ttk.Entry(body, width=40)
         self.filename_entry.insert(0, self.config.get("filename") or "")
         self.filename_entry.grid(row=row, column=1, sticky=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Directory"))
-        label.grid(row=row, column=0, padx=4, sticky=tk.E)
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.dirpath_entry = tk.ttk.Entry(body, width=40)
         self.dirpath_entry.insert(0, self.config.get("dirpath") or ".")
         self.dirpath_entry.grid(row=row, column=1, sticky=tk.W)
@@ -486,7 +486,7 @@ class Dialog(tk.simpledialog.Dialog):
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Language"))
-        label.grid(row=row, column=0, padx=4, sticky=tk.E)
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.language_var = tk.StringVar(value=self.config.get("language") or "")
         combobox = tk.ttk.Combobox(
             body,
@@ -496,8 +496,21 @@ class Dialog(tk.simpledialog.Dialog):
         combobox.grid(row=row, column=1, sticky=tk.W)
 
         row += 1
+        label = tk.ttk.Label(body, text=Tr("Page break level"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.page_break_level_var = tk.IntVar(value=min(self.config.get("page_break_level", 1), self.source.max_level))
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        for level in range(1, self.source.max_level+1):
+            button = tk.ttk.Radiobutton(frame,
+                                        text=str(level),
+                                        variable=self.page_break_level_var,
+                                        value=level)
+            button.pack(anchor=tk.W)
+
+        row += 1
         label = tk.ttk.Label(body, text=Tr("Indexing"))
-        label.grid(row=row, column=0, padx=4, sticky=tk.E)
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.indexing_var = tk.IntVar(value=self.config.get("indexing") or 1)
         button = tk.ttk.Checkbutton(
             body,
@@ -510,24 +523,24 @@ class Dialog(tk.simpledialog.Dialog):
         label = tk.ttk.Label(body, text=Tr("Indexing font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.indexing_font_var = tk.StringVar(value=self.config.get("indexing_font") or constants.NORMAL)
-        button_frame = tk.ttk.Frame(body)
-        button_frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        button = tk.ttk.Radiobutton(button_frame,
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Normal"),
                                     variable=self.indexing_font_var,
                                     value=constants.NORMAL)
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(button_frame,
+        button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Italic"), 
                                     variable=self.indexing_font_var,
                                     value=constants.ITALIC)
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(button_frame,
+        button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Bold"), 
                                     variable=self.indexing_font_var,
                                     value=constants.BOLD)
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(button_frame,
+        button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Underline"), 
                                     variable=self.indexing_font_var,
                                     value=constants.UNDERLINE)
@@ -537,24 +550,24 @@ class Dialog(tk.simpledialog.Dialog):
         label = tk.ttk.Label(body, text=Tr("Reference font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.reference_font_var = tk.StringVar(value=self.config.get("reference_font") or constants.NORMAL)
-        button_frame = tk.ttk.Frame(body)
-        button_frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        button = tk.ttk.Radiobutton(button_frame,
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Normal"), 
                                     variable=self.reference_font_var,
                                     value=constants.NORMAL)
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(button_frame,
+        button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Italic"), 
                                     variable=self.reference_font_var,
                                     value=constants.ITALIC)
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(button_frame,
+        button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Bold"), 
                                     variable=self.reference_font_var,
                                     value=constants.BOLD)
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(button_frame,
+        button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Underline"), 
                                     variable=self.reference_font_var,
                                     value=constants.UNDERLINE)
@@ -565,6 +578,7 @@ class Dialog(tk.simpledialog.Dialog):
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
         self.config["language"] = self.language_var.get().strip()
+        self.config["page_break_level"] = self.page_break_level_var.get()
         self.config["indexing"] = self.indexing_var.get()
         self.config["indexing_font"] = self.indexing_font_var.get()
         self.config["reference_font"] = self.reference_font_var.get()

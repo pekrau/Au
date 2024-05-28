@@ -21,6 +21,6 @@ class HelpViewer(Viewer):
 
     def display_view(self):
         for text in self.main.help_source.all_texts:
-            tag = constants.H_LOOKUP[text.depth + 1]["tag"]
+            tag = constants.H_LOOKUP[text.level + 1]["tag"]
             self.view.insert(tk.INSERT, text.name + "\n", (tag,))
             self.render(text.ast)

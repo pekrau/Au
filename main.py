@@ -506,7 +506,7 @@ class Main:
 
     def export_docx(self):
         config = self.config["export"].get("docx") or {}
-        response = docx_export.Dialog(self.root, config)
+        response = docx_export.Dialog(self.root, self.source, config)
         if not response.result:
             return
         filepath = os.path.join(response.result["dirpath"], response.result["filename"])
@@ -820,8 +820,8 @@ class Main:
         self.treeview.update_idletasks()
         self.texts_notebook_display()
         self.texts_notebook.update_idletasks()
-        self.treeview.selection_set(text.fullname)
         self.treeview.see(text.fullname)
+        self.treeview.selection_set(text.fullname)
         self.treeview.focus(text.fullname)
         self.title_viewer.update_statistics()
         self.config_save()

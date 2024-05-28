@@ -58,7 +58,7 @@ class TextViewer(Viewer):
         if not self.text.get("display_heading", True):
             return
         try:
-            tag = constants.H_LOOKUP[self.text.depth]["tag"]
+            tag = constants.H_LOOKUP[self.text.level]["tag"]
         except KeyError:
             tag = constants.H_LOOKUP[0]["tag"]
         self.view.insert(tk.INSERT, self.text.name + "\n", (tag,))

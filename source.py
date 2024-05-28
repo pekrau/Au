@@ -54,8 +54,12 @@ class Source:
         return None
 
     @property
-    def depth(self):
+    def level(self):
         return 0
+
+    @property
+    def max_level(self):
+        return max([i.level for i in self.all_items])
 
     @property
     def all_items(self):
@@ -234,7 +238,7 @@ class Item:
             return os.path.join(self.parent.fullname, self.name)
 
     @property
-    def depth(self):
+    def level(self):
         result = 0
         parent = self.parent
         while parent is not None:
