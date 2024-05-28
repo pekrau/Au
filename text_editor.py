@@ -2,6 +2,7 @@
 
 from icecream import ic
 
+import functools
 import io
 
 import tkinter as tk
@@ -44,6 +45,19 @@ class TextEditor(Editor):
                 command=self.set_status,
             )
 
+        self.menu_settings = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_settings, label=Tr("Settings"))
+        self.display_heading_var = tk.IntVar()
+        try:
+            self.display_heading_var.set(self.text["display_heading"])
+        except KeyError:
+            self.display_heading_var.set(True)
+        self.menu_settings.add_checkbutton(label=Tr("Display title"),
+                                           variable=self.display_heading_var,
+                                           onvalue=True,
+                                           offvalue=False,
+                                           command=functools.partial(self.set_modified, yes=True))
+
     def get_popup_menu(self):
         "Add items to the popup menu for when text is selected."
         menu = super().get_popup_menu()
@@ -78,6 +92,7 @@ class TextEditor(Editor):
         "Prepare for saving; before doing dump-to-Markdown."
         super().save_prepare()
         self.text.status = constants.Status.lookup(self.status_var.get().lower())
+        self.text["display_heading"] = bool(self.display_heading_var.get())
         self.markdown_footnotes = {}
 
     def save_after_dump(self):

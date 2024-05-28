@@ -159,7 +159,7 @@ class Viewer:
 
     def display(self):
         self.display_initialize()
-        self.display_title()
+        self.display_heading()
         self.display_view()
         self.display_finalize()
 
@@ -175,7 +175,7 @@ class Viewer:
         self.highlighted = None
         self.view.delete("1.0", tk.END)
 
-    def display_title(self):
+    def display_heading(self):
         "To be defined."
         raise NotImplementedError
 

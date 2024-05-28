@@ -15,9 +15,9 @@ class HelpViewer(Viewer):
     def __str__(self):
         return "Help"
 
-    def display_title(self):
-        title = "Au " + ".".join([str(n) for n in constants.VERSION])
-        self.view.insert(tk.INSERT, title + "\n", (constants.H1["tag"],))
+    def display_heading(self):
+        heading = "Au " + ".".join([str(n) for n in constants.VERSION])
+        self.view.insert(tk.INSERT, heading + "\n", (constants.H1["tag"],))
 
     def display_view(self):
         for text in self.main.help_source.all_texts:

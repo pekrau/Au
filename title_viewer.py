@@ -32,11 +32,11 @@ class TitleViewer(Viewer):
 
     def display(self):
         self.view.delete("1.0", tk.END)
-        self.display_title()
+        self.display_heading()
         self.display_statistics()
         self.update_statistics()
 
-    def display_title(self):
+    def display_heading(self):
         first = self.view.index(tk.INSERT)
         self.view.insert(tk.INSERT, self.main.title)
         button = tk.ttk.Button(self.view, text=Tr("Edit"), command=self.edit_title)

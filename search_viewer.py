@@ -124,7 +124,7 @@ class SearchViewer(Viewer):
                 self.result.append((text, found))
         self.display()
 
-    def display_title(self):
+    def display_heading(self):
         pass
 
     def display_view(self):

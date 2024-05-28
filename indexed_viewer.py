@@ -41,7 +41,7 @@ class IndexedViewer(Viewer):
                 pos.setdefault(term, {})[text.fullname] = list(sorted(positions))
         self.terms = sorted(pos.items(), key=lambda i: i[0].lower())
 
-    def display_title(self):
+    def display_heading(self):
         pass
 
     def display_view(self):

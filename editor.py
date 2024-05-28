@@ -124,8 +124,8 @@ class Editor(TextViewer):
         if constants.FOOTNOTE_REF in tags:
             return "break"
 
-    def display_title(self):
-        "Do not display the title in the text edit area."
+    def display_heading(self):
+        "Do not display the heading in the text edit area."
         pass
 
     def get_modified(self):

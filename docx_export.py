@@ -106,6 +106,7 @@ class Exporter:
         self.document.save(filepath)
 
     def write_title(self):
+        "Title page."
         paragraph = self.document.add_paragraph(style="Title")
         paragraph.paragraph_format.space_after = docx.shared.Pt(40)
         run = paragraph.add_run(self.main.title)
@@ -148,7 +149,8 @@ class Exporter:
     def write_text(self, text, level):
         if level < PAGEBREAK_LEVEL:
             self.document.add_page_break()
-        self.write_heading(text.name, level)
+        if text.get("display_heading", True):
+            self.write_heading(text.name, level)
         self.list_stack = []
         self.style_stack = ["Normal"]
         self.bold = False

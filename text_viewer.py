@@ -24,8 +24,8 @@ class TextViewer(Viewer):
         return self.text.fullname
 
     def __len__(self):
-        "Number of characters. XXX Not quite sure why '+ 2' is needed..."
-        return len(self.view.get("1.0", tk.END)) - (len(self.name) + 2)
+        "Number of characters. XXX Not quite sure why '+ 1' is needed..."
+        return len(self.view.get("1.0", tk.END)) - (self.heading_offset + 1)
 
     @property
     def section(self):
@@ -39,15 +39,24 @@ class TextViewer(Viewer):
 
     def get_cursor(self):
         "Get the position of cursor in absolute number of characters."
-        return super().get_cursor() - (len(self.name) + 1)
+        return super().get_cursor() - self.heading_offset
 
     def set_cursor(self, position):
         "Set the position of the cursor by the absolute number of characters."
-        super().set_cursor(position + (len(self.name) + 1))
+        super().set_cursor(position + self.heading_offset)
 
     cursor = property(get_cursor, set_cursor)
 
-    def display_title(self):
+    @property
+    def heading_offset(self):
+        if self.text.get("display_heading", True):
+            return len(self.name) + 1
+        else:
+            return 0
+
+    def display_heading(self):
+        if not self.text.get("display_heading", True):
+            return
         try:
             tag = constants.H_LOOKUP[self.text.depth]["tag"]
         except KeyError:

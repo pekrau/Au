@@ -94,7 +94,7 @@ class ReferencesViewer(Viewer):
         # This variable is already displayed, so needs to be updated.
         self.main.title_viewer.references_var.set(len(self.reference_texts))
 
-    def display_title(self):
+    def display_heading(self):
         pass
 
     def display_initialize(self):
