@@ -882,7 +882,7 @@ class Editor(TextViewer):
             if not tk.messagebox.askokcancel(
                 parent=self.toplevel,
                 title=Tr("Close?"),
-                message=f"{Tr('Modifications will not be saved.')} {Tr('Really')} {Tr('close?')}",
+                message=f"{Tr('Modifications will not be saved')}. {Tr('Really close?')}",
             ):
                 return "break"  # When called by keyboard event.
         self.close_finalize()

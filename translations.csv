@@ -6,7 +6,8 @@ quit,avsluta
 save,spara
 close,stäng
 close?,stänga?
-modifications will not be saved.,förändringar sparas inte.
+modifications will not be saved,förändringar sparas inte
+really close?,verkligen stänga?
 edit,editera
 create text,skapa text
 create section,skapa sektion
@@ -116,7 +117,8 @@ new section, ny sektion
 give name of the new section,ange namn för den nya sektionen
 new text,ny text
 give name of the new text,ange namn för den nya texten
-All unsaved changes will be lost. Really quit?,Alla osparade förändringar kommer att försvinna. Verkligen avsluta?
+all unsaved changes will be lost, alla osparade förändringar kommer att försvinna
+really quit?,verkligen avsluta?
 wrote file,skrev fil
 Wrote DOCX file,Skrev DOCX-fil
 wrote archive file,skrev arkivfil
@@ -129,3 +131,5 @@ and all its contents,och allt dess innehåll?
 number of references,antal referenser
 number of indexed,antal indexerade
 choose,välj
+output indexed section,skriv ut indexsektion
+underline,understruken

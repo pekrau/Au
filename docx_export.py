@@ -16,6 +16,16 @@ import constants
 import utils
 from utils import Tr
 
+TITLE_FONT_SIZE = 28
+PAGEBREAK_LEVEL = 2
+LANGUAGES = ("sv-SE", "en-US", "en-GB")
+CODE_STYLE = "Au Macro"
+CODE_LEFT_INDENT = 30
+QUOTE_STYLE = "Au Quote"
+QUOTE_FONT = "Verdana"
+QUOTE_LEFT_INDENT = 30
+QUOTE_RIGHT_INDENT = 70
+
 
 class Exporter:
     "DOCX exporter."
@@ -55,28 +65,29 @@ class Exporter:
 
         # Create style for code.
         style = self.document.styles.add_style(
-            constants.DOCX_CODE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
+            CODE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
         )
         style.base_style = self.document.styles["macro"]
         style.paragraph_format.left_indent = docx.shared.Pt(
-            constants.DOCX_CODE_LEFT_INDENT
+            CODE_LEFT_INDENT
         )
 
         # Create style for quote.
         style = self.document.styles.add_style(
-            constants.DOCX_QUOTE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
+            QUOTE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
         )
         style.paragraph_format.left_indent = docx.shared.Pt(
-            constants.DOCX_QUOTE_LEFT_INDENT
+            QUOTE_LEFT_INDENT
         )
         style.paragraph_format.right_indent = docx.shared.Pt(
-            constants.DOCX_QUOTE_RIGHT_INDENT
+            QUOTE_RIGHT_INDENT
         )
-        style.font.name = constants.DOCX_QUOTE_FONT
+        style.font.name = QUOTE_FONT
 
         # Set Dublin core metadata.
         self.document.core_properties.language = language
         self.document.core_properties.modified = datetime.datetime.now()
+        # XXX authors
 
         self.indexed = {}  # Key: canonical; value: dict(id, fullname)
         self.indexed_count = 0
@@ -90,14 +101,15 @@ class Exporter:
             else:
                 self.write_text(item, level=1)
         self.write_references(references=self.main.references_viewer.references)
-        self.write_indexed(self.main.indexed_viewer.terms)
+        if self.config["indexing"]:
+            self.write_indexed(self.main.indexed_viewer.terms)
         self.document.save(filepath)
 
     def write_title(self):
         paragraph = self.document.add_paragraph(style="Title")
         paragraph.paragraph_format.space_after = docx.shared.Pt(40)
         run = paragraph.add_run(self.main.title)
-        run.font.size = docx.shared.Pt(28)
+        run.font.size = docx.shared.Pt(TITLE_FONT_SIZE)
         run.font.bold = True
 
         if self.main.subtitle:
@@ -112,6 +124,7 @@ class Exporter:
         statuses = [t.status for t in self.source.all_texts] + [max(constants.STATUSES)]
         paragraph = self.document.add_paragraph()
         paragraph.paragraph_format.space_before = docx.shared.Pt(100)
+
         paragraph.add_run(Tr("Status"))
         paragraph.add_run(": ")
         statuses = [t.status for t in self.source.all_texts] + [max(constants.STATUSES)]
@@ -123,7 +136,7 @@ class Exporter:
         paragraph.add_run(datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT))
 
     def write_section(self, section, level):
-        if level <= constants.DOCX_PAGEBREAK_LEVEL:
+        if level <= PAGEBREAK_LEVEL:
             self.document.add_page_break()
         self.write_heading(section.name, level)
         for item in section.items:
@@ -133,7 +146,7 @@ class Exporter:
                 self.write_text(item, level=level + 1)
 
     def write_text(self, text, level):
-        if level < constants.DOCX_PAGEBREAK_LEVEL:
+        if level < PAGEBREAK_LEVEL:
             self.document.add_page_break()
         self.write_heading(text.name, level)
         self.list_stack = []
@@ -147,7 +160,8 @@ class Exporter:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
             return
-        self.document.add_heading(Tr("Footnotes"), 6)
+        paragraph = self.document.add_heading(Tr("Footnotes"), 6)
+        paragraph.paragraph_format.space_before = docx.shared.Pt(30)
         for label in sorted(footnotes.keys()):
             self.document.add_heading(str(label), 7)
             for child in footnotes[label]["ast_children"]:
@@ -168,7 +182,13 @@ class Exporter:
         for reference in self.main.references_viewer.reference_texts:
             paragraph = self.document.add_paragraph()
             run = paragraph.add_run(reference["id"])
-            run.bold = True
+            font = self.config["reference_font"]
+            if font == constants.BOLD:
+                run.bold = True
+            elif font == constants.ITALIC:
+                run.italic = True
+            elif font == constants.UNDERLINE:
+                run.underline = True
             paragraph.add_run("  ")
             self.write_reference_authors(paragraph, reference)
             try:
@@ -260,7 +280,13 @@ class Exporter:
         for term, fullnames in terms:
             paragraph = self.document.add_paragraph()
             run = paragraph.add_run(term)
-            run.bold = True
+            font = self.config["indexing_font"]
+            if font == constants.BOLD:
+                run.bold = True
+            elif font == constants.ITALIC:
+                run.italic = True
+            elif font == constants.UNDERLINE:
+                run.underline = True
             for fullname, positions in sorted(fullnames.items()):
                 paragraph.add_run(f" {fullname}")
 
@@ -321,7 +347,7 @@ class Exporter:
         pass
 
     def render_quote(self, ast):
-        self.style_stack.append(constants.DOCX_QUOTE_STYLE)
+        self.style_stack.append(QUOTE_STYLE)
         for child in ast["children"]:
             self.render(child)
         self.style_stack.pop()
@@ -331,15 +357,15 @@ class Exporter:
         run.style = self.document.styles["Macro Text Char"]
         
     def render_code_block(self, ast):
-        self.paragraph = self.document.add_paragraph(style=constants.DOCX_CODE_STYLE)
-        self.style_stack.append(constants.DOCX_CODE_STYLE)
+        self.paragraph = self.document.add_paragraph(style=CODE_STYLE)
+        self.style_stack.append(CODE_STYLE)
         for child in ast["children"]:
             self.render(child)
         self.style_stack.pop()
 
     def render_fenced_code(self, ast):
-        self.paragraph = self.document.add_paragraph(style=constants.DOCX_CODE_STYLE)
-        self.style_stack.append(constants.DOCX_CODE_STYLE)
+        self.paragraph = self.document.add_paragraph(style=CODE_STYLE)
+        self.style_stack.append(CODE_STYLE)
         for child in ast["children"]:
             self.render(child)
         self.style_stack.pop()
@@ -396,7 +422,15 @@ class Exporter:
         entries.append(
             dict(id=f"i{self.indexed_count}", fullname=self.current_text.fullname)
         )
-        self.paragraph.add_run(ast["term"])
+        run = self.paragraph.add_run(ast["term"])
+        if self.config["indexing"]:
+            font = self.config["indexing_font"]
+            if font == constants.BOLD:
+                run.bold = True
+            elif font == constants.ITALIC:
+                run.italic = True
+            elif font == constants.UNDERLINE:
+                run.underline = True
 
     def render_footnote_ref(self, ast):
         entries = self.footnotes.setdefault(self.current_text.fullname, {})
@@ -414,7 +448,13 @@ class Exporter:
 
     def render_reference(self, ast):
         run = self.paragraph.add_run(ast["reference"])
-        run.font.bold = True
+        font = self.config["reference_font"]
+        if font == constants.BOLD:
+            run.bold = True
+        elif font == constants.ITALIC:
+            run.italic = True
+        elif font == constants.UNDERLINE:
+            run.underline = True
 
 
 class Dialog(tk.simpledialog.Dialog):
@@ -448,16 +488,84 @@ class Dialog(tk.simpledialog.Dialog):
         self.language_var = tk.StringVar(value=self.config.get("language") or "")
         combobox = tk.ttk.Combobox(
             body,
-            values=constants.DOCX_LANGUAGES,
+            values=LANGUAGES,
             textvariable=self.language_var,
         )
         combobox.grid(row=row, column=1, sticky=tk.W)
+
+        row += 1
+        label = tk.ttk.Label(body, text=Tr("Indexing"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.E)
+        self.indexing_var = tk.IntVar(value=self.config.get("indexing") or 1)
+        button = tk.ttk.Checkbutton(
+            body,
+            text=Tr("Output indexed section"),
+            variable=self.indexing_var,
+        )
+        button.grid(row=row, column=1, padx=4, sticky=tk.W)
+
+        row += 1
+        label = tk.ttk.Label(body, text=Tr("Indexing font"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.indexing_font_var = tk.StringVar(value=self.config.get("indexing_font") or constants.NORMAL)
+        button_frame = tk.ttk.Frame(body)
+        button_frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        button = tk.ttk.Radiobutton(button_frame,
+                                    text=Tr("Normal"),
+                                    variable=self.indexing_font_var,
+                                    value=constants.NORMAL)
+        button.pack(anchor=tk.W)
+        button = tk.ttk.Radiobutton(button_frame,
+                                    text=Tr("Italic"), 
+                                    variable=self.indexing_font_var,
+                                    value=constants.ITALIC)
+        button.pack(anchor=tk.W)
+        button = tk.ttk.Radiobutton(button_frame,
+                                    text=Tr("Bold"), 
+                                    variable=self.indexing_font_var,
+                                    value=constants.BOLD)
+        button.pack(anchor=tk.W)
+        button = tk.ttk.Radiobutton(button_frame,
+                                    text=Tr("Underline"), 
+                                    variable=self.indexing_font_var,
+                                    value=constants.UNDERLINE)
+        button.pack(anchor=tk.W)
+
+        row += 1
+        label = tk.ttk.Label(body, text=Tr("Reference font"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.reference_font_var = tk.StringVar(value=self.config.get("reference_font") or constants.NORMAL)
+        button_frame = tk.ttk.Frame(body)
+        button_frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        button = tk.ttk.Radiobutton(button_frame,
+                                    text=Tr("Normal"), 
+                                    variable=self.reference_font_var,
+                                    value=constants.NORMAL)
+        button.pack(anchor=tk.W)
+        button = tk.ttk.Radiobutton(button_frame,
+                                    text=Tr("Italic"), 
+                                    variable=self.reference_font_var,
+                                    value=constants.ITALIC)
+        button.pack(anchor=tk.W)
+        button = tk.ttk.Radiobutton(button_frame,
+                                    text=Tr("Bold"), 
+                                    variable=self.reference_font_var,
+                                    value=constants.BOLD)
+        button.pack(anchor=tk.W)
+        button = tk.ttk.Radiobutton(button_frame,
+                                    text=Tr("Underline"), 
+                                    variable=self.reference_font_var,
+                                    value=constants.UNDERLINE)
+        button.pack(anchor=tk.W)
 
     def apply(self):
         self.config["dirpath"] = self.dirpath_entry.get().strip() or "."
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
         self.config["language"] = self.language_var.get().strip()
+        self.config["indexing"] = self.indexing_var.get()
+        self.config["indexing_font"] = self.indexing_font_var.get()
+        self.config["reference_font"] = self.reference_font_var.get()
         self.result = self.config
 
     def change_dirpath(self):

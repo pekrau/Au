@@ -534,7 +534,7 @@ class Main:
         if modified and not tk.messagebox.askokcancel(
             parent=self.root,
             title=Tr("Quit"),
-            message=Tr("All unsaved changes will be lost. Really quit?"),
+            message=f"{Tr('All unsaved changes will be lost')}. {Tr('Really quit?')}",
         ):
             return
         self.config_save()
