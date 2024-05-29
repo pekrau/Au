@@ -57,7 +57,7 @@ class IndexedViewer(Viewer):
                     self.xref_create(
                         fullname, position, constants.INDEXED, label=str(i)
                     )
-                self.view.insert(tk.INSERT, "\n")
+            self.view.insert(tk.INSERT, "\n")
 
     def display_finalize(self):
         super().display_finalize()
