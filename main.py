@@ -505,33 +505,43 @@ class Main:
                 message=f"{count} {Tr('items written to archive file')} '{filepath}'.",
             )
 
-    def export_docx(self):
+    def export_docx(self, interactive=True, dirpath=None):
         config = self.config["export"].get("docx") or {}
-        response = docx_export.Dialog(self.root, self.source, config)
-        if not response.result:
-            return
-        self.root.config(cursor=constants.WRITE_CURSOR)
-        exporter = docx_export.Exporter(self, self.source, response.result)
+        if interactive:
+            response = docx_export.Dialog(self.root, self.source, config)
+            if not response.result:
+                return
+            config = response.result
+            self.root.config(cursor=constants.WRITE_CURSOR)
+        if dirpath:
+            config["dirpath"] = dirpath
+        exporter = docx_export.Exporter(self, self.source, config)
         exporter.write()
-        self.config["export"]["docx"] = response.result
-        self.root.config(cursor="")
+        if interactive:
+            self.config["export"]["docx"] = config
+            self.root.config(cursor="")
 
-    def export_pdf(self):
+    def export_pdf(self, interactive=True, dirpath=None):
         raise NotImplementedError
 
-    def export_epub(self):
+    def export_epub(self, interactive=True, dirpath=None):
         raise NotImplementedError
 
-    def export_html(self):
+    def export_html(self, interactive=True, dirpath=None):
         config = self.config["export"].get("html") or {}
-        response = html_export.Dialog(self.root, self.source, config)
-        if not response.result:
-            return
-        self.root.config(cursor=constants.WRITE_CURSOR)
-        exporter = html_export.Exporter(self, self.source, response.result)
+        if interactive:
+            response = html_export.Dialog(self.root, self.source, config)
+            if not response.result:
+                return
+            config = response.result
+            self.root.config(cursor=constants.WRITE_CURSOR)
+        if dirpath:
+            config["dirpath"] = dirpath
+        exporter = html_export.Exporter(self, self.source, config)
         exporter.write()
-        self.config["export"]["html"] = response.result
-        self.root.config(cursor="")
+        if interactive:
+            self.config["export"]["html"] = config
+            self.root.config(cursor="")
 
     def quit(self, event=None):
         modified = [e.modified for e in self.text_editors.values()] + [
@@ -873,24 +883,44 @@ class Main:
         self.treeview.focus(fullname)
         self.menu_popup.tk_popup(event.x_root, event.y_root)
 
-    def mainloop(self):
+    def run(self):
         self.root.mainloop()
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
+    parser = argparse.ArgumentParser()
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-D", "--docx",
+                        action="store_true", help="Output texts as DOCX.")
+    group.add_argument("-P", "--pdf",
+                        action="store_true", help="Output texts as PDF.")
+    group.add_argument("-E", "--epub",
+                        action="store_true", help="Output texts as EPUB.")
+    group.add_argument("-H", "--html",
+                        action="store_true", help="Output texts as HTML.")
+    parser.add_argument("-d", "--dirpath", default=None,
+                        help="The path of the directory to write the file(s) to.")
+    parser.add_argument("inputdir", nargs="?", default=os.getcwd(),
+                        help="The path of the directory containing the input texts.")
+    args = parser.parse_args()
 
-    if len(sys.argv) == 1:
-        absdirpath = os.getcwd()
-    elif len(sys.argv) == 2:
-        dirpath = sys.argv[1]
-        if not os.path.isabs(dirpath):
-            absdirpath = os.path.normpath(os.path.join(os.getcwd(), dirpath))
-            if not os.path.exists(absdirpath):
-                sys.exit(f"{Tr('Error')}: '{absdirpath}' does not exist.")
-            if not os.path.isdir(absdirpath):
-                sys.exit(f"{Tr('Error')}: '{absdirpath}' is not a directory.")
+    inputdir = args.inputdir
+    if not os.path.isabs(inputdir):
+        inputdir = os.path.normpath(os.path.join(os.getcwd(), inputdir))
+    if not os.path.exists(inputdir):
+        sys.exit(f"{Tr('Error')}: '{inputdir}' does not exist.")
+    if not os.path.isdir(inputdir):
+        sys.exit(f"{Tr('Error')}: '{inputdir}' is not a directory.")
+    main = Main(inputdir)
+
+    if args.docx:
+        main.export_docx(interactive=False, dirpath=args.dirpath)
+    elif args.pdf:
+        main.export_pdf(interactive=False, dirpath=args.dirpath)
+    elif args.epub:
+        main.export_epub(interactive=False, dirpath=args.dirpath)
+    elif args.html:
+        main.export_html(interactive=False, dirpath=args.dirpath)
     else:
-        sys.exit(f"{Tr('Error')}: at most one directory path can be provided.")
-    main = Main(absdirpath)
-    main.mainloop()
+        main.run()

@@ -105,16 +105,15 @@ class Exporter:
     def write_title(self):
         "Title page."
         paragraph = self.document.add_paragraph(style="Title")
-        paragraph.paragraph_format.space_after = docx.shared.Pt(40)
         run = paragraph.add_run(self.main.title)
         run.font.size = docx.shared.Pt(TITLE_FONT_SIZE)
         run.font.bold = True
 
         if self.main.subtitle:
             paragraph = self.document.add_paragraph(style=f"Heading 1")
-            paragraph.paragraph_format.space_after = docx.shared.Pt(30)
             paragraph.add_run(self.main.subtitle)
 
+        paragraph.paragraph_format.space_after = docx.shared.Pt(40)
         for author in self.main.authors:
             paragraph = self.document.add_paragraph(style=f"Heading 2")
             paragraph.add_run(author)
@@ -281,7 +280,11 @@ class Exporter:
                 run.italic = True
             elif font == constants.UNDERLINE:
                 run.underline = True
+            first = True
             for fullname, positions in sorted(fullnames.items()):
+                if not first:
+                    paragraph.add_run(",")
+                first = False
                 paragraph.add_run(f" {fullname}")
 
     def render(self, ast):
