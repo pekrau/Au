@@ -16,6 +16,7 @@ import tkinter.font
 import constants
 import utils
 import docx_export
+import pdf_export
 import html_export
 
 from utils import Tr
@@ -522,7 +523,20 @@ class Main:
             self.root.config(cursor="")
 
     def export_pdf(self, interactive=True, dirpath=None):
-        raise NotImplementedError
+        config = self.config["export"].get("pdf") or {}
+        if interactive:
+            response = pdf_export.Dialog(self.root, self.source, config)
+            if not response.result:
+                return
+            config = response.result
+            self.root.config(cursor=constants.WRITE_CURSOR)
+        if dirpath:
+            config["dirpath"] = dirpath
+        exporter = pdf_export.Exporter(self, self.source, config)
+        exporter.write()
+        if interactive:
+            self.config["export"]["pdf"] = config
+            self.root.config(cursor="")
 
     def export_epub(self, interactive=True, dirpath=None):
         raise NotImplementedError
@@ -889,6 +903,8 @@ class Main:
 
 if __name__ == "__main__":
     import argparse
+    import sys
+
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-D", "--docx",

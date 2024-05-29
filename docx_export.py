@@ -16,7 +16,6 @@ import constants
 import utils
 from utils import Tr
 
-TITLE_FONT_SIZE = 28
 LANGUAGES = ("sv-SE", "en-US", "en-GB")
 CODE_STYLE = "Au Macro"
 CODE_LEFT_INDENT = 30
@@ -102,13 +101,14 @@ class Exporter:
         self.write_references()
         self.write_indexed()
 
-        self.document.save(os.path.join(self.config["dirpath"], self.config["filename"]))
+        self.document.save(os.path.join(self.config["dirpath"],
+                                        self.config["filename"]))
 
     def write_title(self):
         "Title page."
         paragraph = self.document.add_paragraph(style="Title")
         run = paragraph.add_run(self.main.title)
-        run.font.size = docx.shared.Pt(TITLE_FONT_SIZE)
+        run.font.size = docx.shared.Pt(constants.FONT_TITLE_SIZE)
         run.font.bold = True
 
         if self.main.subtitle:
@@ -179,13 +179,7 @@ class Exporter:
             reference = lookup[refid]
             paragraph = self.document.add_paragraph()
             run = paragraph.add_run(reference["id"])
-            font = self.config["reference_font"]
-            if font == constants.BOLD:
-                run.bold = True
-            elif font == constants.ITALIC:
-                run.italic = True
-            elif font == constants.UNDERLINE:
-                run.underline = True
+            run.underline = True
             paragraph.add_run("  ")
             self.write_reference_authors(paragraph, reference)
             try:
@@ -288,13 +282,7 @@ class Exporter:
         for canonical, entries in items:
             paragraph = self.document.add_paragraph()
             run = paragraph.add_run(canonical)
-            font = self.config["indexing_font"]
-            if font == constants.BOLD:
-                run.bold = True
-            elif font == constants.ITALIC:
-                run.italic = True
-            elif font == constants.UNDERLINE:
-                run.underline = True
+            run.bold = True
             paragraph.add_run("  ")
             entries.sort(key=lambda e: e["ordinal"])
             for entry in entries:
@@ -438,13 +426,7 @@ class Exporter:
                  )
         )
         run = self.paragraph.add_run(ast["term"])
-        font = self.config["indexing_font"]
-        if font == constants.BOLD:
-            run.bold = True
-        elif font == constants.ITALIC:
-            run.italic = True
-        elif font == constants.UNDERLINE:
-            run.underline = True
+        run.underline = True
 
     def render_footnote_ref(self, ast):
         entries = self.footnotes.setdefault(self.current_text.fullname, {})
@@ -466,13 +448,7 @@ class Exporter:
         entries.append(dict(fullname=self.current_text.fullname,
                             ordinal=self.current_text.ordinal))
         run = self.paragraph.add_run(ast["reference"])
-        font = self.config["reference_font"]
-        if font == constants.BOLD:
-            run.bold = True
-        elif font == constants.ITALIC:
-            run.italic = True
-        elif font == constants.UNDERLINE:
-            run.underline = True
+        run.bold = True
 
 
 class Dialog(tk.simpledialog.Dialog):
@@ -587,15 +563,13 @@ class Dialog(tk.simpledialog.Dialog):
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
         self.config["language"] = self.language_var.get().strip()
         self.config["page_break_level"] = self.page_break_level_var.get()
-        self.config["indexing_font"] = self.indexing_font_var.get()
-        self.config["reference_font"] = self.reference_font_var.get()
         self.result = self.config
 
     def change_dirpath(self):
         dirpath = tk.filedialog.askdirectory(
             parent=self,
             title=Tr("Directory"),
-            initialdir=self.config.get("dirpath") or ".",
+            initialdir=self.config.get("dirpath") or os.getcwd(),
             mustexist=True,
         )
         if dirpath:

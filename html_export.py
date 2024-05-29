@@ -88,42 +88,6 @@ class Exporter:
                 with open(filepath, "w") as outfile:
                     outfile.write(output.getvalue())
 
-    def write_toc(self):
-        self.output('<div class="row">')
-        self.output('<div class="col-md-5 offset-md-1">')
-        self.output('<ul class="list-group">')
-        for item in self.source.items:
-            self.output('<li class="list-group-item">')
-            self.output(f'<a href="{self.get_url(item.fullname)}">{item.name}</a>')
-            self.output("</li>")
-        self.output('<li class="list-group-item">')
-        self.output(f'<a href="{self.get_url("_References")}">{Tr("References")}</a>')
-        self.output("</li>")
-        self.output('<li class="list-group-item">')
-        self.output(f'<a href="{self.get_url("_Index")}">{Tr("Index")}</a>')
-        self.output("</li>")
-        self.output("</ul>")
-        self.output("</div>")
-        self.output("</div>")
-
-    def get_url(self, name, id=None):
-        if self.config["multiple_files"]:
-            if id:
-                return f"{name}.html#{id}"
-            else:
-                return f"{name}.html"
-        else:
-            if id:
-                return f"#{name}-{id}"
-            else:
-                return f"#{name}"
-
-    def get_id(self, name, id):
-        if self.config["multiple_files"]:
-            return id
-        else:
-            return f"{name}-{id}"
-
     def output(self, line, newline=True):
         line = line.rstrip()
         if newline:
@@ -167,6 +131,42 @@ f"""<!doctype html>
         self.output(f'<p class="mb-4">{Tr("Created")}: {now}</p>')
         self.output("</div>")
         self.output("</div>")
+
+    def write_toc(self):
+        self.output('<div class="row">')
+        self.output('<div class="col-md-5 offset-md-1">')
+        self.output('<ul class="list-group">')
+        for item in self.source.items:
+            self.output('<li class="list-group-item">')
+            self.output(f'<a href="{self.get_url(item.fullname)}">{item.name}</a>')
+            self.output("</li>")
+        self.output('<li class="list-group-item">')
+        self.output(f'<a href="{self.get_url("_References")}">{Tr("References")}</a>')
+        self.output("</li>")
+        self.output('<li class="list-group-item">')
+        self.output(f'<a href="{self.get_url("_Index")}">{Tr("Index")}</a>')
+        self.output("</li>")
+        self.output("</ul>")
+        self.output("</div>")
+        self.output("</div>")
+
+    def get_url(self, name, id=None):
+        if self.config["multiple_files"]:
+            if id:
+                return f"{name}.html#{id}"
+            else:
+                return f"{name}.html"
+        else:
+            if id:
+                return f"#{name}-{id}"
+            else:
+                return f"#{name}"
+
+    def get_id(self, name, id):
+        if self.config["multiple_files"]:
+            return id
+        else:
+            return f"{name}-{id}"
 
     def write_section(self, section, level):
         self.output(f'<section id="{section.fullname}">')
