@@ -203,8 +203,7 @@ class Source:
         assert os.path.isdir(self.abspath), (self, self.abspath)
         assert len(self.lookup) == len(self.all_items), (
             self,
-            len(self.lookup),
-            len(self.all_items),
+            ic(self.lookup, self.all_items),
         )
         for item in self.all_items:
             assert item.source is self, (self, item)
@@ -260,6 +259,16 @@ class Item:
         for result, item in enumerate(self.parent.items):
             if item is self:
                 return result
+
+    @property
+    def ordinal(self):
+        "Tuple of parent's and its own index for sorting purposes."
+        result = [self.index]
+        parent = self.parent
+        while parent is not self.source:
+            result.append(parent.index)
+            parent = parent.parent
+        return tuple(reversed(result))
 
     @property
     def prev(self):
@@ -518,6 +527,7 @@ class Section(Item):
         shutil.copytree(self.abspath, newabspath)
         new = Section(self.source, self.parent, newname)
         self.parent.items.append(new)
+        self.source.lookup[new.fullname] = new
         for item in new.all_items:
             self.source.lookup[item.fullname] = item
         return new
@@ -707,6 +717,7 @@ def test(keep=False):
 
     content = "# Very basic Markdown.\n\n**Bold**.\n"
     dirpath = tempfile.mkdtemp()
+    ic(dirpath)
     for filename in ["text1.md", "text2.md", "text3.md"]:
         with open(os.path.join(dirpath, filename), "w") as outfile:
             outfile.write(content)
@@ -732,15 +743,7 @@ def test(keep=False):
 
 
 if __name__ == "__main__":
-    import json
-
-    test()
-    source = Source("/home/pekrau/Att konfrontera lejonen")
-    with open("config.json") as infile:
-        config = json.loads(infile.read())
-    source.apply_config(config)
-    ic(source.get_config())
-    with open("config.json", "w") as outfile:
-        outfile.write(json.dumps(source.get_config(), indent=2))
-    item = source["subsection/kommentarer2/new text"]
-    ic(item, item.parentpath)
+    # test(keep=True)
+    source = Source("/home/pekrau/Dropbox/Texter/test")
+    item = source["subkapitel/inne i subkapitel"]
+    ic(item, item.parentpath, item.ordinal)

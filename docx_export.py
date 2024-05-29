@@ -86,8 +86,10 @@ class Exporter:
         self.document.core_properties.modified = datetime.datetime.now()
         # XXX authors
 
-        self.indexed = {}  # Key: canonical; value: dict(id, fullname)
+        self.indexed = {}  # Key: canonical; value: dict(id, fullname, ordinal)
         self.indexed_count = 0
+        self.referenced = {}  # Key: reference id; value: dict(id, fullname)
+        self.referenced_count = 0
         self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
 
         self.write_title()
@@ -97,8 +99,8 @@ class Exporter:
                 self.write_section(item, level=1)
             else:
                 self.write_text(item, level=1)
-        self.write_references(references=self.main.references_viewer.references)
-        self.write_indexed(self.main.indexed_viewer.terms)
+        self.write_references()
+        self.write_indexed()
 
         self.document.save(os.path.join(self.config["dirpath"], self.config["filename"]))
 
@@ -169,10 +171,12 @@ class Exporter:
         run = paragraph.add_run(title)
         run.font.size = docx.shared.Pt(h["font"][1])
 
-    def write_references(self, references):
+    def write_references(self):
         self.document.add_page_break()
         self.write_heading(Tr("References"), 1)
-        for reference in self.main.references_viewer.reference_texts:
+        lookup = self.main.references_viewer.reference_lookup
+        for refid, entries in sorted(self.referenced.items()):
+            reference = lookup[refid]
             paragraph = self.document.add_paragraph()
             run = paragraph.add_run(reference["id"])
             font = self.config["reference_font"]
@@ -191,6 +195,7 @@ class Exporter:
             else:
                 method(paragraph, reference)
             self.write_reference_external_links(paragraph, reference)
+            self.write_reference_text_links(paragraph, entries)
 
     def write_reference_authors(self, paragraph, reference):
         count = len(reference["authors"])
@@ -267,12 +272,22 @@ class Exporter:
             except KeyError:
                 pass
 
-    def write_indexed(self, terms):
+    def write_reference_text_links(self, paragraph, entries):
+        run = paragraph.add_run()
+        run.add_break(docx.enum.text.WD_BREAK.LINE)
+        entries.sort(key=lambda e: e["ordinal"])
+        for entry in entries:
+            paragraph.add_run(entry["fullname"])
+            if entry is not entries[-1]:
+                paragraph.add_run(", ")
+
+    def write_indexed(self):
         self.document.add_page_break()
         self.write_heading(Tr("Index"), 1)
-        for term, fullnames in terms:
+        items = sorted(self.indexed.items(), key=lambda i: i[0].lower())
+        for canonical, entries in items:
             paragraph = self.document.add_paragraph()
-            run = paragraph.add_run(term)
+            run = paragraph.add_run(canonical)
             font = self.config["indexing_font"]
             if font == constants.BOLD:
                 run.bold = True
@@ -280,12 +295,12 @@ class Exporter:
                 run.italic = True
             elif font == constants.UNDERLINE:
                 run.underline = True
-            first = True
-            for fullname, positions in sorted(fullnames.items()):
-                if not first:
-                    paragraph.add_run(",")
-                first = False
-                paragraph.add_run(f" {fullname}")
+            paragraph.add_run("  ")
+            entries.sort(key=lambda e: e["ordinal"])
+            for entry in entries:
+                paragraph.add_run(entry["fullname"])
+                if entry is not entries[-1]:
+                    paragraph.add_run(", ")
 
     def render(self, ast):
         try:
@@ -417,7 +432,10 @@ class Exporter:
         entries = self.indexed.setdefault(ast["canonical"], [])
         self.indexed_count += 1
         entries.append(
-            dict(id=f"i{self.indexed_count}", fullname=self.current_text.fullname)
+            dict(id=f"i{self.indexed_count}",
+                 fullname=self.current_text.fullname,
+                 ordinal=self.current_text.ordinal,
+                 )
         )
         run = self.paragraph.add_run(ast["term"])
         font = self.config["indexing_font"]
@@ -443,6 +461,10 @@ class Exporter:
         ]
 
     def render_reference(self, ast):
+        entries = self.referenced.setdefault(ast["reference"], [])
+        self.referenced_count += 1
+        entries.append(dict(fullname=self.current_text.fullname,
+                            ordinal=self.current_text.ordinal))
         run = self.paragraph.add_run(ast["reference"])
         font = self.config["reference_font"]
         if font == constants.BOLD:

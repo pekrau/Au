@@ -543,21 +543,6 @@ class Main:
             self.config["export"]["html"] = config
             self.root.config(cursor="")
 
-    def quit(self, event=None):
-        modified = [e.modified for e in self.text_editors.values()] + [
-            e.modified for e in self.reference_editors.values()
-        ]
-        if modified:
-            modified = functools.reduce(lambda a, b: a or b, modified)
-        if modified and not tk.messagebox.askokcancel(
-            parent=self.root,
-            title=Tr("Quit"),
-            message=f"{Tr('All unsaved changes will be lost')}. {Tr('Really quit?')}",
-        ):
-            return
-        self.config_save()
-        self.root.destroy()
-
     def move_item_up(self, event=None):
         "Move the currently selected item up within its level of the treeview."
         try:
@@ -885,6 +870,21 @@ class Main:
 
     def run(self):
         self.root.mainloop()
+
+    def quit(self, event=None):
+        modified = [e.modified for e in self.text_editors.values()] + [
+            e.modified for e in self.reference_editors.values()
+        ]
+        if modified:
+            modified = functools.reduce(lambda a, b: a or b, modified)
+        if modified and not tk.messagebox.askokcancel(
+            parent=self.root,
+            title=Tr("Quit"),
+            message=f"{Tr('All unsaved changes will be lost')}. {Tr('Really quit?')}",
+        ):
+            return
+        self.config_save()
+        self.root.destroy()
 
 
 if __name__ == "__main__":
