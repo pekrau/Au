@@ -17,8 +17,6 @@ from utils import Tr
 
 FONT_FAMILY = "Helvetica"
 
-def mm(points):
-    return points / 2.83465
 
 class Exporter:
     "HTML exporter."
@@ -36,8 +34,9 @@ class Exporter:
         self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
         self.outputs = []
 
-        self.pdf = fpdf.FPDF()
+        self.pdf = fpdf.FPDF(format="a4", unit="pt")
         self.pdf.add_page()
+        self.state = State(self.pdf)
 
         self.write_title_page()
         self.write_toc()
@@ -53,38 +52,44 @@ class Exporter:
         self.pdf.output(os.path.join(self.config["dirpath"], self.config["filename"]))
 
     def write_title_page(self):
-        self.pdf.set_font(FONT_FAMILY, "B", constants.FONT_TITLE_SIZE)
-        self.pdf.write(text=self.main.title)
+        self.state.set(style="B", size=constants.FONT_TITLE_SIZE)
+        self.state.ln()
+        self.state.write(self.main.title)
+        self.state.ln()
+        self.state.reset()
+
         if self.main.subtitle:
-            self.pdf.ln(1.5 *mm(constants.FONT_TITLE_SIZE))
-            self.pdf.set_font(FONT_FAMILY, "B", constants.FONT_LARGE_SIZE + 10)
-            self.pdf.write(text=self.main.subtitle)
-        self.pdf.ln(2 * mm(constants.FONT_LARGE_SIZE + 10))
+            self.state.set(size=constants.FONT_LARGE_SIZE + 10)
+            self.state.write(self.main.subtitle)
+            self.state.ln()
+            self.state.reset()
+
+        self.state.set(size=constants.FONT_LARGE_SIZE + 5)
+        self.state.ln()
         for author in self.main.authors:
-            self.pdf.set_font(FONT_FAMILY, "B", constants.FONT_LARGE_SIZE + 5)
-            self.pdf.write(text=author)
-            self.pdf.ln(mm(constants.FONT_LARGE_SIZE + 5))
-        self.pdf.ln(2 * mm(constants.FONT_LARGE_SIZE + 10))
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+            self.state.write(author)
+            self.state.ln()
+        self.state.reset()
+
+        self.state.ln(3)
         status = str(min([t.status for t in self.source.all_texts] + [max(constants.STATUSES)]))
-        self.pdf.write(text=f'{Tr("Status")}: {Tr(status)}')
-        self.pdf.ln()
-        self.pdf.ln()
+        self.state.write(f'{Tr("Status")}: {Tr(status)}')
+        self.state.ln()
 
         now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
-        self.pdf.write(text=f'{Tr("Created")}: {now}')
-        self.pdf.ln()
-        self.pdf.ln()
+        self.state.write(f'{Tr("Created")}: {now}')
+        self.state.ln(2)
 
     def write_toc(self):
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+        self.state.set(line_height=1.5)
         for item in self.source.items:
-            self.pdf.write(text=item.fullname)
-            self.pdf.ln()
-        self.pdf.write(text=Tr("References"))
-        self.pdf.ln()
-        self.pdf.write(text=Tr("Index"))
-        self.pdf.ln()
+            self.state.write(item.fullname)
+            self.state.ln()
+        self.state.write(Tr("References"))
+        self.state.ln()
+        self.state.write(Tr("Index"))
+        self.state.ln()
+        self.state.reset()
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
@@ -102,31 +107,31 @@ class Exporter:
         if text.get("display_heading", True):
             self.write_heading(text.name, level)
         self.current_text = text
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
         self.render(text.ast)
         # Footnotes at end of the text.
         try:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
             return
-        self.pdf.ln()
-        self.pdf.write(text=constants.EM_DASH * 10)
-        self.pdf.ln()
+        self.state.ln()
+        self.state.write(constants.EM_DASH * 10)
+        self.state.ln()
         self.write_heading(Tr("Footnotes"), 6)
         for label, entry in sorted(footnotes.items()):
-            self.pdf.set_font(FONT_FAMILY, "B", constants.FONT_NORMAL_SIZE)
-            self.pdf.write(text=label)
-            self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-            self.pdf.write(text="  ")
+            self.state.set(style="B")
+            self.state.write(label)
+            self.state.reset()
+            self.state.write("  ")
             for child in entry["ast_children"]:
                 self.render(child)
-            self.pdf.ln(1.5 * mm(constants.FONT_NORMAL_SIZE))
+            self.state.ln(2)
 
     def write_heading(self, title, level):
         level = min(level, constants.MAX_H_LEVEL)
-        self.pdf.set_font(FONT_FAMILY, "B", constants.H_LOOKUP[level]["font"][1])
-        self.pdf.write(text=title)
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+        self.state.set(style="B", size=constants.H_LOOKUP[level]["font"][1])
+        self.state.write(title)
+        self.state.ln()
+        self.state.reset()
 
     def write_references(self):
         self.pdf.add_page()
@@ -134,10 +139,10 @@ class Exporter:
         lookup = self.main.references_viewer.reference_lookup
         for refid, entries in sorted(self.referenced.items()):
             reference = lookup[refid]
-            self.pdf.set_font(FONT_FAMILY, "B", constants.FONT_NORMAL_SIZE)
-            self.pdf.write(text=refid)
-            self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-            self.pdf.write(text="  ")
+            self.state.set(style="B")
+            self.state.write(refid)
+            self.state.reset()
+            self.state.write("  ")
             self.write_reference_authors(reference)
             try:
                 method = getattr(self, f"write_reference_{reference['type']}")
@@ -146,85 +151,77 @@ class Exporter:
             else:
                 method(reference)
             self.write_reference_external_links(reference)
-            self.pdf.ln(1.5 * mm(constants.FONT_NORMAL_SIZE))
+            self.state.ln(2)
 
     def write_reference_authors(self, reference):
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
         count = len(reference["authors"])
         for pos, author in enumerate(reference["authors"]):
             if pos > 0:
                 if pos == count - 1:
-                    self.pdf.write(text=" & ")
+                    self.state.write(" & ")
                 else:
-                    self.pdf.write(text=", ")
-            self.pdf.write(text=utils.shortname(author))
+                    self.state.write(", ")
+            self.state.write(utils.shortname(author))
 
     def write_reference_article(self, reference):
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-        self.pdf.write(text=f"({reference['year']}) ")
+        self.state.write(f"({reference['year']}) ")
         try:
-            self.pdf.write(text=reference["title"].strip(".") + ". ")
+            self.state.write(reference["title"].strip(".") + ". ")
         except KeyError:
             pass
-        self.pdf.set_font(FONT_FAMILY, "I", constants.FONT_NORMAL_SIZE)
+        journal = reference.get("journal")
+        if journal:
+            self.state.set(style="I")
+            self.statewrite(journal)
+            self.state.reset()
         try:
-            self.pdf.write(text=reference["journal"])
-        except KeyError:
-            pass
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-        try:
-            self.pdf.write(text=reference["volume"])
+            self.state.write(reference["volume"])
         except KeyError:
             pass
         else:
-            self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
             try:
-                self.pdf.write(text=reference["number"])
+                self.state.write(reference["number"])
             except KeyError:
                 pass
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
         try:
-            self.pdf.write(text=f": pp. {reference['pages'].replace('--', '-')}.")
+            self.state.write(f": pp. {reference['pages'].replace('--', '-')}.")
         except KeyError:
             pass
 
     def write_reference_book(self, reference):
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-        self.pdf.write(text=f"({reference['year']}).")
-        self.pdf.set_font(FONT_FAMILY, "I", constants.FONT_NORMAL_SIZE)
-        self.pdf.write(text=reference['title'].strip('.') + '. ')
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+        self.state.write(f"({reference['year']}).")
+        self.state.set(style="I")
+        self.state.write(reference['title'].strip('.') + '. ')
+        self.state.reset()
         try:
-            self.pdf.write(text=f"{reference['publisher']}.")
+            self.state.write(f"{reference['publisher']}.")
         except KeyError:
             pass
 
     def write_reference_link(self, reference):
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-        self.pdf.write(text=f"({reference['year']}).")
+        self.state.write(f"({reference['year']}).")
         try:
-            self.pdf.write(text=reference["title"].strip(".") + ". ")
+            self.state.write(reference["title"].strip(".") + ". ")
         except KeyError:
             pass
         try:
-            self.pdf.write(text=f'<a href="{reference["url"]}"><{reference["title"]}</a>')
+            self.state.write(f'<a href="{reference["url"]}"><{reference["title"]}</a>')
         except KeyError:
             pass
         try:
-            self.pwd.write(text=f"Accessed {reference['accessed']}.")
+            self.state.write(f"Accessed {reference['accessed']}.")
         except KeyError:
             pass
 
     def write_reference_external_links(self, reference):
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
         any_item = False
         for key, label, template in constants.REFERENCE_LINKS:
             try:
                 value = reference[key]
                 if any_item:
-                    self.pdf.write(", ")
+                    self.state.write(", ")
                 url = template.format(value=value)
-                self.pdf.write(text=f'<a target="_blank" href="{url}">{label}:{value}</a>')
+                self.state.write(f'<a target="_blank" href="{url}">{label}:{value}</a>')
                 any_item = True
             except KeyError:
                 pass
@@ -234,16 +231,16 @@ class Exporter:
         self.write_heading(Tr("Index"), 1)
         items = sorted(self.indexed.items(), key=lambda i: i[0].lower())
         for canonical, entries in items:
-            self.pdf.set_font(FONT_FAMILY, "B", constants.FONT_NORMAL_SIZE)
-            self.pdf.write(text=canonical)
-            self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+            self.state.set(style="B")
+            self.state.write(canonical)
+            self.state.reset()
+            self.state.write("  ")
             entries.sort(key=lambda e: e["ordinal"])
             for entry in entries:
-                self.pdf.write(text=entry["fullname"])
+                self.state.write(entry["fullname"])
                 if entry is not entries[-1]:
-                    self.pdf.write(text=", ")
-            self.pdf.ln()
-            self.pdf.ln()
+                    self.state.write(", ")
+            self.state.ln()
 
     def render(self, ast):
         try:
@@ -258,66 +255,68 @@ class Exporter:
             self.render(child)
 
     def render_paragraph(self, ast):
-        self.pdf.ln()
+        self.state.ln()
         for child in ast["children"]:
             self.render(child)
-        self.pdf.ln()
+        self.state.ln()
 
     def render_raw_text(self, ast):
         line = ast["children"]
         if not type(line) == str:
             ic("could not handle", ast)
             return
-        self.pdf.write(text=line)
+        self.state.write(line)
 
     def render_blank_line(self, ast):
         pass
 
     def render_quote(self, ast):
-        self.pdf.ln()
-        self.pdf.set_font("Times", "", constants.FONT_NORMAL_SIZE)
+        self.state.ln()
+        self.state.set(family="Times",
+                       left_indent=constants.QUOTE_LEFT_INDENT,
+                       right_indent=constants.QUOTE_RIGHT_INDENT)
         for child in ast["children"]:
             self.render(child)
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-        self.pdf.ln()
+        self.state.reset()
+        self.state.ln()
 
     def render_code_span(self, ast):
-        self.pdf.set_font("Courier", "", constants.FONT_NORMAL_SIZE)
-        self.pdf.write(text=ast["children"])
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+        self.state.set(family="Courier")
+        self.state.write(ast["children"])
+        self.state.reset()
         
     def render_code_block(self, ast):
-        self.pdf.ln()
-        self.pdf.set_font("Courier", "", constants.FONT_NORMAL_SIZE)
+        self.state.ln()
+        self.state.set(family="Courier", left_indent=constants.CODE_INDENT, line_height=1.2)
         for child in ast["children"]:
             self.render(child)
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-        self.pdf.ln()
+        self.state.reset()
+        self.state.ln()
 
     def render_fenced_code(self, ast):
-        self.pdf.ln()
-        self.pdf.set_font("Courier", "", constants.FONT_NORMAL_SIZE)
+        self.state.ln()
+        self.state.set(family="Courier", left_indent=constants.CODE_INDENT, line_height=1.2)
         for child in ast["children"]:
             self.render(child)
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
-        self.pdf.ln()
+        self.state.reset()
+        self.state.ln()
 
     def render_emphasis(self, ast):
-        self.pdf.set_font(FONT_FAMILY, "I", constants.FONT_NORMAL_SIZE)
+        self.state.set(style="I")
         for child in ast["children"]:
             self.render(child)
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+        self.state.reset()
 
     def render_strong_emphasis(self, ast):
-        self.pdf.set_font(FONT_FAMILY, "B", constants.FONT_NORMAL_SIZE)
+        self.state.set(style="B")
         for child in ast["children"]:
             self.render(child)
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+        self.state.reset()
 
     def render_thematic_break(self, ast):
-        self.pdf.ln()
-        self.pdf.write(text=constants.EM_DASH * 10)
-        self.pdf.ln()
+        self.state.ln()
+        self.state.write(constants.EM_DASH * 10)
+        self.state.ln()
 
     def render_link(self, ast):
         for child in ast["children"]:
@@ -352,9 +351,9 @@ class Exporter:
                             ordinal=self.current_text.ordinal,
                             )
                        )
-        self.pdf.set_font(FONT_FAMILY, "U", constants.FONT_NORMAL_SIZE)
-        self.pdf.write(text=ast["term"])
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+        self.state.set(style="U")
+        self.state.write(ast["term"])
+        self.state.reset()
 
     def render_footnote_ref(self, ast):
         pass
@@ -379,9 +378,102 @@ class Exporter:
                             fullname=self.current_text.fullname,
                             ordinal=self.current_text.ordinal)
                        )
-        self.pdf.set_font(FONT_FAMILY, "U", constants.FONT_NORMAL_SIZE)
-        self.pdf.write(text=ast["reference"])
-        self.pdf.set_font(FONT_FAMILY, "", constants.FONT_NORMAL_SIZE)
+        self.state.set(style="U")
+        self.state.write(ast["reference"])
+        self.state.reset()
+
+
+class Current:
+    "State value field."
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def __get__(self, obj, objtype=None):
+        return obj.stack[-1][self.name]
+
+
+class State:
+    "Current style parameters state as a stack."
+
+    family = Current()
+    style = Current()
+    size = Current()
+    line_height = Current()
+    left_indent = Current()
+    right_indent = Current()
+
+    def __init__(self, pdf):
+        self.pdf = pdf
+        self.stack = [dict(family=FONT_FAMILY,
+                           style="",
+                           size=constants.FONT_NORMAL_SIZE,
+                           line_height=1.5,
+                           left_indent=0,
+                           right_indent=0,
+                           )]
+        self.pdf.set_font(family=self.family, style=self.style, size=self.size)
+        self.l_margin=self.pdf.l_margin
+        self.r_margin=self.pdf.r_margin
+
+    def set(self, **kwargs):
+        try:
+            self.pdf.set_font(family=kwargs["family"])
+        except KeyError:
+            pass
+        try:                    # Due to possible bug in fpdf2, size before style.
+            self.pdf.set_font(size=kwargs["size"])
+        except KeyError:
+            pass
+        try:
+            self.pdf.set_font(style=kwargs["style"])
+        except KeyError:
+            pass
+        try:
+            value = kwargs["left_indent"]
+        except KeyError:
+            pass
+        else:
+            self.pdf.set_left_margin(self.l_margin + value)
+        try:
+            value = kwargs["right_indent"]
+        except KeyError:
+            pass
+        else:
+            self.pdf.set_right_margin(self.l_margin + value)
+        self.stack.append(self.stack[-1].copy())
+        self.stack[-1].update(kwargs)
+        
+    def reset(self):
+        diff = dict([(k,v) for k, v in self.stack[-2].items()
+                     if self.stack[-1][k] != v])
+        self.stack.pop()
+        for key in ("family", "style", "size"):
+            try:
+                value = diff[key]
+            except KeyError:
+                pass
+            else:
+                self.pdf.set_font(**{key: value})
+        # No action required for 'line_height'.
+        try:
+            value = diff["left_indent"]
+        except KeyError:
+            pass
+        else:
+            self.pdf.set_left_margin(self.l_margin + value)
+        try:
+            value = diff["right_indent"]
+        except KeyError:
+            pass
+        else:
+            self.pdf.set_right_margin(self.l_margin + value)
+
+    def write(self, text, link=""):
+        self.pdf.write(h=self.size * self.line_height, text=text, link=link)
+
+    def ln(self, factor=1):
+        self.pdf.ln(factor * self.size * self.line_height)
 
 
 class Dialog(tk.simpledialog.Dialog):
