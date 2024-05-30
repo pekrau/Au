@@ -33,6 +33,7 @@ class Exporter:
         self.referenced_count = 0
         self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
         self.outputs = []
+        self.footnote_output = None
 
         if self.config["multiple_files"]: # Separate files for each chapter.
             self.write_page_begin("index", self.main.title)
@@ -184,22 +185,25 @@ f"""<!doctype html>
             self.write_heading(text.name, level)
         self.current_text = text
         self.render(text.ast)
-        # Footnotes at end of the text.
+        self.write_text_footnotes(text)
+        self.output('</article>')
+
+    def write_text_footnotes(self, text):
+        "Footnotes at end of the text."
         try:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
             return
         self.output('<hr class="mt-5 mx-5" width="50%">')
         self.write_heading(Tr("Footnotes"), 6)
-        self.output("<dl>")
+        # This implementation relies on labels being consecutive numbers from 1.
+        self.output('<ol>')
         for label, entry in sorted(footnotes.items()):
-            self.output(f'<dt id="{entry["id"]}">{label}</dt>')
-            self.output('<dd class="ms-4">')
+            self.output(f'<li id="{entry["id"]}">')
             for child in entry["ast_children"]:
                 self.render(child)
-            self.output("</dd>")
-        self.output("</dl>")
-        self.output('</article>')
+            self.output("</li>")
+        self.output("</ul>")
 
     def write_heading(self, title, level):
         level = min(level, constants.MAX_H_LEVEL)

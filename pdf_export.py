@@ -32,7 +32,7 @@ class Exporter:
         self.referenced = {}  # Key: reference id; value: dict(id, fullname)
         self.referenced_count = 0
         self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
-        self.outputs = []
+        self.list_stack = []
 
         self.pdf = fpdf.FPDF(format="a4", unit="pt")
         self.pdf.add_page()
@@ -79,9 +79,9 @@ class Exporter:
         now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
         self.state.write(f'{Tr("Created")}: {now}')
         self.state.ln(2)
+        self.write_toc()
 
     def write_toc(self):
-        self.state.set(line_height=1.5)
         for item in self.source.items:
             self.state.write(item.fullname)
             self.state.ln()
@@ -89,7 +89,6 @@ class Exporter:
         self.state.ln()
         self.state.write(Tr("Index"))
         self.state.ln()
-        self.state.reset()
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
@@ -108,29 +107,30 @@ class Exporter:
             self.write_heading(text.name, level)
         self.current_text = text
         self.render(text.ast)
-        # Footnotes at end of the text.
+        self.write_text_footnotes(text)
+
+    def write_heading(self, title, level, factor=1.5):
+        level = min(level, constants.MAX_H_LEVEL)
+        self.state.set(style="B", size=constants.H_LOOKUP[level]["font"][1])
+        self.state.write(title)
+        self.state.ln(factor)
+        self.state.reset()
+
+    def write_text_footnotes(self, text):
+        "Footnotes at end of the text."
         try:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
             return
         self.state.ln()
-        self.state.write(constants.EM_DASH * 10)
-        self.state.ln()
         self.write_heading(Tr("Footnotes"), 6)
+        self.state.set(line_height=1.1)
         for label, entry in sorted(footnotes.items()):
-            self.state.set(style="B")
-            self.state.write(label)
-            self.state.reset()
-            self.state.write("  ")
+            self.state.write(f"{label}. ")
+            self.state.set(left_indent=20)
             for child in entry["ast_children"]:
                 self.render(child)
-            self.state.ln(2)
-
-    def write_heading(self, title, level):
-        level = min(level, constants.MAX_H_LEVEL)
-        self.state.set(style="B", size=constants.H_LOOKUP[level]["font"][1])
-        self.state.write(title)
-        self.state.ln()
+            self.state.reset()
         self.state.reset()
 
     def write_references(self):
@@ -172,7 +172,7 @@ class Exporter:
         journal = reference.get("journal")
         if journal:
             self.state.set(style="I")
-            self.statewrite(journal)
+            self.state.write(journal)
             self.state.reset()
         try:
             self.state.write(reference["volume"])
@@ -255,10 +255,14 @@ class Exporter:
             self.render(child)
 
     def render_paragraph(self, ast):
-        self.state.ln()
+        if self.list_stack:
+            if self.list_stack[-1]["first_paragraph"]:
+                self.list_stack[-1]["first_paragraph"] = False
+            else:
+                self.state.ln(2)
         for child in ast["children"]:
             self.render(child)
-        self.state.ln()
+        self.state.ln(2)
 
     def render_raw_text(self, ast):
         line = ast["children"]
@@ -271,14 +275,12 @@ class Exporter:
         pass
 
     def render_quote(self, ast):
-        self.state.ln()
         self.state.set(family="Times",
                        left_indent=constants.QUOTE_LEFT_INDENT,
                        right_indent=constants.QUOTE_RIGHT_INDENT)
         for child in ast["children"]:
             self.render(child)
         self.state.reset()
-        self.state.ln()
 
     def render_code_span(self, ast):
         self.state.set(family="Courier")
@@ -286,7 +288,6 @@ class Exporter:
         self.state.reset()
         
     def render_code_block(self, ast):
-        self.state.ln()
         self.state.set(family="Courier", left_indent=constants.CODE_INDENT, line_height=1.2)
         for child in ast["children"]:
             self.render(child)
@@ -294,7 +295,6 @@ class Exporter:
         self.state.ln()
 
     def render_fenced_code(self, ast):
-        self.state.ln()
         self.state.set(family="Courier", left_indent=constants.CODE_INDENT, line_height=1.2)
         for child in ast["children"]:
             self.render(child)
@@ -315,32 +315,38 @@ class Exporter:
 
     def render_thematic_break(self, ast):
         self.state.ln()
-        self.state.write(constants.EM_DASH * 10)
-        self.state.ln()
+        self.state.write("-" * 10)
+        self.state.ln(2)
 
     def render_link(self, ast):
         for child in ast["children"]:
             self.render(child)
 
     def render_list(self, ast):
-        pass
-        # if ast["ordered"]:
-        #     self.output("<ol>")
-        # else:
-        #     self.output("<ul>")
-        # for child in ast["children"]:
-        #     self.render(child)
-        # if ast["ordered"]:
-        #     self.output("</ol>")
-        # else:
-        #     self.output("</ul>")
+        data = dict(
+            ordered=ast["ordered"],
+            bullet=ast["bullet"], # Currently useless.
+            start=ast["start"],   # Currently useless.
+            tight=ast["tight"],   # Currently useless.
+            depth=len(self.list_stack) + 1,
+            count=0)
+        self.list_stack.append(data)
+        for child in ast["children"]:
+            self.render(child)
+        self.list_stack.pop()
 
     def render_list_item(self, ast):
-        pass
-        # self.output("<li>")
-        # for child in ast["children"]:
-        #     self.render(child)
-        # self.output("</li>")
+        data = self.list_stack[-1]
+        data["count"] += 1
+        data["first_paragraph"] = True
+        if data["ordered"]:
+            self.state.write(f'{data["count"]}. ')
+        else:
+            self.state.write("- ")
+        self.state.set(left_indent=data["depth"] * constants.LIST_INDENT)
+        for child in ast["children"]:
+            self.render(child)
+        self.state.reset()
 
     def render_indexed(self, ast):
         entries = self.indexed.setdefault(ast["canonical"], [])
@@ -356,19 +362,18 @@ class Exporter:
         self.state.reset()
 
     def render_footnote_ref(self, ast):
-        pass
-        # entries = self.footnotes.setdefault(self.current_text.fullname, {})
-        # label = int(ast["label"])
-        # id = f"_footnote-{self.current_text.fullname}-{label}"
-        # entries[label] = dict(label=label, id=id)
-        # self.output(f'<sup><strong><a href="#{id}">{ast["label"]}</a></strong></sup>')
+        entries = self.footnotes.setdefault(self.current_text.fullname, {})
+        label = int(ast["label"])
+        entries[label] = dict(label=label)
+        self.state.set(vertical="superscript", style="B")
+        self.state.write(str(label))
+        self.state.reset()
 
     def render_footnote_def(self, ast):
-        pass
-        # label = int(ast["label"])
-        # self.footnotes[self.current_text.fullname][label]["ast_children"] = ast[
-        #     "children"
-        # ]
+        label = int(ast["label"])
+        self.footnotes[self.current_text.fullname][label]["ast_children"] = ast[
+            "children"
+        ]
 
     def render_reference(self, ast):
         entries = self.referenced.setdefault(ast["reference"], [])
@@ -384,7 +389,7 @@ class Exporter:
 
 
 class Current:
-    "State value field."
+    "Field providing the current value of the style parameter."
 
     def __set_name__(self, owner, name):
         self.name = name
@@ -402,26 +407,39 @@ class State:
     line_height = Current()
     left_indent = Current()
     right_indent = Current()
+    vertical = Current()
 
     def __init__(self, pdf):
         self.pdf = pdf
         self.stack = [dict(family=FONT_FAMILY,
                            style="",
                            size=constants.FONT_NORMAL_SIZE,
-                           line_height=1.5,
+                           line_height=1.4,
                            left_indent=0,
                            right_indent=0,
+                           vertical=None,
                            )]
         self.pdf.set_font(family=self.family, style=self.style, size=self.size)
         self.l_margin=self.pdf.l_margin
         self.r_margin=self.pdf.r_margin
 
     def set(self, **kwargs):
+        self.set_pdf_state(**kwargs)
+        self.stack.append(self.stack[-1].copy())
+        self.stack[-1].update(kwargs)
+        
+    def reset(self):
+        diff = dict([(k,v) for k, v in self.stack[-2].items()
+                     if self.stack[-1][k] != v])
+        self.stack.pop()
+        self.set_pdf_state(**diff)
+
+    def set_pdf_state(self, **kwargs):
         try:
             self.pdf.set_font(family=kwargs["family"])
         except KeyError:
             pass
-        try:                    # Due to possible bug in fpdf2, size before style.
+        try:                    # Due to apparent bug in fpdf2, size before style.
             self.pdf.set_font(size=kwargs["size"])
         except KeyError:
             pass
@@ -441,33 +459,17 @@ class State:
             pass
         else:
             self.pdf.set_right_margin(self.l_margin + value)
-        self.stack.append(self.stack[-1].copy())
-        self.stack[-1].update(kwargs)
-        
-    def reset(self):
-        diff = dict([(k,v) for k, v in self.stack[-2].items()
-                     if self.stack[-1][k] != v])
-        self.stack.pop()
-        for key in ("family", "style", "size"):
-            try:
-                value = diff[key]
-            except KeyError:
-                pass
+        try:
+            value = kwargs["vertical"]
+        except KeyError:
+            pass
+        else:
+            if value == "superscript":
+                self.pdf.char_vpos = "SUP"
+            elif value == "subscript":
+                self.pdf.char_vpos = "SUB"
             else:
-                self.pdf.set_font(**{key: value})
-        # No action required for 'line_height'.
-        try:
-            value = diff["left_indent"]
-        except KeyError:
-            pass
-        else:
-            self.pdf.set_left_margin(self.l_margin + value)
-        try:
-            value = diff["right_indent"]
-        except KeyError:
-            pass
-        else:
-            self.pdf.set_right_margin(self.l_margin + value)
+                self.pdf.char_vpos = "LINE"
 
     def write(self, text, link=""):
         self.pdf.write(h=self.size * self.line_height, text=text, link=link)

@@ -93,6 +93,7 @@ class Exporter:
 
         self.write_title()
         self.current_text = None
+        self.footnote_paragraph = None
         for item in self.source.items:
             if item.is_section:
                 self.write_section(item, level=1)
@@ -150,17 +151,7 @@ class Exporter:
         self.italic = False
         self.current_text = text
         self.render(text.ast)
-        # Footnotes at end of the text.
-        try:
-            footnotes = self.footnotes[text.fullname]
-        except KeyError:
-            return
-        paragraph = self.document.add_heading(Tr("Footnotes"), 6)
-        paragraph.paragraph_format.space_before = docx.shared.Pt(30)
-        for label in sorted(footnotes.keys()):
-            self.document.add_heading(str(label), 7)
-            for child in footnotes[label]["ast_children"]:
-                self.render(child)
+        self.write_text_footnotes(text)
 
     def write_heading(self, title, level):
         level = min(level, constants.MAX_H_LEVEL)
@@ -171,6 +162,23 @@ class Exporter:
         run = paragraph.add_run(title)
         run.font.size = docx.shared.Pt(h["font"][1])
 
+    def write_text_footnotes(self, text):
+        "Footnotes at end of the text."
+        try:
+            footnotes = self.footnotes[text.fullname]
+        except KeyError:
+            return
+        paragraph = self.document.add_heading(Tr("Footnotes"), 6)
+        paragraph.paragraph_format.space_before = docx.shared.Pt(25)
+        paragraph.paragraph_format.space_after = docx.shared.Pt(10)
+        for label in sorted(footnotes.keys()):
+            self.footnote_paragraph = self.document.add_paragraph()
+            run = self.footnote_paragraph.add_run(f"{label}  ")
+            run.italic = True
+            for child in footnotes[label]["ast_children"]:
+                self.render(child)
+            self.footnote_paragraph = None
+
     def write_references(self):
         self.document.add_page_break()
         self.write_heading(Tr("References"), 1)
@@ -179,7 +187,7 @@ class Exporter:
             reference = lookup[refid]
             paragraph = self.document.add_paragraph()
             run = paragraph.add_run(reference["id"])
-            run.underline = True
+            run.bold = True
             paragraph.add_run("  ")
             self.write_reference_authors(paragraph, reference)
             try:
@@ -304,26 +312,29 @@ class Exporter:
             self.render(child)
 
     def render_paragraph(self, ast):
-        self.paragraph = self.document.add_paragraph()
+        if self.footnote_paragraph:
+            self.paragraph = self.footnote_paragraph
+        else:
+            self.paragraph = self.document.add_paragraph()
         if self.list_stack:
             data = self.list_stack[-1]
-            level = min(3, data["level"]) # Max list level in predef styles.
+            depth = min(3, data["depth"]) # Max list depth in predef styles.
             if data["first_paragraph"]:
                 if data["ordered"]:
-                    if level == 1:
+                    if depth == 1:
                         style = self.document.styles["List Number"]
                     else:
-                        style = self.document.styles[f"List Number {level}"]
+                        style = self.document.styles[f"List Number {depth}"]
                 else:
-                    if level == 1:
+                    if depth == 1:
                         style = self.document.styles["List Bullet"]
                     else:
-                        style = self.document.styles[f"List Bullet {level}"]
+                        style = self.document.styles[f"List Bullet {depth}"]
             else:
-                if level == 1:
+                if depth == 1:
                     style = self.document.styles["List Continue"]
                 else:
-                    style = self.document.styles[f"List Continue {level}"]
+                    style = self.document.styles[f"List Continue {depth}"]
             data["first_paragraph"] = False
             self.paragraph.style = style
         else:
@@ -395,14 +406,13 @@ class Exporter:
         add_hyperlink(self.paragraph, ast["dest"], raw_text)
 
     def render_list(self, ast):
-        level = len(self.list_stack) + 1
         data = dict(
             ordered=ast["ordered"],
             bullet=ast["bullet"], # Currently useless.
             start=ast["start"],   # Currently useless.
             tight=ast["tight"],   # Currently useless.
             count=0,              # Currently useless.
-            level=level,
+            depth=len(self.list_stack) + 1,
         )
         self.list_stack.append(data)
         for child in ast["children"]:
@@ -448,7 +458,7 @@ class Exporter:
         entries.append(dict(fullname=self.current_text.fullname,
                             ordinal=self.current_text.ordinal))
         run = self.paragraph.add_run(ast["reference"])
-        run.bold = True
+        run.underline = True
 
 
 class Dialog(tk.simpledialog.Dialog):
