@@ -353,11 +353,7 @@ f"""<!doctype html>
         self.output("</p>")
 
     def render_raw_text(self, ast):
-        line = ast["children"]
-        if not type(line) == str:
-            ic("could not handle", ast)
-            return
-        self.output(line)
+        self.output(ast["children"])
 
     def render_blank_line(self, ast):
         pass

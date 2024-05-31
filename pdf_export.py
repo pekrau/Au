@@ -16,6 +16,7 @@ import constants
 from utils import Tr
 
 FONT_FAMILY = "Helvetica"
+BLUE = (20, 20, 255)
 
 
 class Exporter:
@@ -205,7 +206,11 @@ class Exporter:
         except KeyError:
             pass
         try:
-            self.state.write(f'<a href="{reference["url"]}"><{reference["title"]}</a>')
+            self.state.set(style="U", text_color=BLUE)
+            self.pdf.cell(h=self.state.line_height * self.state.size,
+                          text=reference["title"],
+                          link=reference["url"])
+            self.state.reset()
         except KeyError:
             pass
         try:
@@ -219,9 +224,13 @@ class Exporter:
             try:
                 value = reference[key]
                 if any_item:
-                    self.state.write(", ")
-                url = template.format(value=value)
-                self.state.write(f'<a target="_blank" href="{url}">{label}:{value}</a>')
+                    self.state.write(",")
+                self.state.write(" ")
+                self.state.set(style="U", text_color=BLUE)
+                self.pdf.cell(h=self.state.line_height * self.state.size,
+                              text=f"{label}:{value}",
+                              link=template.format(value=value))
+                self.state.reset()
                 any_item = True
             except KeyError:
                 pass
@@ -255,20 +264,18 @@ class Exporter:
             self.render(child)
 
     def render_paragraph(self, ast):
-        if self.list_stack:
-            if self.list_stack[-1]["first_paragraph"]:
-                self.list_stack[-1]["first_paragraph"] = False
-            else:
-                self.state.ln(2)
         for child in ast["children"]:
             self.render(child)
-        self.state.ln(2)
+        if self.list_stack:
+            if self.list_stack[-1]["tight"]:
+                self.state.ln()
+            else:
+                self.state.ln(2)
+        else:
+            self.state.ln(2)
 
     def render_raw_text(self, ast):
         line = ast["children"]
-        if not type(line) == str:
-            ic("could not handle", ast)
-            return
         self.state.write(line)
 
     def render_blank_line(self, ast):
@@ -319,30 +326,43 @@ class Exporter:
         self.state.ln(2)
 
     def render_link(self, ast):
+        # XXX This handles only raw text within a link, nothing else.
+        raw_text = []
         for child in ast["children"]:
-            self.render(child)
+            if child["element"] == "raw_text":
+                raw_text.append(child["children"])
+        self.state.set(style="U", text_color=BLUE)
+        self.pdf.cell(h=self.state.line_height * self.state.size,
+                      text="".join(raw_text),
+                      link=ast["dest"])
+        self.state.reset()
 
     def render_list(self, ast):
         data = dict(
             ordered=ast["ordered"],
             bullet=ast["bullet"], # Currently useless.
             start=ast["start"],   # Currently useless.
-            tight=ast["tight"],   # Currently useless.
+            tight=ast["tight"],
             depth=len(self.list_stack) + 1,
             count=0)
         self.list_stack.append(data)
+        self.state.set(line_height=1.1)
         for child in ast["children"]:
             self.render(child)
+        self.state.reset()
+        if self.list_stack[-1]["tight"]:
+            self.state.ln()
         self.list_stack.pop()
 
     def render_list_item(self, ast):
         data = self.list_stack[-1]
         data["count"] += 1
-        data["first_paragraph"] = True
+        self.state.set(style="B")
         if data["ordered"]:
             self.state.write(f'{data["count"]}. ')
         else:
             self.state.write("- ")
+        self.state.reset()
         self.state.set(left_indent=data["depth"] * constants.LIST_INDENT)
         for child in ast["children"]:
             self.render(child)
@@ -404,6 +424,7 @@ class State:
     family = Current()
     style = Current()
     size = Current()
+    text_color = Current()
     line_height = Current()
     left_indent = Current()
     right_indent = Current()
@@ -413,6 +434,7 @@ class State:
         self.pdf = pdf
         self.stack = [dict(family=FONT_FAMILY,
                            style="",
+                           text_color=0,
                            size=constants.FONT_NORMAL_SIZE,
                            line_height=1.4,
                            left_indent=0,
@@ -445,6 +467,10 @@ class State:
             pass
         try:
             self.pdf.set_font(style=kwargs["style"])
+        except KeyError:
+            pass
+        try:
+            self.pdf.set_text_color(kwargs["text_color"])
         except KeyError:
             pass
         try:

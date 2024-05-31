@@ -388,7 +388,7 @@ class Viewer:
             self.prev_line_blank = True
             self.render(child)
         self.view.tag_add(list_tag, first, tk.INSERT)
-        if level == 1 and data["tight"]:
+        if level == 1:
             self.line_break()
         self.list_stack.pop()
         if self.list_stack:

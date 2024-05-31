@@ -344,9 +344,6 @@ class Exporter:
 
     def render_raw_text(self, ast):
         line = ast["children"]
-        if not type(line) == str:
-            ic("could not handle", ast)
-            return
         line = line.rstrip("\n")
         run = self.paragraph.add_run(line)
         if self.bold:
@@ -398,12 +395,12 @@ class Exporter:
         paragraph.alignment = docx.enum.text.WD_ALIGN_PARAGRAPH.CENTER
 
     def render_link(self, ast):
+        # XXX This handles only raw text within a link, nothing else.
         raw_text = []
         for child in ast["children"]:
-            if child["element"] == "raw_text" and type(child["children"]) == str:
+            if child["element"] == "raw_text":
                 raw_text.append(child["children"])
-        raw_text = "".join(raw_text)
-        add_hyperlink(self.paragraph, ast["dest"], raw_text)
+        add_hyperlink(self.paragraph, ast["dest"], "".join(raw_text))
 
     def render_list(self, ast):
         data = dict(
