@@ -429,13 +429,19 @@ class Exporter:
         self.indexed_count += 1
         entries.append(
             dict(id=f"i{self.indexed_count}",
+                 ordinal=self.current_text.ordinal,
                  fullname=self.current_text.fullname,
                  heading=self.current_text.heading,
-                 ordinal=self.current_text.ordinal,
                  )
         )
         run = self.paragraph.add_run(ast["term"])
-        run.underline = True
+        font = self.config["indexed_font"]
+        if font == constants.ITALIC:
+            run.italic = True
+        elif font == constants.BOLD:
+            run.bold = True
+        elif font == constants.UNDERLINE:
+            run.underline = True
 
     def render_footnote_ref(self, ast):
         entries = self.footnotes.setdefault(self.current_text.fullname, {})
@@ -454,11 +460,18 @@ class Exporter:
     def render_reference(self, ast):
         entries = self.referenced.setdefault(ast["reference"], [])
         self.referenced_count += 1
-        entries.append(dict(fullname=self.current_text.fullname,
+        entries.append(dict(ordinal=self.current_text.ordinal,
+                            fullname=self.current_text.fullname,
                             heading=self.current_text.heading,
-                            ordinal=self.current_text.ordinal))
+                            ))
         run = self.paragraph.add_run(ast["reference"])
-        run.underline = True
+        font = self.config["references_font"]
+        if font == constants.ITALIC:
+            run.italic = True
+        elif font == constants.BOLD:
+            run.bold = True
+        elif font == constants.UNDERLINE:
+            run.underline = True
 
 
 class Dialog(tk.simpledialog.Dialog):
@@ -516,54 +529,54 @@ class Dialog(tk.simpledialog.Dialog):
         row += 1
         label = tk.ttk.Label(body, text=Tr("Indexing font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.indexing_font_var = tk.StringVar(value=self.config.get("indexing_font", constants.NORMAL))
+        self.indexed_font_var = tk.StringVar(value=self.config.get("indexed_font", constants.NORMAL))
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
         button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Normal"),
-                                    variable=self.indexing_font_var,
+                                    variable=self.indexed_font_var,
                                     value=constants.NORMAL)
         button.pack(anchor=tk.W)
         button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Italic"), 
-                                    variable=self.indexing_font_var,
+                                    variable=self.indexed_font_var,
                                     value=constants.ITALIC)
         button.pack(anchor=tk.W)
         button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Bold"), 
-                                    variable=self.indexing_font_var,
+                                    variable=self.indexed_font_var,
                                     value=constants.BOLD)
         button.pack(anchor=tk.W)
         button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Underline"), 
-                                    variable=self.indexing_font_var,
+                                    variable=self.indexed_font_var,
                                     value=constants.UNDERLINE)
         button.pack(anchor=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Reference font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.reference_font_var = tk.StringVar(value=self.config.get("reference_font", constants.NORMAL))
+        self.references_font_var = tk.StringVar(value=self.config.get("references_font", constants.NORMAL))
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
         button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Normal"), 
-                                    variable=self.reference_font_var,
+                                    variable=self.references_font_var,
                                     value=constants.NORMAL)
         button.pack(anchor=tk.W)
         button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Italic"), 
-                                    variable=self.reference_font_var,
+                                    variable=self.references_font_var,
                                     value=constants.ITALIC)
         button.pack(anchor=tk.W)
         button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Bold"), 
-                                    variable=self.reference_font_var,
+                                    variable=self.references_font_var,
                                     value=constants.BOLD)
         button.pack(anchor=tk.W)
         button = tk.ttk.Radiobutton(frame,
                                     text=Tr("Underline"), 
-                                    variable=self.reference_font_var,
+                                    variable=self.references_font_var,
                                     value=constants.UNDERLINE)
         button.pack(anchor=tk.W)
 
@@ -573,6 +586,8 @@ class Dialog(tk.simpledialog.Dialog):
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
         self.config["language"] = self.language_var.get().strip()
         self.config["page_break_level"] = self.page_break_level_var.get()
+        self.config["indexed_font"] = self.indexed_font_var.get()
+        self.config["references_font"] = self.references_font_var.get()
         self.result = self.config
 
     def change_dirpath(self):
