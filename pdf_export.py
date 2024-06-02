@@ -18,6 +18,19 @@ from utils import Tr
 FONT_FAMILY = "Helvetica"
 BLUE = (20, 20, 255)
 
+NO_XREF = "No xrefs"
+PAGE_NUMBER = "Page number"
+TEXT_FULL_NAME = "Text full name"
+TEXT_HEADING = "Text heading"
+INDEXED_XREF_TYPES = {PAGE_NUMBER: "page",
+                      TEXT_FULL_NAME: "fullname",
+                      TEXT_HEADING: "heading"}
+REFERENCES_XREF_TYPES = {NO_XREF: "none",
+                         PAGE_NUMBER: "page",
+                         TEXT_FULL_NAME: "fullname",
+                         TEXT_HEADING: "heading"}
+
+
 
 class Exporter:
     "HTML exporter."
@@ -28,9 +41,9 @@ class Exporter:
         self.config = config
 
     def write(self):
-        self.indexed = {}  # Key: canonical; value: dict(id, fullname)
+        self.indexed = {}  # Key: canonical; value: dict(label, ordinal)
         self.indexed_count = 0
-        self.referenced = {}  # Key: reference id; value: dict(id, fullname)
+        self.referenced = {}  # Key: reference id; value: dict(label, ordinal)
         self.referenced_count = 0
         self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
         self.list_stack = []
@@ -83,18 +96,14 @@ class Exporter:
         self.write_toc()
 
     def write_toc(self):
-        for item in self.source.items:
-            self.state.write(item.fullname)
-            self.state.ln()
-        self.state.write(Tr("References"))
-        self.state.ln()
-        self.state.write(Tr("Index"))
-        self.state.ln()
+        # XXX insert_toc_placeholder
+        pass
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
             self.pdf.add_page()
-        self.write_heading(section.name, level)
+        self.pdf.start_section(section.heading, level=level-1)
+        self.write_heading(section.heading, level)
         for item in section.items:
             if item.is_section:
                 self.write_section(item, level=level + 1)
@@ -104,16 +113,17 @@ class Exporter:
     def write_text(self, text, level):
         if level <= self.config["page_break_level"]:
             self.pdf.add_page()
+        self.pdf.start_section(text.heading, level=level-1)
         if text.get("display_heading", True):
-            self.write_heading(text.name, level)
+            self.write_heading(text.heading, level)
         self.current_text = text
         self.render(text.ast)
         self.write_text_footnotes(text)
 
-    def write_heading(self, title, level, factor=1.5):
+    def write_heading(self, heading, level, factor=1.5):
         level = min(level, constants.MAX_H_LEVEL)
         self.state.set(style="B", size=constants.H_LOOKUP[level]["font"][1])
-        self.state.write(title)
+        self.state.write(heading)
         self.state.ln(factor)
         self.state.reset()
 
@@ -137,6 +147,7 @@ class Exporter:
     def write_references(self):
         self.pdf.add_page()
         self.write_heading(Tr("References"), 1)
+        self.pdf.start_section(Tr("References"), level=0)
         lookup = self.main.references_viewer.reference_lookup
         for refid, entries in sorted(self.referenced.items()):
             reference = lookup[refid]
@@ -152,6 +163,7 @@ class Exporter:
             else:
                 method(reference)
             self.write_reference_external_links(reference)
+            self.write_reference_xrefs(entries)
             self.state.ln(2)
 
     def write_reference_authors(self, reference):
@@ -235,9 +247,25 @@ class Exporter:
             except KeyError:
                 pass
 
+    def write_reference_xrefs(self, entries):
+        if not entries:
+            return
+        type = self.config["references_xref"]
+        if type == REFERENCES_XREF_TYPES[NO_XREF]:
+            return
+        self.state.set(left_indent=20)
+        self.state.ln()
+        entries.sort(key=lambda e: e["ordinal"])
+        for entry in entries:
+            self.state.write(str(entry[type])) # Page number is 'int'.
+            if entry is not entries[-1]:
+                self.state.write(", ")
+        self.state.ln()
+
     def write_indexed(self):
         self.pdf.add_page()
         self.write_heading(Tr("Index"), 1)
+        self.pdf.start_section(Tr("Index"), level=0)
         items = sorted(self.indexed.items(), key=lambda i: i[0].lower())
         for canonical, entries in items:
             self.state.set(style="B")
@@ -245,8 +273,9 @@ class Exporter:
             self.state.reset()
             self.state.write("  ")
             entries.sort(key=lambda e: e["ordinal"])
+            type = self.config["indexed_xref"]
             for entry in entries:
-                self.state.write(entry["fullname"])
+                self.state.write(str(entry[type])) # Page number is 'int'.
                 if entry is not entries[-1]:
                     self.state.write(", ")
             self.state.ln()
@@ -371,10 +400,10 @@ class Exporter:
     def render_indexed(self, ast):
         entries = self.indexed.setdefault(ast["canonical"], [])
         self.indexed_count += 1
-        id = f"_Indexed-{self.indexed_count}"
-        entries.append(dict(id=id,
+        entries.append(dict(ordinal=self.current_text.ordinal,
                             fullname=self.current_text.fullname,
-                            ordinal=self.current_text.ordinal,
+                            heading=self.current_text.heading,
+                            page=self.pdf.page_no(),
                             )
                        )
         self.state.set(style="U")
@@ -398,10 +427,10 @@ class Exporter:
     def render_reference(self, ast):
         entries = self.referenced.setdefault(ast["reference"], [])
         self.referenced_count += 1
-        id = f"_Referenced-{self.referenced_count}"
-        entries.append(dict(id=id,
+        entries.append(dict(ordinal=self.current_text.ordinal,
                             fullname=self.current_text.fullname,
-                            ordinal=self.current_text.ordinal)
+                            heading=self.current_text.heading,
+                            page=self.pdf.page_no())
                        )
         self.state.set(style="U")
         self.state.write(ast["reference"])
@@ -544,8 +573,34 @@ class Dialog(tk.simpledialog.Dialog):
         for level in range(1, self.source.max_level+1):
             button = tk.ttk.Radiobutton(frame,
                                         text=str(level),
-                                        variable=self.page_break_level_var,
-                                        value=level)
+                                        value=level,
+                                        variable=self.page_break_level_var)
+            button.pack(anchor=tk.W)
+
+        row += 1
+        label = tk.ttk.Label(body, text=Tr("Xref type for indexed"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.indexed_xref_var = tk.StringVar(value=self.config.get("indexed_xref", INDEXED_XREF_TYPES[PAGE_NUMBER]))
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        for label, type in INDEXED_XREF_TYPES.items():
+            button = tk.ttk.Radiobutton(frame,
+                                        text=Tr(label),
+                                        value=type,
+                                        variable=self.indexed_xref_var)
+            button.pack(anchor=tk.W)
+
+        row += 1
+        label = tk.ttk.Label(body, text=Tr("Xref type for references"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.references_xref_var = tk.StringVar(value=self.config.get("references_xref", REFERENCES_XREF_TYPES[PAGE_NUMBER]))
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        for label, type in REFERENCES_XREF_TYPES.items():
+            button = tk.ttk.Radiobutton(frame,
+                                        text=Tr(label),
+                                        value=type,
+                                        variable=self.references_xref_var)
             button.pack(anchor=tk.W)
 
 
@@ -554,6 +609,8 @@ class Dialog(tk.simpledialog.Dialog):
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".pdf"
         self.config["page_break_level"] = self.page_break_level_var.get()
+        self.config["indexed_xref"] = self.indexed_xref_var.get()
+        self.config["references_xref"] = self.references_xref_var.get()
         self.result = self.config
 
     def change_dirpath(self):

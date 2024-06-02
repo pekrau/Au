@@ -27,9 +27,9 @@ class Exporter:
         self.config = config
 
     def write(self):
-        self.indexed = {}  # Key: canonical; value: dict(id, fullname, ordinal)
+        self.indexed = {}  # Key: canonical; value: dict(id, fullname, heading, ordinal)
         self.indexed_count = 0
-        self.referenced = {}  # Key: reference id; value: dict(id, fullname, ordinal)
+        self.referenced = {}  # Key: reference id; value: dict(id, fullname, heading, ordinal)
         self.referenced_count = 0
         self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
         self.outputs = []
@@ -139,7 +139,7 @@ f"""<!doctype html>
         self.output('<ul class="list-group">')
         for item in self.source.items:
             self.output('<li class="list-group-item">')
-            self.output(f'<a href="{self.get_url(item.fullname)}">{item.name}</a>')
+            self.output(f'<a href="{self.get_url(item.fullname)}">{item.heading}</a>')
             self.output("</li>")
         self.output('<li class="list-group-item">')
         self.output(f'<a href="{self.get_url("_References")}">{Tr("References")}</a>')
@@ -171,7 +171,7 @@ f"""<!doctype html>
 
     def write_section(self, section, level):
         self.output(f'<section id="{section.fullname}">')
-        self.write_heading(section.name, level)
+        self.write_heading(section.heading, level)
         for item in section.items:
             if item.is_section:
                 self.write_section(item, level=level + 1)
@@ -182,7 +182,7 @@ f"""<!doctype html>
     def write_text(self, text, level):
         self.output(f'<article id="{text.fullname}">')
         if self.config["multiple_files"] or text.get("display_heading", True):
-            self.write_heading(text.name, level)
+            self.write_heading(text.heading, level)
         self.current_text = text
         self.render(text.ast)
         self.write_text_footnotes(text)
@@ -226,7 +226,7 @@ f"""<!doctype html>
             else:
                 method(reference)
             self.write_reference_external_links(reference)
-            self.write_reference_text_links(entries)
+            self.write_reference_xrefs(entries)
             self.output("</p>")
         self.output(f'</section>')
 
@@ -300,7 +300,7 @@ f"""<!doctype html>
             except KeyError:
                 pass
 
-    def write_reference_text_links(self, entries):
+    def write_reference_xrefs(self, entries):
         self.output("<br>")
         entries.sort(key=lambda e: e["ordinal"])
         for entry in entries:
@@ -309,9 +309,9 @@ f"""<!doctype html>
             else:
                 url = f'#{entry["id"]}'
             if entry is entries[0]:
-                self.output(f'<a class="ms-4" href="{url}">{entry["fullname"]}</a>')
+                self.output(f'<a class="ms-4" href="{url}">{entry["heading"]}</a>')
             else:
-                self.output(f'<a href="{url}">{entry["fullname"]}</a>')
+                self.output(f'<a href="{url}">{entry["heading"]}</a>')
             if entry is not entries[-1]:
                 self.output(",")
 
@@ -328,7 +328,7 @@ f"""<!doctype html>
                     url = f'{entry["fullname"]}.html#{entry["id"]}'
                 else:
                     url = f'#{entry["id"]}'
-                self.output(f'<a href="{url}">{entry["fullname"]}</a>')
+                self.output(f'<a href="{url}">{entry["heading"]}</a>')
                 if entry is not entries[-1]:
                     self.output(",")
             self.output("</p>")
@@ -424,6 +424,7 @@ f"""<!doctype html>
         id = f"_Indexed-{self.indexed_count}"
         entries.append(dict(id=id,
                             fullname=self.current_text.fullname,
+                            heading=self.current_text.heading,
                             ordinal=self.current_text.ordinal,
                             ))
         self.output(f'<a id="{id}" href="{self.get_url("_Index", id=ast["canonical"])}">{ast["term"]}</a>')
@@ -447,6 +448,7 @@ f"""<!doctype html>
         id = f"_Referenced-{self.referenced_count}"
         entries.append(dict(id=id,
                             fullname=self.current_text.fullname,
+                            heading=self.current_text.heading,
                             ordinal=self.current_text.ordinal))
         self.output(f'<a id="{id}" href="{self.get_url("_References", id=ast["reference"])}">{ast["reference"]}</a>')
 

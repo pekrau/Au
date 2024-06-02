@@ -251,7 +251,7 @@ class ReferencesViewer(Viewer):
         self.main.open_reference_editor(self, reference)
 
     def highlight(self, refid):
-        "Highlight and show the reference; show this pane."
+        "Highlight and ensure that the reference and this pane is visible."
         try:
             first = self.reference_pos[refid]
         except KeyError:

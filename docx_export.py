@@ -133,7 +133,7 @@ class Exporter:
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
             self.document.add_page_break()
-        self.write_heading(section.name, level)
+        self.write_heading(section.heading, level)
         for item in section.items:
             if item.is_section:
                 self.write_section(item, level=level + 1)
@@ -144,7 +144,7 @@ class Exporter:
         if level <= self.config["page_break_level"]:
             self.document.add_page_break()
         if text.get("display_heading", True):
-            self.write_heading(text.name, level)
+            self.write_heading(text.heading, level)
         self.list_stack = []
         self.style_stack = ["Normal"]
         self.bold = False
@@ -153,13 +153,13 @@ class Exporter:
         self.render(text.ast)
         self.write_text_footnotes(text)
 
-    def write_heading(self, title, level):
+    def write_heading(self, heading, level):
         level = min(level, constants.MAX_H_LEVEL)
         h = constants.H_LOOKUP[level]
         paragraph = self.document.add_paragraph(style=f"Heading {level}")
         paragraph.paragraph_format.left_indent = docx.shared.Pt(h["left_margin"])
         paragraph.paragraph_format.space_after = docx.shared.Pt(h["spacing"])
-        run = paragraph.add_run(title)
+        run = paragraph.add_run(heading)
         run.font.size = docx.shared.Pt(h["font"][1])
 
     def write_text_footnotes(self, text):
@@ -197,7 +197,7 @@ class Exporter:
             else:
                 method(paragraph, reference)
             self.write_reference_external_links(paragraph, reference)
-            self.write_reference_text_links(paragraph, entries)
+            self.write_reference_xrefs(paragraph, entries)
 
     def write_reference_authors(self, paragraph, reference):
         count = len(reference["authors"])
@@ -274,12 +274,13 @@ class Exporter:
             except KeyError:
                 pass
 
-    def write_reference_text_links(self, paragraph, entries):
+    def write_reference_xrefs(self, paragraph, entries):
         run = paragraph.add_run()
         run.add_break(docx.enum.text.WD_BREAK.LINE)
+        paragraph.add_run("\t")
         entries.sort(key=lambda e: e["ordinal"])
         for entry in entries:
-            paragraph.add_run(entry["fullname"])
+            paragraph.add_run(entry["heading"])
             if entry is not entries[-1]:
                 paragraph.add_run(", ")
 
@@ -294,7 +295,7 @@ class Exporter:
             paragraph.add_run("  ")
             entries.sort(key=lambda e: e["ordinal"])
             for entry in entries:
-                paragraph.add_run(entry["fullname"])
+                paragraph.add_run(entry["heading"])
                 if entry is not entries[-1]:
                     paragraph.add_run(", ")
 
@@ -429,6 +430,7 @@ class Exporter:
         entries.append(
             dict(id=f"i{self.indexed_count}",
                  fullname=self.current_text.fullname,
+                 heading=self.current_text.heading,
                  ordinal=self.current_text.ordinal,
                  )
         )
@@ -453,6 +455,7 @@ class Exporter:
         entries = self.referenced.setdefault(ast["reference"], [])
         self.referenced_count += 1
         entries.append(dict(fullname=self.current_text.fullname,
+                            heading=self.current_text.heading,
                             ordinal=self.current_text.ordinal))
         run = self.paragraph.add_run(ast["reference"])
         run.underline = True

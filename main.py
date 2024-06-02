@@ -74,6 +74,7 @@ class Main:
         self.title = self.config["main"].get("title") or str(self.source)
         self.subtitle = self.config["main"].get("subtitle") or ""
         self.authors = self.config["main"].get("authors") or []
+        self.source.display_heading_ordinal = self.config["main"].get("display_heading_ordinal", True)
         self.clipboard = []
         self.clipboard_chars = ""
         self.source.apply_config(self.config["source"])
@@ -135,6 +136,7 @@ class Main:
             authors=self.authors,
             geometry=self.root.geometry(),
             sash=[self.panedwindow.sashpos(0), self.panedwindow.sashpos(1)],
+            display_heading_ordinal=self.source.display_heading_ordinal,
         )
 
         config["meta"] = dict(
@@ -233,6 +235,19 @@ class Main:
             label=Tr("Out of section"), command=self.move_item_out_of_section
         )
 
+        self.menu_settings = tk.Menu(self.menubar)
+        self.menubar.add_cascade(menu=self.menu_settings, label=Tr("Settings"))
+        self.menu_settings.add_command(label=Tr("Title"), command=self.edit_title)
+        self.menu_settings.add_command(label=Tr("Subtitle"), command=self.edit_subtitle)
+        self.menu_settings.add_command(label=Tr("Authors"), command=self.edit_authors)
+        self.display_heading_ordinal_var = tk.IntVar()
+        self.display_heading_ordinal_var.set(int(self.source.display_heading_ordinal))
+        self.menu_settings.add_checkbutton(label=Tr("Display heading ordinal"),
+                                                    variable=self.display_heading_ordinal_var,
+                                                    onvalue=True,
+                                                    offvalue=False,
+                                                    command=self.set_display_heading_ordinal)
+
     def set_menubar_state(self):
         """To avoid potential problems, some menu items are restricted
         while any text editors are open.
@@ -307,14 +322,14 @@ class Main:
     def add_treeview_entry(self, item, index=None):
         if item.is_text:
             self.treeview.insert(
-                item.parentpath, index or tk.END, iid=item.fullname, text=item.name
+                item.parentpath, index or tk.END, iid=item.fullname, text=item.heading
             )
         elif item.is_section:
             self.treeview.insert(
                 item.parentpath,
                 index or tk.END,
                 iid=item.fullname,
-                text=item.name,
+                text=item.heading,
                 open=item.open,
                 tags=(constants.SECTION,),
             )
@@ -393,8 +408,8 @@ class Main:
             text.viewer = viewer
             self.texts_notebook.add(
                 viewer.view_frame,
-                text=viewer.name,
-                state=text.shown and tk.NORMAL or tk.HIDDEN,
+                text=viewer.heading,
+                state=text.is_shown and tk.NORMAL or tk.HIDDEN,
             )
             tabs = self.texts_notebook.tabs()
             text.tabid = tabs[-1]
@@ -510,7 +525,7 @@ class Main:
         config = self.config["export"].get("docx") or {}
         if interactive:
             response = docx_export.Dialog(self.root, self.source, config)
-            if not response.result:
+            if response.result is None:
                 return
             config = response.result
             self.root.config(cursor=constants.WRITE_CURSOR)
@@ -526,7 +541,7 @@ class Main:
         config = self.config["export"].get("pdf") or {}
         if interactive:
             response = pdf_export.Dialog(self.root, self.source, config)
-            if not response.result:
+            if response.result is None:
                 return
             config = response.result
             self.root.config(cursor=constants.WRITE_CURSOR)
@@ -545,7 +560,7 @@ class Main:
         config = self.config["export"].get("html") or {}
         if interactive:
             response = html_export.Dialog(self.root, self.source, config)
-            if not response.result:
+            if response.result is None:
                 return
             config = response.result
             self.root.config(cursor=constants.WRITE_CURSOR)
@@ -646,6 +661,46 @@ class Main:
         self.refresh_meta_notebook()
         self.config_save()
         return "break"
+
+    def edit_title(self):
+        result = tk.simpledialog.askstring(
+            parent=self.root,
+            title=Tr("Title?"),
+            prompt=Tr("Give new title") + ":",
+            initialvalue=self.title,
+        )
+        if result is None:
+            return
+        self.title = result.strip() or str(self.source)
+        self.config_save()
+        self.title_viewer.display()
+
+    def edit_subtitle(self):
+        result = tk.simpledialog.askstring(
+            parent=self.root,
+            title=Tr("Subtitle?"),
+            prompt=Tr("Give new subtitle") + ":",
+            initialvalue=self.subtitle,
+        )
+        if result is None:
+            return
+        self.subtitle = result.strip() or None
+        self.config_save()
+        self.title_viewer.display()
+
+    def edit_authors(self):
+        response = AuthorsDialog(self.root, self.config)
+        if response.result is None:
+            return
+        self.authors = response.result
+        self.config_save()
+        self.title_viewer.display()
+
+    def set_display_heading_ordinal(self):
+        self.source.display_heading_ordinal = bool(self.display_heading_ordinal_var.get())
+        self.config_save()
+        self.treeview_display()
+        self.texts_notebook_display()
 
     def rename(self):
         "Rename the currently selected item."
@@ -899,6 +954,38 @@ class Main:
             return
         self.config_save()
         self.root.destroy()
+
+
+class AuthorsDialog(tk.simpledialog.Dialog):
+    "Dialog to edit the list of authors."
+
+    def __init__(self, master, config):
+        self.authors = config["main"]["authors"]
+        self.result = None
+        super().__init__(master, title=Tr("Edit authors"))
+
+    def body(self, body):
+        self.entries = []
+
+        for row, author in enumerate(self.authors):
+            label = tk.ttk.Label(body, text=Tr("Edit"))
+            label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+            entry = tk.ttk.Entry(body, width=40)
+            entry.insert(0, author)
+            entry.grid(row=row, column=1, sticky=tk.W)
+            self.entries.append(entry)
+        label = tk.ttk.Label(body, text=Tr("Add"))
+        label.grid(row=row+1, column=0, padx=4, sticky=tk.NE)
+        entry = tk.ttk.Entry(body, width=40)
+        entry.grid(row=row+1, column=1, sticky=tk.W)
+        self.entries.append(entry)
+
+    def apply(self):
+        self.result = []
+        for entry in self.entries:
+            author = entry.get().strip()
+            if author:
+                self.result.append(author)
 
 
 if __name__ == "__main__":

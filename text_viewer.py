@@ -32,11 +32,6 @@ class TextViewer(Viewer):
         "The section of the text; empty string if at top level."
         return self.text.parentpath
 
-    @property
-    def name(self):
-        "The short name of the text."
-        return self.text.name
-
     def get_cursor(self):
         "Get the position of cursor in absolute number of characters."
         return super().get_cursor() - self.heading_offset
@@ -48,9 +43,16 @@ class TextViewer(Viewer):
     cursor = property(get_cursor, set_cursor)
 
     @property
+    def heading(self):
+        if self.main.config["main"].get("display_heading_ordinal", False):
+            return self.text.heading
+        else:
+            return self.text.name
+
+    @property
     def heading_offset(self):
         if self.text.get("display_heading", True):
-            return len(self.name) + 1
+            return len(self.heading) + 1
         else:
             return 0
 
@@ -61,7 +63,7 @@ class TextViewer(Viewer):
             tag = constants.H_LOOKUP[self.text.level]["tag"]
         except KeyError:
             tag = constants.H_LOOKUP[0]["tag"]
-        self.view.insert(tk.INSERT, self.text.name + "\n", (tag,))
+        self.view.insert(tk.INSERT, self.heading + "\n", tag)
 
     def display_view(self):
         self.render(self.text.ast)

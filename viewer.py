@@ -658,8 +658,8 @@ class Viewer:
         if showerror:
             tk.messagebox.showerror(
                 parent=self.view_frame,
-                title="Broken selection",
-                message="Selection start and end have different tag sets.",
+                title=Tr("Broken selection"),
+                message=Tr("Selection start and end have different tag sets."),
             )
         raise ValueError("Broken selection.")
 

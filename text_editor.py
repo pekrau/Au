@@ -48,11 +48,8 @@ class TextEditor(Editor):
         self.menu_settings = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_settings, label=Tr("Settings"))
         self.display_heading_var = tk.IntVar()
-        try:
-            self.display_heading_var.set(self.text["display_heading"])
-        except KeyError:
-            self.display_heading_var.set(True)
-        self.menu_settings.add_checkbutton(label=Tr("Display title"),
+        self.display_heading_var.set(self.text.get("display_heading", True))
+        self.menu_settings.add_checkbutton(label=Tr("Display heading"),
                                            variable=self.display_heading_var,
                                            onvalue=True,
                                            offvalue=False,

@@ -405,6 +405,13 @@ class Editor(TextViewer):
         except ValueError:
             return
         first, last = self.selection_strip_whitespace(first, last)
+        for entry in self.get_dump(first, last):
+            if entry[0] in ("tagon", "tagoff"):
+                tk.messagebox.showerror(
+                    parent=self.toplevel,
+                    title=Tr("Formatting disallowed"),
+                    message=Tr("Formatting not allowed within link text."))
+                return
         url = tk.simpledialog.askstring(
             parent=self.toplevel, title=Tr("Link URL?"), prompt=Tr("Give URL for link:")
         )

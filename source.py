@@ -27,6 +27,7 @@ class Source:
     def __init__(self, absdirpath):
         self.absdirpath = absdirpath
         self.name = os.path.basename(absdirpath)
+        self.display_heading_ordinal = False
         self.read()
 
     def __str__(self):
@@ -263,12 +264,20 @@ class Item:
     @property
     def ordinal(self):
         "Tuple of parent's and its own index for sorting purposes."
-        result = [self.index]
+        result = [self.index + 1]
         parent = self.parent
         while parent is not self.source:
-            result.append(parent.index)
+            result.append(parent.index + 1)
             parent = parent.parent
         return tuple(reversed(result))
+
+    @property
+    def heading(self):
+        "Return heading, containing ordinal if so set, and name of this item."
+        if self.source.display_heading_ordinal:
+            return f'{".".join([str(i) for i in self.ordinal])}. {self.name}'
+        else:
+            return self.name
 
     @property
     def prev(self):
@@ -328,7 +337,7 @@ class Item:
         return f"{value:.0f} {unit}"
 
     @property
-    def shown(self):
+    def is_shown(self):
         "Are all parent sections open?"
         parent = self.parent
         while parent is not self.source:
