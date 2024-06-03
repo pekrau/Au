@@ -17,6 +17,7 @@ from utils import Tr
 
 FONT_FAMILY = "Helvetica"
 BLUE = (20, 20, 255)
+THEMATIC_BREAK_INDENT = 100
 
 NO_XREF = "No xrefs"
 PAGE_NUMBER = "Page number"
@@ -53,7 +54,7 @@ class Exporter:
         self.state = State(self.pdf)
 
         self.write_title_page()
-        self.write_toc()
+        self.pdf.insert_toc_placeholder(self.write_toc, pages=2)
         self.current_text = None
         for item in self.source.items:
             if item.is_section:
@@ -93,11 +94,34 @@ class Exporter:
         now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
         self.state.write(f'{Tr("Created")}: {now}')
         self.state.ln(2)
-        self.write_toc()
 
-    def write_toc(self):
-        # XXX insert_toc_placeholder
-        pass
+    def write_toc(self, pdf, outline):
+        pdf.add_page()
+
+        h1 = constants.H_LOOKUP[1]
+        size = h1["font"][1]
+        pdf.set_font(style="B", size=size)
+        pdf.cell(h=1.5*size, text=Tr("Contents"))
+        pdf.ln(1.5*size)
+        pdf.set_font(style="", size=constants.FONT_NORMAL_SIZE)
+
+        with pdf.table(first_row_as_headings=False, borders_layout="none") as table:
+            for section in outline:
+                link = pdf.add_link(page=section.page_number)
+                # text = 
+
+                # text += f' {"." * (60 - section.level*2 - len(section.name))} {section.page_number}'
+                row = table.row()
+                row.cell(f'{" " * section.level * 2} {section.name}', link=link)
+                row.cell(str(section.page_number), link=link)
+            # pdf.multi_cell(
+            #     w=pdf.epw,
+            #     h=pdf.font_size,
+            #     text=text,
+            #     new_x=fpdf.enums.XPos.LMARGIN,
+            #     new_y=fpdf.enums.YPos.NEXT,
+            #     link=link,
+            # )
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
@@ -362,10 +386,10 @@ class Exporter:
         self.state.ln()
         self.pdf.set_line_width(2)
         self.pdf.set_draw_color(r=128, g=128, b=128)
-        # XXX Ugly! Should depend on current page format.
-        self.pdf.line(x1=self.pdf.l_margin+80,
+        width, height = self.pdf.default_page_dimensions
+        self.pdf.line(x1=self.pdf.l_margin + THEMATIC_BREAK_INDENT,
                       y1=self.pdf.y,
-                      x2=self.pdf.l_margin+80+300,
+                      x2=width - (self.pdf.r_margin + THEMATIC_BREAK_INDENT),
                       y2=self.pdf.y)
         self.state.ln(2)
 

@@ -37,6 +37,7 @@ class Source:
         return f"Source('{self}')"
 
     def __len__(self):
+        "Number of sections and texts."
         return sum([len(i) for i in self.all_items])
 
     def __getitem__(self, fullname):
@@ -473,6 +474,7 @@ class Section(Item):
         super().__init__(source, parent, name)
 
     def __len__(self):
+        "Number of sections and texts."
         return sum([len(i) for i in self.all_items])
 
     @property
@@ -564,6 +566,7 @@ class Text(Item):
         super().__init__(source, parent, name)
 
     def __len__(self):
+        "Number of sections and texts."
         return 1
 
     def __getitem__(self, key):
