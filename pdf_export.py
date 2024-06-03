@@ -54,7 +54,9 @@ class Exporter:
         self.state = State(self.pdf)
 
         self.write_title_page()
-        self.pdf.insert_toc_placeholder(self.write_toc, pages=2)
+        self.pdf.add_page()
+        self.pdf.start_section(Tr("Contents"), level=0)
+        self.pdf.insert_toc_placeholder(self.write_toc)
         self.current_text = None
         for item in self.source.items:
             if item.is_section:
@@ -96,8 +98,6 @@ class Exporter:
         self.state.ln(2)
 
     def write_toc(self, pdf, outline):
-        pdf.add_page()
-
         h1 = constants.H_LOOKUP[1]
         size = h1["font"][1]
         pdf.set_font(style="B", size=size)
@@ -108,20 +108,9 @@ class Exporter:
         with pdf.table(first_row_as_headings=False, borders_layout="none") as table:
             for section in outline:
                 link = pdf.add_link(page=section.page_number)
-                # text = 
-
-                # text += f' {"." * (60 - section.level*2 - len(section.name))} {section.page_number}'
                 row = table.row()
                 row.cell(f'{" " * section.level * 2} {section.name}', link=link)
                 row.cell(str(section.page_number), link=link)
-            # pdf.multi_cell(
-            #     w=pdf.epw,
-            #     h=pdf.font_size,
-            #     text=text,
-            #     new_x=fpdf.enums.XPos.LMARGIN,
-            #     new_y=fpdf.enums.YPos.NEXT,
-            #     link=link,
-            # )
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
@@ -289,7 +278,7 @@ class Exporter:
             self.state.reset()
             if entry is not entries[-1]:
                 self.state.write(", ")
-        self.state.ln()
+        self.state.reset()
 
     def write_indexed(self):
         self.pdf.add_page()

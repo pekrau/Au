@@ -32,7 +32,7 @@ class Viewer:
         self.bind_events()
 
     def __len__(self):
-        "Number of characters in the 'view' tk.Text instance.."
+        "Number of characters in the 'view' tk.Text instance."
         return len(self.view.get("1.0", tk.END))
 
     def view_create(self, parent):
