@@ -46,11 +46,11 @@ class Exporter:
         self.config = config
 
     def write(self):
-        self.indexed = {}  # Key: canonical; value: dict(label, ordinal)
+        self.indexed = {}  # Key: canonical; value: dict(ordinal, fullname, heading, page)
         self.indexed_count = 0
-        self.referenced = {}  # Key: reference id; value: dict(label, ordinal)
+        self.referenced = {}  # Key: reference id; value: dict(ordinal, fullname, heading, page)
         self.referenced_count = 0
-        self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
+        self.footnotes = {}  # Key: fullname; value: dict(label, number, ast_children)
         self.list_stack = []
 
         self.pdf = fpdf.FPDF(format="a4", unit="pt")
@@ -452,7 +452,6 @@ class Exporter:
         self.state.reset()
 
     def render_thematic_break(self, ast):
-        self.state.ln()
         self.pdf.set_line_width(2)
         self.pdf.set_draw_color(r=128, g=128, b=128)
         width, height = self.pdf.default_page_dimensions
@@ -462,7 +461,7 @@ class Exporter:
             x2=width - (self.pdf.r_margin + THEMATIC_BREAK_INDENT),
             y2=self.pdf.y,
         )
-        self.state.ln(2)
+        self.state.ln()
 
     def render_link(self, ast):
         # XXX This handles only raw text within a link, nothing else.
@@ -527,15 +526,16 @@ class Exporter:
 
     def render_footnote_ref(self, ast):
         entries = self.footnotes.setdefault(self.current_text.fullname, {})
-        label = int(ast["label"])
-        entries[label] = dict(label=label)
+        label = ast["label"]
+        number = int(label)
+        entries[number] = dict(label=label, number=number)
         self.state.set(vertical="superscript", style="B")
-        self.state.write(str(label))
+        self.state.write(label)
         self.state.reset()
 
     def render_footnote_def(self, ast):
-        label = int(ast["label"])
-        self.footnotes[self.current_text.fullname][label]["ast_children"] = ast[
+        number = int(ast["label"])
+        self.footnotes[self.current_text.fullname][number]["ast_children"] = ast[
             "children"
         ]
 
