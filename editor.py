@@ -124,13 +124,16 @@ class Editor(TextViewer):
             return "break"
         if constants.FOOTNOTE_REF in tags:
             return "break"
-        # Add list item if 'Return' within list.
-        if event.keysym == "Return":
-            if not (event.state & constants.EVENT_STATE_CONTROL):
-                list_item_tag = self.get_list_item_tag()
-                if list_item_tag:
-                    self.list_item_add(list_item_tag=list_item_tag)
-                    return "break"
+        # Special 'Return' handling, unless used with 'Control'.
+        if (event.keysym == "Return" and
+            not (event.state & constants.EVENT_STATE_CONTROL)):
+            # Add list item if 'Return' within list.
+            list_item_tag = self.get_list_item_tag()
+            if list_item_tag:
+                self.list_item_add(list_item_tag=list_item_tag)
+                return "break"
+            # Add another newline, apart from the one created naturally.
+            self.view.insert(tk.INSERT, "\n")
 
     def display_heading(self):
         "Do not display the heading in the text edit area."
