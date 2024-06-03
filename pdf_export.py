@@ -257,7 +257,12 @@ class Exporter:
         self.state.ln()
         entries.sort(key=lambda e: e["ordinal"])
         for entry in entries:
-            self.state.write(str(entry[type])) # Page number is 'int'.
+            self.state.set(style="U", text_color=BLUE)
+            self.pdf.cell(h=self.state.line_height * self.state.size,
+                          text=str(entry[type]),  # Page number is 'int'.
+                          link=self.pdf.add_link(page=entry["page"]))
+            # self.state.write(str(entry[type])) # Page number is 'int'.
+            self.state.reset()
             if entry is not entries[-1]:
                 self.state.write(", ")
         self.state.ln()
@@ -275,7 +280,11 @@ class Exporter:
             entries.sort(key=lambda e: e["ordinal"])
             type = self.config["indexed_xref"]
             for entry in entries:
-                self.state.write(str(entry[type])) # Page number is 'int'.
+                self.state.set(style="U", text_color=BLUE)
+                self.pdf.cell(h=self.state.line_height * self.state.size,
+                              text=str(entry[type]),  # Page number is 'int'.
+                              link=self.pdf.add_link(page=entry["page"]))
+                self.state.reset()
                 if entry is not entries[-1]:
                     self.state.write(", ")
             self.state.ln()
@@ -351,7 +360,13 @@ class Exporter:
 
     def render_thematic_break(self, ast):
         self.state.ln()
-        self.state.write("-" * 10)
+        self.pdf.set_line_width(2)
+        self.pdf.set_draw_color(r=128, g=128, b=128)
+        # XXX Ugly! Should depend on current page format.
+        self.pdf.line(x1=self.pdf.l_margin+80,
+                      y1=self.pdf.y,
+                      x2=self.pdf.l_margin+80+300,
+                      y2=self.pdf.y)
         self.state.ln(2)
 
     def render_link(self, ast):
