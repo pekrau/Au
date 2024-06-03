@@ -75,7 +75,9 @@ class Main:
         self.title = self.config["main"].get("title") or str(self.source)
         self.subtitle = self.config["main"].get("subtitle") or ""
         self.authors = self.config["main"].get("authors") or []
-        self.source.display_heading_ordinal = self.config["main"].get("display_heading_ordinal", True)
+        self.source.display_heading_ordinal = self.config["main"].get(
+            "display_heading_ordinal", True
+        )
         self.clipboard = []
         self.clipboard_chars = ""
         self.source.apply_config(self.config["source"])
@@ -243,11 +245,13 @@ class Main:
         self.menu_settings.add_command(label=Tr("Authors"), command=self.edit_authors)
         self.display_heading_ordinal_var = tk.IntVar()
         self.display_heading_ordinal_var.set(int(self.source.display_heading_ordinal))
-        self.menu_settings.add_checkbutton(label=Tr("Display heading ordinal"),
-                                                    variable=self.display_heading_ordinal_var,
-                                                    onvalue=True,
-                                                    offvalue=False,
-                                                    command=self.set_display_heading_ordinal)
+        self.menu_settings.add_checkbutton(
+            label=Tr("Display heading ordinal"),
+            variable=self.display_heading_ordinal_var,
+            onvalue=True,
+            offvalue=False,
+            command=self.set_display_heading_ordinal,
+        )
 
     def set_menubar_state(self):
         """To avoid potential problems, some menu items are restricted
@@ -707,7 +711,9 @@ class Main:
         self.title_viewer.display()
 
     def set_display_heading_ordinal(self):
-        self.source.display_heading_ordinal = bool(self.display_heading_ordinal_var.get())
+        self.source.display_heading_ordinal = bool(
+            self.display_heading_ordinal_var.get()
+        )
         self.config_save()
         self.treeview_display()
         self.texts_notebook_display()
@@ -985,9 +991,9 @@ class AuthorsDialog(tk.simpledialog.Dialog):
             entry.grid(row=row, column=1, sticky=tk.W)
             self.entries.append(entry)
         label = tk.ttk.Label(body, text=Tr("Add"))
-        label.grid(row=row+1, column=0, padx=4, sticky=tk.NE)
+        label.grid(row=row + 1, column=0, padx=4, sticky=tk.NE)
         entry = tk.ttk.Entry(body, width=40)
-        entry.grid(row=row+1, column=1, sticky=tk.W)
+        entry.grid(row=row + 1, column=1, sticky=tk.W)
         self.entries.append(entry)
 
     def apply(self):
@@ -1004,18 +1010,28 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("-D", "--docx",
-                        action="store_true", help="Output texts as DOCX.")
-    group.add_argument("-P", "--pdf",
-                        action="store_true", help="Output texts as PDF.")
-    group.add_argument("-E", "--epub",
-                        action="store_true", help="Output texts as EPUB.")
-    group.add_argument("-H", "--html",
-                        action="store_true", help="Output texts as HTML.")
-    parser.add_argument("-d", "--dirpath", default=None,
-                        help="The path of the directory to write the file(s) to.")
-    parser.add_argument("inputdir", nargs="?", default=os.getcwd(),
-                        help="The path of the directory containing the input texts.")
+    group.add_argument(
+        "-D", "--docx", action="store_true", help="Output texts as DOCX."
+    )
+    group.add_argument("-P", "--pdf", action="store_true", help="Output texts as PDF.")
+    group.add_argument(
+        "-E", "--epub", action="store_true", help="Output texts as EPUB."
+    )
+    group.add_argument(
+        "-H", "--html", action="store_true", help="Output texts as HTML."
+    )
+    parser.add_argument(
+        "-d",
+        "--dirpath",
+        default=None,
+        help="The path of the directory to write the file(s) to.",
+    )
+    parser.add_argument(
+        "inputdir",
+        nargs="?",
+        default=os.getcwd(),
+        help="The path of the directory containing the input texts.",
+    )
     args = parser.parse_args()
 
     inputdir = args.inputdir

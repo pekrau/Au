@@ -37,10 +37,14 @@ class TitleViewer(Viewer):
         self.update_statistics()
 
     def display_heading(self):
-        self.view.insert(tk.INSERT, f"{self.main.title}\n",
-                         constants.H_LOOKUP[1]["tag"])
-        self.view.insert(tk.INSERT, f"{self.main.subtitle or '[no subtitle]'}\n",
-                         constants.H_LOOKUP[2]["tag"])
+        self.view.insert(
+            tk.INSERT, f"{self.main.title}\n", constants.H_LOOKUP[1]["tag"]
+        )
+        self.view.insert(
+            tk.INSERT,
+            f"{self.main.subtitle or '[no subtitle]'}\n",
+            constants.H_LOOKUP[2]["tag"],
+        )
         for author in self.main.authors:
             self.view.insert(tk.INSERT, f"{author}\n", constants.H_LOOKUP[3]["tag"])
         if not self.main.authors:

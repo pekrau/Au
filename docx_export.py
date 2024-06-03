@@ -65,21 +65,15 @@ class Exporter:
             CODE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
         )
         style.base_style = self.document.styles["macro"]
-        style.paragraph_format.left_indent = docx.shared.Pt(
-            CODE_LEFT_INDENT
-        )
+        style.paragraph_format.left_indent = docx.shared.Pt(CODE_LEFT_INDENT)
         style.font.name = constants.CODE_FONT
 
         # Create style for quote.
         style = self.document.styles.add_style(
             QUOTE_STYLE, docx.enum.style.WD_STYLE_TYPE.PARAGRAPH
         )
-        style.paragraph_format.left_indent = docx.shared.Pt(
-            QUOTE_LEFT_INDENT
-        )
-        style.paragraph_format.right_indent = docx.shared.Pt(
-            QUOTE_RIGHT_INDENT
-        )
+        style.paragraph_format.left_indent = docx.shared.Pt(QUOTE_LEFT_INDENT)
+        style.paragraph_format.right_indent = docx.shared.Pt(QUOTE_RIGHT_INDENT)
         style.font.name = constants.QUOTE_FONT
 
         # Set Dublin core metadata.
@@ -104,8 +98,9 @@ class Exporter:
         self.write_references()
         self.write_indexed()
 
-        self.document.save(os.path.join(self.config["dirpath"],
-                                        self.config["filename"]))
+        self.document.save(
+            os.path.join(self.config["dirpath"], self.config["filename"])
+        )
 
     def write_title(self):
         "Title page."
@@ -126,7 +121,9 @@ class Exporter:
         paragraph = self.document.add_paragraph()
         paragraph.paragraph_format.space_before = docx.shared.Pt(100)
 
-        status = str(min([t.status for t in self.source.all_texts] + [max(constants.STATUSES)]))
+        status = str(
+            min([t.status for t in self.source.all_texts] + [max(constants.STATUSES)])
+        )
         paragraph.add_run(f"{Tr('Status')}: {Tr(status)}")
 
         now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
@@ -321,7 +318,7 @@ class Exporter:
             self.paragraph = self.document.add_paragraph()
         if self.list_stack:
             data = self.list_stack[-1]
-            depth = min(3, data["depth"]) # Max list depth in predef styles.
+            depth = min(3, data["depth"])  # Max list depth in predef styles.
             if data["first_paragraph"]:
                 if data["ordered"]:
                     if depth == 1:
@@ -366,7 +363,7 @@ class Exporter:
     def render_code_span(self, ast):
         run = self.paragraph.add_run(ast["children"])
         run.style = self.document.styles["Macro Text Char"]
-        
+
     def render_code_block(self, ast):
         self.paragraph = self.document.add_paragraph(style=CODE_STYLE)
         self.style_stack.append(CODE_STYLE)
@@ -408,10 +405,10 @@ class Exporter:
     def render_list(self, ast):
         data = dict(
             ordered=ast["ordered"],
-            bullet=ast["bullet"], # Currently useless.
-            start=ast["start"],   # Currently useless.
-            tight=ast["tight"],   # Currently useless.
-            count=0,              # Currently useless.
+            bullet=ast["bullet"],  # Currently useless.
+            start=ast["start"],  # Currently useless.
+            tight=ast["tight"],  # Currently useless.
+            count=0,  # Currently useless.
             depth=len(self.list_stack) + 1,
         )
         self.list_stack.append(data)
@@ -421,7 +418,7 @@ class Exporter:
 
     def render_list_item(self, ast):
         data = self.list_stack[-1]
-        data["count"] += 1      # Currently useless.
+        data["count"] += 1  # Currently useless.
         data["first_paragraph"] = True
         for child in ast["children"]:
             self.render(child)
@@ -430,11 +427,12 @@ class Exporter:
         entries = self.indexed.setdefault(ast["canonical"], [])
         self.indexed_count += 1
         entries.append(
-            dict(id=f"i{self.indexed_count}",
-                 ordinal=self.current_text.ordinal,
-                 fullname=self.current_text.fullname,
-                 heading=self.current_text.heading,
-                 )
+            dict(
+                id=f"i{self.indexed_count}",
+                ordinal=self.current_text.ordinal,
+                fullname=self.current_text.fullname,
+                heading=self.current_text.heading,
+            )
         )
         run = self.paragraph.add_run(ast["term"])
         font = self.config["indexed_font"]
@@ -462,10 +460,13 @@ class Exporter:
     def render_reference(self, ast):
         entries = self.referenced.setdefault(ast["reference"], [])
         self.referenced_count += 1
-        entries.append(dict(ordinal=self.current_text.ordinal,
-                            fullname=self.current_text.fullname,
-                            heading=self.current_text.heading,
-                            ))
+        entries.append(
+            dict(
+                ordinal=self.current_text.ordinal,
+                fullname=self.current_text.fullname,
+                heading=self.current_text.heading,
+            )
+        )
         run = self.paragraph.add_run(ast["reference"])
         font = self.config["references_font"]
         if font == constants.ITALIC:
@@ -518,68 +519,86 @@ class Dialog(tk.simpledialog.Dialog):
         row += 1
         label = tk.ttk.Label(body, text=Tr("Page break level"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.page_break_level_var = tk.IntVar(value=min(self.config.get("page_break_level", 1), self.source.max_level))
+        self.page_break_level_var = tk.IntVar(
+            value=min(self.config.get("page_break_level", 1), self.source.max_level)
+        )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        for level in range(1, self.source.max_level+1):
-            button = tk.ttk.Radiobutton(frame,
-                                        text=str(level),
-                                        variable=self.page_break_level_var,
-                                        value=level)
+        for level in range(1, self.source.max_level + 1):
+            button = tk.ttk.Radiobutton(
+                frame, text=str(level), variable=self.page_break_level_var, value=level
+            )
             button.pack(anchor=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Indexing font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.indexed_font_var = tk.StringVar(value=self.config.get("indexed_font", constants.NORMAL))
+        self.indexed_font_var = tk.StringVar(
+            value=self.config.get("indexed_font", constants.NORMAL)
+        )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=Tr("Normal"),
-                                    variable=self.indexed_font_var,
-                                    value=constants.NORMAL)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=Tr("Normal"),
+            variable=self.indexed_font_var,
+            value=constants.NORMAL,
+        )
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=Tr("Italic"), 
-                                    variable=self.indexed_font_var,
-                                    value=constants.ITALIC)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=Tr("Italic"),
+            variable=self.indexed_font_var,
+            value=constants.ITALIC,
+        )
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=Tr("Bold"), 
-                                    variable=self.indexed_font_var,
-                                    value=constants.BOLD)
+        button = tk.ttk.Radiobutton(
+            frame, text=Tr("Bold"), variable=self.indexed_font_var, value=constants.BOLD
+        )
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=Tr("Underline"), 
-                                    variable=self.indexed_font_var,
-                                    value=constants.UNDERLINE)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=Tr("Underline"),
+            variable=self.indexed_font_var,
+            value=constants.UNDERLINE,
+        )
         button.pack(anchor=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Reference font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.references_font_var = tk.StringVar(value=self.config.get("references_font", constants.NORMAL))
+        self.references_font_var = tk.StringVar(
+            value=self.config.get("references_font", constants.NORMAL)
+        )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=Tr("Normal"), 
-                                    variable=self.references_font_var,
-                                    value=constants.NORMAL)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=Tr("Normal"),
+            variable=self.references_font_var,
+            value=constants.NORMAL,
+        )
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=Tr("Italic"), 
-                                    variable=self.references_font_var,
-                                    value=constants.ITALIC)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=Tr("Italic"),
+            variable=self.references_font_var,
+            value=constants.ITALIC,
+        )
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=Tr("Bold"), 
-                                    variable=self.references_font_var,
-                                    value=constants.BOLD)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=Tr("Bold"),
+            variable=self.references_font_var,
+            value=constants.BOLD,
+        )
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=Tr("Underline"), 
-                                    variable=self.references_font_var,
-                                    value=constants.UNDERLINE)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=Tr("Underline"),
+            variable=self.references_font_var,
+            value=constants.UNDERLINE,
+        )
         button.pack(anchor=tk.W)
 
     def apply(self):

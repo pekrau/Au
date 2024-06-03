@@ -410,7 +410,8 @@ class Editor(TextViewer):
                 tk.messagebox.showerror(
                     parent=self.toplevel,
                     title=Tr("Formatting disallowed"),
-                    message=Tr("Formatting not allowed within link text."))
+                    message=Tr("Formatting not allowed within link text."),
+                )
                 return
         url = tk.simpledialog.askstring(
             parent=self.toplevel, title=Tr("Link URL?"), prompt=Tr("Give URL for link:")

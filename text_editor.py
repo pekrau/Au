@@ -49,11 +49,13 @@ class TextEditor(Editor):
         self.menubar.add_cascade(menu=self.menu_settings, label=Tr("Settings"))
         self.display_heading_var = tk.IntVar()
         self.display_heading_var.set(self.text.get("display_heading", True))
-        self.menu_settings.add_checkbutton(label=Tr("Display heading"),
-                                           variable=self.display_heading_var,
-                                           onvalue=True,
-                                           offvalue=False,
-                                           command=functools.partial(self.set_modified, yes=True))
+        self.menu_settings.add_checkbutton(
+            label=Tr("Display heading"),
+            variable=self.display_heading_var,
+            onvalue=True,
+            offvalue=False,
+            command=functools.partial(self.set_modified, yes=True),
+        )
 
     def get_popup_menu(self):
         "Add items to the popup menu for when text is selected."

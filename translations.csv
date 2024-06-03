@@ -136,7 +136,8 @@ settings,inställningar
 display heading,visa rubrik
 display heading ordinal,visa ordningstal i rubrik
 page break level,nivå för sidbrytning
-content display level,nivå för innehållsvisning
+contents level,nivå för innehållssidan
+contents pages,antal sidor för innehållssidan
 file or files,fil eller filer
 All text in a single HTML file,All text i en enda HTML-fil
 Separate files for each chapter,Separata filer för varje kapitel
@@ -145,3 +146,9 @@ Store in gzipped tar file,Skriv till en gzippad tar fil
 indexing font,typsnitt för index
 reference font,typsnitt för referens
 contents,innehåll
+xref display for indexed,visning av korsreferens för indexerade
+xref display for references,visning av korsreferens för referenser
+no xrefs,inga korsreferenser
+page number,sidnummer
+text full name,hel rubrik för text
+text heading,numrerad rubrik för text

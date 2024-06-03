@@ -29,13 +29,15 @@ class Exporter:
     def write(self):
         self.indexed = {}  # Key: canonical; value: dict(id, fullname, heading, ordinal)
         self.indexed_count = 0
-        self.referenced = {}  # Key: reference id; value: dict(id, fullname, heading, ordinal)
+        self.referenced = (
+            {}
+        )  # Key: reference id; value: dict(id, fullname, heading, ordinal)
         self.referenced_count = 0
         self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
         self.outputs = []
         self.footnote_output = None
 
-        if self.config["multiple_files"]: # Separate files for each chapter.
+        if self.config["multiple_files"]:  # Separate files for each chapter.
             self.write_page_begin("index", self.main.title)
             self.write_title_page()
             self.write_toc()
@@ -57,7 +59,7 @@ class Exporter:
             self.write_indexed()
             self.write_page_end()
 
-        else:                   # All text in one single HTML file.
+        else:  # All text in one single HTML file.
             self.write_page_begin("index", self.main.title)
             self.write_title_page()
             self.write_toc()
@@ -98,7 +100,7 @@ class Exporter:
     def write_page_begin(self, basename, title):
         self.outputs.append((basename, io.StringIO()))
         self.output(
-f"""<!doctype html>
+            f"""<!doctype html>
 <html lang="{self.config.get('language', 'en')}">
   <head>
     <meta charset="utf-8">
@@ -108,15 +110,18 @@ f"""<!doctype html>
   </head>
   <body>
     <div class="container-md">
-""")
+"""
+        )
 
     def write_page_end(self):
-        self.output(f"""
+        self.output(
+            f"""
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
   </body>
 </html>
-""")
+"""
+        )
 
     def write_title_page(self):
         self.output('<div class="row">')
@@ -126,7 +131,9 @@ f"""<!doctype html>
             self.output(f'<h2 class="mt-3 mb-5">{self.main.subtitle}</h2>')
         for author in self.main.authors:
             self.output(f'<h3 class="my-3">{author}</h3>')
-        status = str(min([t.status for t in self.source.all_texts] + [max(constants.STATUSES)]))
+        status = str(
+            min([t.status for t in self.source.all_texts] + [max(constants.STATUSES)])
+        )
         self.output(f'<p class="mt-5">{Tr("Status")}: {Tr(status)}</p>')
         now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
         self.output(f'<p class="mb-4">{Tr("Created")}: {now}</p>')
@@ -177,7 +184,7 @@ f"""<!doctype html>
                 self.write_section(item, level=level + 1)
             else:
                 self.write_text(item, level=level + 1)
-        self.output('</section>')
+        self.output("</section>")
 
     def write_text(self, text, level):
         self.output(f'<article id="{text.fullname}">')
@@ -186,7 +193,7 @@ f"""<!doctype html>
         self.current_text = text
         self.render(text.ast)
         self.write_text_footnotes(text)
-        self.output('</article>')
+        self.output("</article>")
 
     def write_text_footnotes(self, text):
         "Footnotes at end of the text."
@@ -197,7 +204,7 @@ f"""<!doctype html>
         self.output('<hr class="mt-5 mx-5" width="50%">')
         self.write_heading(Tr("Footnotes"), 6)
         # This implementation relies on labels being consecutive numbers from 1.
-        self.output('<ol>')
+        self.output("<ol>")
         for label, entry in sorted(footnotes.items()):
             self.output(f'<li id="{entry["id"]}">')
             for child in entry["ast_children"]:
@@ -228,7 +235,7 @@ f"""<!doctype html>
             self.write_reference_external_links(reference)
             self.write_reference_xrefs(entries)
             self.output("</p>")
-        self.output(f'</section>')
+        self.output(f"</section>")
 
     def write_reference_authors(self, reference):
         count = len(reference["authors"])
@@ -332,7 +339,7 @@ f"""<!doctype html>
                 if entry is not entries[-1]:
                     self.output(",")
             self.output("</p>")
-        self.output(f'</section>')
+        self.output(f"</section>")
 
     def render(self, ast):
         try:
@@ -362,11 +369,11 @@ f"""<!doctype html>
         self.output('<blockquote class="blockquote mx-5">')
         for child in ast["children"]:
             self.render(child)
-        self.output('</blockquote>')
+        self.output("</blockquote>")
 
     def render_code_span(self, ast):
         self.output(f"<code>{ast['children']}</code>")
-        
+
     def render_code_block(self, ast):
         self.output('<pre class="ms-5"><code>', newline=False)
         for child in ast["children"]:
@@ -422,12 +429,17 @@ f"""<!doctype html>
         entries = self.indexed.setdefault(ast["canonical"], [])
         self.indexed_count += 1
         id = f"_Indexed-{self.indexed_count}"
-        entries.append(dict(id=id,
-                            fullname=self.current_text.fullname,
-                            heading=self.current_text.heading,
-                            ordinal=self.current_text.ordinal,
-                            ))
-        self.output(f'<a id="{id}" href="{self.get_url("_Index", id=ast["canonical"])}">{ast["term"]}</a>')
+        entries.append(
+            dict(
+                id=id,
+                fullname=self.current_text.fullname,
+                heading=self.current_text.heading,
+                ordinal=self.current_text.ordinal,
+            )
+        )
+        self.output(
+            f'<a id="{id}" href="{self.get_url("_Index", id=ast["canonical"])}">{ast["term"]}</a>'
+        )
 
     def render_footnote_ref(self, ast):
         entries = self.footnotes.setdefault(self.current_text.fullname, {})
@@ -446,11 +458,17 @@ f"""<!doctype html>
         entries = self.referenced.setdefault(ast["reference"], [])
         self.referenced_count += 1
         id = f"_Referenced-{self.referenced_count}"
-        entries.append(dict(id=id,
-                            fullname=self.current_text.fullname,
-                            heading=self.current_text.heading,
-                            ordinal=self.current_text.ordinal))
-        self.output(f'<a id="{id}" href="{self.get_url("_References", id=ast["reference"])}">{ast["reference"]}</a>')
+        entries.append(
+            dict(
+                id=id,
+                fullname=self.current_text.fullname,
+                heading=self.current_text.heading,
+                ordinal=self.current_text.ordinal,
+            )
+        )
+        self.output(
+            f'<a id="{id}" href="{self.get_url("_References", id=ast["reference"])}">{ast["reference"]}</a>'
+        )
 
 
 class Dialog(tk.simpledialog.Dialog):
@@ -491,32 +509,40 @@ class Dialog(tk.simpledialog.Dialog):
         row += 1
         label = tk.ttk.Label(body, text=Tr("File or files"), padding=4)
         label.grid(row=row, column=0, sticky=tk.NE)
-        self.multiple_files_var = tk.IntVar(value=self.config.get("multiple_files", False))
+        self.multiple_files_var = tk.IntVar(
+            value=self.config.get("multiple_files", False)
+        )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, sticky=tk.EW)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=f"{Tr('All text in a single HTML file')} 'index.html'.",
-                                    value=False,
-                                    variable=self.multiple_files_var,
-                                    padding=4)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=f"{Tr('All text in a single HTML file')} 'index.html'.",
+            value=False,
+            variable=self.multiple_files_var,
+            padding=4,
+        )
         button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(frame,
-                                    text=f"{Tr('Separate files for each chapter')}.",
-                                    value=True,
-                                    variable=self.multiple_files_var,
-                                    padding=4)
+        button = tk.ttk.Radiobutton(
+            frame,
+            text=f"{Tr('Separate files for each chapter')}.",
+            value=True,
+            variable=self.multiple_files_var,
+            padding=4,
+        )
         button.pack(anchor=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Tar file"), padding=4)
         label.grid(row=row, column=0, sticky=tk.NE)
         self.tarfile_var = tk.IntVar(value=self.config.get("tarfile", False))
-        button = tk.ttk.Checkbutton(body,
-                                    text=f"{Tr('Store in gzipped tar file')} 'book.tgz'.",
-                                    offvalue=False,
-                                    onvalue=True,
-                                    variable=self.tarfile_var,
-                                    padding=4)
+        button = tk.ttk.Checkbutton(
+            body,
+            text=f"{Tr('Store in gzipped tar file')} 'book.tgz'.",
+            offvalue=False,
+            onvalue=True,
+            variable=self.tarfile_var,
+            padding=4,
+        )
         button.grid(row=row, column=1, sticky=tk.W)
 
     def apply(self):

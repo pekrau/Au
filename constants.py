@@ -129,7 +129,12 @@ H5 = dict(
     spacing=5,
     klass="mt-2",
 )
-H6 = dict(tag="h6", font=(FONT, FONT_NORMAL_SIZE), left_margin=10, spacing=5,    klass="mt-2",
+H6 = dict(
+    tag="h6",
+    font=(FONT, FONT_NORMAL_SIZE),
+    left_margin=10,
+    spacing=5,
+    klass="mt-2",
 )
 H_LOOKUP = dict([(1, H1), (2, H2), (3, H3), (4, H4), (5, H5), (6, H6)])
 MAX_H_LEVEL = max(H_LOOKUP)
