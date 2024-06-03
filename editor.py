@@ -127,7 +127,6 @@ class Editor(TextViewer):
         # Add list item if 'Return' within list.
         if event.keysym == "Return":
             if not (event.state & constants.EVENT_STATE_CONTROL):
-                ic(event, event.state)
                 list_item_tag = self.get_list_item_tag()
                 if list_item_tag:
                     self.list_item_add(list_item_tag=list_item_tag)
@@ -518,7 +517,7 @@ class Editor(TextViewer):
         add = AddReference(self.view, self.main.references_viewer.reference_texts)
         if not add.result:
             return
-        tag = constants.REFERENCE_PREFIX + add.result
+        tag = (constants.REFERENCE_PREFIX + add.result).replace(" ", "_")
         tags = (constants.REFERENCE, tag) + self.view.tag_names(tk.INSERT)
         self.view.insert(tk.INSERT, add.result, tags)
 
@@ -532,7 +531,7 @@ class Editor(TextViewer):
             message=f"Really remove reference '{reference}'?",
         ):
             return
-        tag = f"{constants.REFERENCE_PREFIX}{reference}"
+        tag = f"{constants.REFERENCE_PREFIX}{reference}".replace(" ", "_")
         first, last = self.view.tag_prevrange(tag, tk.CURRENT)
         self.view.delete(first, last)
         self.modified = True
@@ -633,7 +632,6 @@ class Editor(TextViewer):
                 method(entry, tags)
             self.view.tag_remove(tk.SEL, first, tk.INSERT)
         else:
-            ic("clipboard_paste chars")
             self.view.insert(tk.INSERT, chars)
         return "break"  # When called by keyboard event.
 

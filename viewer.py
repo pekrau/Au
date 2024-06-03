@@ -395,11 +395,6 @@ class Viewer:
             self.list_stack[-1]["previous_was_list"] = True
 
     def render_list_item(self, ast):
-        try:
-            if self.text.fullname == "listor":
-                ic(ast)
-        except AttributeError:
-            pass
         data = self.list_stack[-1]
         data["count"] += 1
         data["first_paragraph"] = True
@@ -445,7 +440,7 @@ class Viewer:
 
     def render_reference(self, ast):
         # Position at this time is not useful; will be affected by footnotes.
-        tag = constants.REFERENCE_PREFIX + ast["reference"]
+        tag = (constants.REFERENCE_PREFIX + ast["reference"]).replace(" ", "_")
         self.view.insert(tk.INSERT, ast["reference"], (constants.REFERENCE, tag))
 
     def render_footnote_ref(self, ast):
@@ -576,7 +571,7 @@ class Viewer:
     def get_reference(self):
         for tag in self.view.tag_names(tk.CURRENT):
             if tag.startswith(constants.REFERENCE_PREFIX):
-                return tag[len(constants.REFERENCE_PREFIX) :]
+                return tag[len(constants.REFERENCE_PREFIX) :].replace("_", " ")
 
     def footnote_enter(self, event=None):
         self.view.configure(cursor=constants.FOOTNOTE_CURSOR)

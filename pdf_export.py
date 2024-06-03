@@ -106,6 +106,9 @@ class Exporter:
             self.pdf.insert_toc_placeholder(
                 self.write_toc, pages=self.config["contents_pages"]
             )
+            self.skip_first_add_page = True
+        else:
+            self.skip_first_add_page = False
 
         self.current_text = None
         for item in self.source.items:
@@ -125,19 +128,19 @@ class Exporter:
 
     def write_title_page(self):
         self.pdf.add_page()
-        self.state.set(style="B", size=constants.FONT_TITLE_SIZE)
+        self.state.set(style="B", font_size=constants.FONT_TITLE_SIZE)
         self.state.ln()
         self.state.write(self.main.title)
         self.state.ln()
         self.state.reset()
 
         if self.main.subtitle:
-            self.state.set(size=constants.FONT_LARGE_SIZE + 10)
+            self.state.set(font_size=constants.FONT_LARGE_SIZE + 10)
             self.state.write(self.main.subtitle)
             self.state.ln()
             self.state.reset()
 
-        self.state.set(size=constants.FONT_LARGE_SIZE + 5)
+        self.state.set(font_size=constants.FONT_LARGE_SIZE + 5)
         self.state.ln()
         for author in self.main.authors:
             self.state.write(author)
@@ -157,10 +160,10 @@ class Exporter:
 
     def write_toc(self, pdf, outline):
         h1 = constants.H_LOOKUP[1]
-        size = h1["font"][1]
-        pdf.set_font(style="B", size=size)
-        pdf.cell(h=1.5 * size, text=Tr("Contents"))
-        pdf.ln(1.5 * size)
+        font_size = h1["font"][1]
+        pdf.set_font(style="B", size=font_size)
+        pdf.cell(h=1.5 * font_size, text=Tr("Contents"))
+        pdf.ln(1.5 * font_size)
         pdf.set_font(style="", size=constants.FONT_NORMAL_SIZE)
 
         self.state.set(line_height=1.1)
@@ -174,7 +177,10 @@ class Exporter:
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
-            self.pdf.add_page()
+            if self.skip_first_add_page:
+                self.skip_first_add_page = False
+            else:
+                self.pdf.add_page()
         if level <= self.config["contents_level"]:
             self.pdf.start_section(section.heading, level=level - 1)
         self.write_heading(section.heading, level)
@@ -186,7 +192,10 @@ class Exporter:
 
     def write_text(self, text, level):
         if level <= self.config["page_break_level"]:
-            self.pdf.add_page()
+            if self.skip_first_add_page:
+                self.skip_first_add_page = False
+            else:
+                self.pdf.add_page()
         if level <= self.config["contents_level"]:
             self.pdf.start_section(text.heading, level=level - 1)
         if text.get("display_heading", True):
@@ -197,7 +206,7 @@ class Exporter:
 
     def write_heading(self, heading, level, factor=1.5):
         level = min(level, constants.MAX_H_LEVEL)
-        self.state.set(style="B", size=constants.H_LOOKUP[level]["font"][1])
+        self.state.set(style="B", font_size=constants.H_LOOKUP[level]["font"][1])
         self.state.write(heading)
         self.state.ln(factor)
         self.state.reset()
@@ -252,23 +261,23 @@ class Exporter:
             self.state.write(utils.shortname(author))
 
     def write_reference_article(self, reference):
-        self.state.write(f"({reference['year']}) ")
+        self.state.write(f" ({reference['year']})")
         try:
-            self.state.write(reference["title"].strip(".") + ". ")
+            self.state.write(" " + reference["title"].strip(".") + ".")
         except KeyError:
             pass
         journal = reference.get("journal")
         if journal:
             self.state.set(style="I")
-            self.state.write(journal)
+            self.state.write(" " + journal)
             self.state.reset()
         try:
-            self.state.write(reference["volume"])
+            self.state.write(" " + reference['volume'])
         except KeyError:
             pass
         else:
             try:
-                self.state.write(reference["number"])
+                self.state.write(f" ({reference['number']})")
             except KeyError:
                 pass
         try:
@@ -277,25 +286,25 @@ class Exporter:
             pass
 
     def write_reference_book(self, reference):
-        self.state.write(f"({reference['year']}).")
+        self.state.write(f" ({reference['year']}).")
         self.state.set(style="I")
-        self.state.write(reference["title"].strip(".") + ". ")
+        self.state.write(" " + reference["title"].strip(".") + ". ")
         self.state.reset()
         try:
-            self.state.write(f"{reference['publisher']}.")
+            self.state.write(f" {reference['publisher']}.")
         except KeyError:
             pass
 
     def write_reference_link(self, reference):
-        self.state.write(f"({reference['year']}).")
+        self.state.write(f" ({reference['year']}).")
         try:
-            self.state.write(reference["title"].strip(".") + ". ")
+            self.state.write(" " + reference["title"].strip(".") + ". ")
         except KeyError:
             pass
         try:
             self.state.set(style="U", text_color=BLUE)
             self.pdf.cell(
-                h=self.state.line_height * self.state.size,
+                h=self.state.line_height * self.state.font_size,
                 text=reference["title"],
                 link=reference["url"],
             )
@@ -308,23 +317,30 @@ class Exporter:
             pass
 
     def write_reference_external_links(self, reference):
-        any_item = False
+        links = []
         for key, label, template in constants.REFERENCE_LINKS:
             try:
                 value = reference[key]
-                if any_item:
-                    self.state.write(",")
-                self.state.write(" ")
-                self.state.set(style="U", text_color=BLUE)
-                self.pdf.cell(
-                    h=self.state.line_height * self.state.size,
-                    text=f"{label}:{value}",
-                    link=template.format(value=value),
-                )
-                self.state.reset()
-                any_item = True
+                text = f"{label}:{value}"
+                url = template.format(value=value)
+                links.append((value, text, url))
             except KeyError:
                 pass
+        if not links:
+            return
+        self.state.set(left_indent=20)
+        self.state.ln()
+        for pos, (value, text, link) in enumerate(links):
+            if pos != 0:
+                self.state.write("  ")
+            self.state.set(style="U", text_color=BLUE)
+            self.pdf.cell(
+                h=self.state.line_height * self.state.font_size,
+                text=text,
+                link=url,
+            )
+            self.state.reset()
+        self.state.reset()
 
     def write_reference_xrefs(self, entries):
         if not entries:
@@ -338,13 +354,13 @@ class Exporter:
         for entry in entries:
             self.state.set(style="U", text_color=BLUE)
             self.pdf.cell(
-                h=self.state.line_height * self.state.size,
+                h=self.state.line_height * self.state.font_size,
                 text=str(entry[display]),  # Page number is 'int'.
                 link=self.pdf.add_link(page=entry["page"]),
             )
             self.state.reset()
             if entry is not entries[-1]:
-                self.state.write(", ")
+                self.state.write("  ")
         self.state.reset()
 
     def write_indexed(self):
@@ -362,13 +378,13 @@ class Exporter:
             for entry in entries:
                 self.state.set(style="U", text_color=BLUE)
                 self.pdf.cell(
-                    h=self.state.line_height * self.state.size,
+                    h=self.state.line_height * self.state.font_size,
                     text=str(entry[display]),  # Page number is 'int'.
                     link=self.pdf.add_link(page=entry["page"]),
                 )
                 self.state.reset()
                 if entry is not entries[-1]:
-                    self.state.write(", ")
+                    self.state.write("  ")
             self.state.ln()
 
     def render(self, ast):
@@ -404,7 +420,7 @@ class Exporter:
     def render_quote(self, ast):
         self.state.set(
             family=constants.QUOTE_FONT,
-            size=constants.QUOTE_FONT_SIZE,
+            font_size=constants.QUOTE_FONT_SIZE,
             left_indent=constants.QUOTE_LEFT_INDENT,
             right_indent=constants.QUOTE_RIGHT_INDENT,
         )
@@ -471,7 +487,7 @@ class Exporter:
                 raw_text.append(child["children"])
         self.state.set(style="U", text_color=BLUE)
         self.pdf.cell(
-            h=self.state.line_height * self.state.size,
+            h=self.state.line_height * self.state.font_size,
             text="".join(raw_text),
             link=ast["dest"],
         )
@@ -570,7 +586,7 @@ class State:
 
     family = Current()
     style = Current()
-    size = Current()
+    font_size = Current()
     text_color = Current()
     line_height = Current()
     left_indent = Current()
@@ -584,14 +600,14 @@ class State:
                 family=constants.FONT,
                 style="",
                 text_color=0,
-                size=constants.FONT_NORMAL_SIZE,
+                font_size=constants.FONT_NORMAL_SIZE,
                 line_height=1.4,
                 left_indent=0,
                 right_indent=0,
                 vertical=None,
             )
         ]
-        self.pdf.set_font(family=self.family, style=self.style, size=self.size)
+        self.pdf.set_font(family=self.family, style=self.style, size=self.font_size)
         self.l_margin = self.pdf.l_margin
         self.r_margin = self.pdf.r_margin
 
@@ -612,8 +628,8 @@ class State:
             self.pdf.set_font(family=kwargs["family"])
         except KeyError:
             pass
-        try:  # Due to apparent bug in fpdf2, size before style.
-            self.pdf.set_font(size=kwargs["size"])
+        try:  # Due to apparent bug in fpdf2, set font_size before style.
+            self.pdf.set_font(size=kwargs["font_size"])
         except KeyError:
             pass
         try:
@@ -649,10 +665,10 @@ class State:
                 self.pdf.char_vpos = "LINE"
 
     def write(self, text, link=""):
-        self.pdf.write(h=self.size * self.line_height, text=text, link=link)
+        self.pdf.write(h=self.font_size * self.line_height, text=text, link=link)
 
     def ln(self, factor=1):
-        self.pdf.ln(factor * self.size * self.line_height)
+        self.pdf.ln(factor * self.font_size * self.line_height)
 
 
 class Dialog(tk.simpledialog.Dialog):

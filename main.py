@@ -1011,17 +1011,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
-        "-D", "--docx", action="store_true", help="Output texts as DOCX."
+        "--docx", action="store_true", help="Output texts as DOCX."
     )
-    group.add_argument("-P", "--pdf", action="store_true", help="Output texts as PDF.")
+    group.add_argument("--pdf", action="store_true", help="Output texts as PDF.")
     group.add_argument(
-        "-E", "--epub", action="store_true", help="Output texts as EPUB."
+        "--epub", action="store_true", help="Output texts as EPUB."
     )
     group.add_argument(
-        "-H", "--html", action="store_true", help="Output texts as HTML."
+        "--html", action="store_true", help="Output texts as HTML."
     )
     parser.add_argument(
-        "-d",
+        "-D",
         "--dirpath",
         default=None,
         help="The path of the directory to write the file(s) to.",

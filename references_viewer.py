@@ -112,7 +112,7 @@ class ReferencesViewer(Viewer):
             first = self.view.index(tk.INSERT)
             self.reference_pos[reference["id"]] = first
 
-            tag = f"{constants.REFERENCE_PREFIX}{reference['id']}"
+            tag = f"{constants.REFERENCE_PREFIX}{reference['id']}".replace(" ", "_")
             self.view.tag_configure(
                 tag, font=constants.FONT_BOLD, foreground=constants.REFERENCE_COLOR
             )
