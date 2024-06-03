@@ -395,6 +395,11 @@ class Viewer:
             self.list_stack[-1]["previous_was_list"] = True
 
     def render_list_item(self, ast):
+        try:
+            if self.text.fullname == "listor":
+                ic(ast)
+        except AttributeError:
+            pass
         data = self.list_stack[-1]
         data["count"] += 1
         data["first_paragraph"] = True
@@ -413,8 +418,11 @@ class Viewer:
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
             self.render(child)
-        if not (self.list_stack and self.list_stack[-1].get("previous_was_list")):
-            self.view.insert(tk.INSERT, "\n")
+        if self.list_stack:
+            if self.list_stack[-1].get("previous_was_list"):
+                self.list_stack[-1]["previous_was_list"] = False
+            else:
+                self.view.insert(tk.INSERT, "\n")
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n")
         self.view.tag_add(item_tag, first, tk.INSERT)

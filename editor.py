@@ -111,18 +111,27 @@ class Editor(TextViewer):
         self.view.bind("<<Selection>>", self.selection_changed)
 
     def key_press(self, event):
-        "Forbid some key press actions."
+        "Special actions for some keys."
         if not event.char:
             return
-        tags = set(self.view.tag_names(tk.INSERT))
         # For 'Backspace', check the position before.
         if event.keysym == "BackSpace":
             tags = self.view.tag_names(tk.INSERT + "-1c")
+        else:
+            tags = set(self.view.tag_names(tk.INSERT))
         # Do not encroach on reference or footnote reference.
         if constants.REFERENCE in tags:
             return "break"
         if constants.FOOTNOTE_REF in tags:
             return "break"
+        # Add list item if 'Return' within list.
+        if event.keysym == "Return":
+            if not (event.state & constants.EVENT_STATE_CONTROL):
+                ic(event, event.state)
+                list_item_tag = self.get_list_item_tag()
+                if list_item_tag:
+                    self.list_item_add(list_item_tag=list_item_tag)
+                    return "break"
 
     def display_heading(self):
         "Do not display the heading in the text edit area."
