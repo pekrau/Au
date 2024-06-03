@@ -15,7 +15,8 @@ import utils
 import constants
 from utils import Tr
 
-FONT_FAMILY = "Helvetica"
+FONTDIR = "/usr/share/fonts/truetype/freefont"
+
 BLUE = (20, 20, 255)
 THEMATIC_BREAK_INDENT = 100
 
@@ -50,13 +51,28 @@ class Exporter:
         self.list_stack = []
 
         self.pdf = fpdf.FPDF(format="a4", unit="pt")
+        self.pdf.add_font("FreeSans", style="", fname=os.path.join(FONTDIR, "FreeSans.ttf"))
+        self.pdf.add_font("FreeSans", style="B", fname=os.path.join(FONTDIR, "FreeSansBold.ttf"))
+        self.pdf.add_font("FreeSans", style="I", fname=os.path.join(FONTDIR, "FreeSansOblique.ttf"))
+        self.pdf.add_font("FreeSans", style="BI", fname=os.path.join(FONTDIR, "FreeSansBoldOblique.ttf"))
+        self.pdf.add_font("FreeSerif", style="", fname=os.path.join(FONTDIR, "FreeSerif.ttf"))
+        self.pdf.add_font("FreeSerif", style="B", fname=os.path.join(FONTDIR, "FreeSerifBold.ttf"))
+        self.pdf.add_font("FreeSerif", style="I", fname=os.path.join(FONTDIR, "FreeSerifItalic.ttf"))
+        self.pdf.add_font("FreeSerif", style="BI", fname=os.path.join(FONTDIR, "FreeSerifBoldItalic.ttf"))
+        self.pdf.add_font("FreeMono", style="", fname=os.path.join(FONTDIR, "FreeMono.ttf"))
+        self.pdf.add_font("FreeMono", style="B", fname=os.path.join(FONTDIR, "FreeMonoBold.ttf"))
+        self.pdf.add_font("FreeMono", style="I", fname=os.path.join(FONTDIR, "FreeMonoOblique.ttf"))
+        self.pdf.add_font("FreeMono", style="BI", fname=os.path.join(FONTDIR, "FreeMonoBoldOblique.ttf"))
+
         self.pdf.add_page()
         self.state = State(self.pdf)
 
         self.write_title_page()
-        self.pdf.add_page()
-        self.pdf.start_section(Tr("Contents"), level=0)
-        self.pdf.insert_toc_placeholder(self.write_toc)
+        if self.config["contents_pages"]:
+            self.pdf.add_page()
+            self.pdf.start_section(Tr("Contents"), level=0)
+            self.pdf.insert_toc_placeholder(self.write_toc, pages=self.config["contents_pages"])
+
         self.current_text = None
         for item in self.source.items:
             if item.is_section:
@@ -66,7 +82,10 @@ class Exporter:
         self.write_references()
         self.write_indexed()
 
-        self.pdf.output(os.path.join(self.config["dirpath"], self.config["filename"]))
+        try:
+            self.pdf.output(os.path.join(self.config["dirpath"], self.config["filename"]))
+        except fpdf.errors.FPDFException as msg:
+            raise ValueError(str(msg))
 
     def write_title_page(self):
         self.state.set(style="B", size=constants.FONT_TITLE_SIZE)
@@ -105,17 +124,20 @@ class Exporter:
         pdf.ln(1.5*size)
         pdf.set_font(style="", size=constants.FONT_NORMAL_SIZE)
 
+        self.state.set(line_height=1.1)
         with pdf.table(first_row_as_headings=False, borders_layout="none") as table:
-            for section in outline:
+            for section in outline[1:]: # Skip "Contents" entry.
                 link = pdf.add_link(page=section.page_number)
                 row = table.row()
                 row.cell(f'{" " * section.level * 2} {section.name}', link=link)
                 row.cell(str(section.page_number), link=link)
+        self.state.reset()
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
             self.pdf.add_page()
-        self.pdf.start_section(section.heading, level=level-1)
+        if level <= self.config["contents_display_level"]:
+            self.pdf.start_section(section.heading, level=level-1)
         self.write_heading(section.heading, level)
         for item in section.items:
             if item.is_section:
@@ -126,7 +148,8 @@ class Exporter:
     def write_text(self, text, level):
         if level <= self.config["page_break_level"]:
             self.pdf.add_page()
-        self.pdf.start_section(text.heading, level=level-1)
+        if level <= self.config["contents_display_level"]:
+            self.pdf.start_section(text.heading, level=level-1)
         if text.get("display_heading", True):
             self.write_heading(text.heading, level)
         self.current_text = text
@@ -333,7 +356,8 @@ class Exporter:
         pass
 
     def render_quote(self, ast):
-        self.state.set(family="Times",
+        self.state.set(family=constants.QUOTE_FONT,
+                       size=constants.QUOTE_FONT_SIZE,
                        left_indent=constants.QUOTE_LEFT_INDENT,
                        right_indent=constants.QUOTE_RIGHT_INDENT)
         for child in ast["children"]:
@@ -341,19 +365,19 @@ class Exporter:
         self.state.reset()
 
     def render_code_span(self, ast):
-        self.state.set(family="Courier")
+        self.state.set(family=constants.CODE_FONT)
         self.state.write(ast["children"])
         self.state.reset()
         
     def render_code_block(self, ast):
-        self.state.set(family="Courier", left_indent=constants.CODE_INDENT, line_height=1.2)
+        self.state.set(family=constants.CODE_FONT, left_indent=constants.CODE_INDENT, line_height=1.2)
         for child in ast["children"]:
             self.render(child)
         self.state.reset()
         self.state.ln()
 
     def render_fenced_code(self, ast):
-        self.state.set(family="Courier", left_indent=constants.CODE_INDENT, line_height=1.2)
+        self.state.set(family=constants.CODE_FONT, left_indent=constants.CODE_INDENT, line_height=1.2)
         for child in ast["children"]:
             self.render(child)
         self.state.reset()
@@ -489,7 +513,7 @@ class State:
 
     def __init__(self, pdf):
         self.pdf = pdf
-        self.stack = [dict(family=FONT_FAMILY,
+        self.stack = [dict(family=constants.FONT,
                            style="",
                            text_color=0,
                            size=constants.FONT_NORMAL_SIZE,
@@ -606,6 +630,30 @@ class Dialog(tk.simpledialog.Dialog):
             button.pack(anchor=tk.W)
 
         row += 1
+        label = tk.ttk.Label(body, text=Tr("Contents display level"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.contents_display_level_var = tk.IntVar(value=min(self.config.get("contents_display_level", 1), self.source.max_level))
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        for level in range(1, self.source.max_level+1):
+            button = tk.ttk.Radiobutton(frame,
+                                        text=str(level),
+                                        value=level,
+                                        variable=self.contents_display_level_var)
+            button.pack(anchor=tk.W)
+
+        row += 1
+        label = tk.ttk.Label(body, text=Tr("Contents pages"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.contents_pages_var = tk.IntVar(value=self.config.get("contents_pages", 1))
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        spinbox = tk.ttk.Spinbox(frame, from_=0, to=20, increment=1,
+                                 textvariable=self.contents_pages_var)
+        spinbox.state(["readonly"])
+        spinbox.pack(anchor=tk.W)
+
+        row += 1
         label = tk.ttk.Label(body, text=Tr("Xref type for indexed"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.indexed_xref_var = tk.StringVar(value=self.config.get("indexed_xref", INDEXED_XREF_TYPES[PAGE_NUMBER]))
@@ -637,6 +685,8 @@ class Dialog(tk.simpledialog.Dialog):
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".pdf"
         self.config["page_break_level"] = self.page_break_level_var.get()
+        self.config["contents_display_level"] = self.contents_display_level_var.get()
+        self.config["contents_pages"] = self.contents_pages_var.get()
         self.config["indexed_xref"] = self.indexed_xref_var.get()
         self.config["references_xref"] = self.references_xref_var.get()
         self.result = self.config

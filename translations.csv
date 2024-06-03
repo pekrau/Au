@@ -135,7 +135,8 @@ underline,understruken
 settings,inställningar
 display heading,visa rubrik
 display heading ordinal,visa ordningstal i rubrik
-page break level,sidbrytningsnivå
+page break level,nivå för sidbrytning
+content display level,nivå för innehållsvisning
 file or files,fil eller filer
 All text in a single HTML file,All text i en enda HTML-fil
 Separate files for each chapter,Separata filer för varje kapitel

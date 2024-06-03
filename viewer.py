@@ -80,7 +80,7 @@ class Viewer:
             rmargin=constants.QUOTE_RIGHT_INDENT,
             spacing1=constants.QUOTE_SPACING1,
             spacing2=constants.QUOTE_SPACING2,
-            font=constants.QUOTE_FONT,
+            font=(constants.QUOTE_FONT, constants.QUOTE_FONT_SIZE),
         )
         self.view.tag_configure(
             constants.CODE_BLOCK,
@@ -319,7 +319,7 @@ class Viewer:
         self.view.tag_add(constants.QUOTE, first, tk.INSERT)
 
     def render_code_span(self, ast):
-        self.view.insert(tk.INSERT, ast["children"], (constants.CODE_SPAN,))
+        self.view.insert(tk.INSERT, ast["children"], constants.CODE_SPAN)
 
     def render_code_block(self, ast):
         self.conditional_line_break()
@@ -344,7 +344,7 @@ class Viewer:
 
     def render_thematic_break(self, ast):
         self.conditional_line_break()
-        self.view.insert(tk.INSERT, constants.EM_DASH * 20, (constants.THEMATIC_BREAK,))
+        self.view.insert(tk.INSERT, constants.EM_DASH * 20, constants.THEMATIC_BREAK)
         self.line_break()
         self.line_break()
 
@@ -402,10 +402,10 @@ class Viewer:
             self.view.insert(
                 tk.INSERT,
                 f"{data['start'] + data['count'] - 1}. ",
-                (data["bullet_tag"],),
+                data["bullet_tag"],
             )
         else:
-            self.view.insert(tk.INSERT, f"{data['bullet']}  ", (data["bullet_tag"],))
+            self.view.insert(tk.INSERT, f"{data['bullet']}  ", data["bullet_tag"])
         item_tag = f"{data['item_tag_prefix']}{data['count']}"
         self.list_lookup[item_tag] = data
         indent = constants.LIST_INDENT * len(self.list_stack)

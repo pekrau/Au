@@ -6,6 +6,7 @@ import functools
 import json
 import os
 import shutil
+import sys
 
 import tkinter as tk
 import tkinter.messagebox
@@ -55,9 +56,9 @@ class Main:
 
         self.root = tk.Tk()
         font_families = set(tk.font.families())
-        # ic(font_families)
         assert constants.FONT in font_families
         assert constants.QUOTE_FONT in font_families
+        assert constants.CODE_FONT in font_families
 
         self.root.geometry(
             self.config["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY)
@@ -548,7 +549,16 @@ class Main:
         if dirpath:
             config["dirpath"] = dirpath
         exporter = pdf_export.Exporter(self, self.source, config)
-        exporter.write()
+        try:
+            exporter.write()
+        except ValueError as msg:
+            if interactive:
+                tk.messagebox.showerror(
+                    title="Error", message=f"Wrong number of contents pages: {msg}"
+                )
+                return
+            else:
+                sys.exit(f"Error: Wrong number of contents pages: {msg}")
         if interactive:
             self.config["export"]["pdf"] = config
             self.root.config(cursor="")

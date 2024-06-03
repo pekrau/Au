@@ -17,10 +17,11 @@ import utils
 from utils import Tr
 
 LANGUAGES = ("sv-SE", "en-US", "en-GB")
-CODE_STYLE = "Au Macro"
+
+CODE_STYLE = "Au Code"
 CODE_LEFT_INDENT = 30
+
 QUOTE_STYLE = "Au Quote"
-QUOTE_FONT = "Verdana"
 QUOTE_LEFT_INDENT = 30
 QUOTE_RIGHT_INDENT = 70
 
@@ -67,6 +68,7 @@ class Exporter:
         style.paragraph_format.left_indent = docx.shared.Pt(
             CODE_LEFT_INDENT
         )
+        style.font.name = constants.CODE_FONT
 
         # Create style for quote.
         style = self.document.styles.add_style(
@@ -78,7 +80,7 @@ class Exporter:
         style.paragraph_format.right_indent = docx.shared.Pt(
             QUOTE_RIGHT_INDENT
         )
-        style.font.name = QUOTE_FONT
+        style.font.name = constants.QUOTE_FONT
 
         # Set Dublin core metadata.
         self.document.core_properties.language = language

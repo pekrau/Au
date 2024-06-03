@@ -123,7 +123,7 @@ class ReferencesViewer(Viewer):
                 "<Button-1>",
                 functools.partial(self.reference_action, reference=reference),
             )
-            self.view.insert(tk.INSERT, reference["id"], (tag,))
+            self.view.insert(tk.INSERT, reference["id"], tag)
             self.view.insert(tk.INSERT, "  ")
             self.display_view_authors(reference)
             try:
@@ -159,7 +159,7 @@ class ReferencesViewer(Viewer):
         except KeyError:
             pass
         try:
-            self.view.insert(tk.INSERT, reference["journal"], (constants.ITALIC,))
+            self.view.insert(tk.INSERT, reference["journal"], constants.ITALIC)
         except KeyError:
             pass
         try:
@@ -182,7 +182,7 @@ class ReferencesViewer(Viewer):
     def display_view_book(self, reference):
         self.view.insert(tk.INSERT, f"({reference['year']}). ")
         self.view.insert(
-            tk.INSERT, reference["title"].strip(".") + ". ", (constants.ITALIC,)
+            tk.INSERT, reference["title"].strip(".") + ". ", constants.ITALIC
         )
         try:
             self.view.insert(tk.INSERT, f"{reference['publisher']}. ")

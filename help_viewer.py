@@ -16,7 +16,7 @@ class HelpViewer(Viewer):
         return "Help"
 
     def display_heading(self):
-        heading = "Au " + ".".join([str(n) for n in constants.VERSION])
+        heading = f"Au {constants.__version__}"
         self.view.insert(tk.INSERT, heading + "\n", (constants.H1["tag"],))
 
     def display_view(self):

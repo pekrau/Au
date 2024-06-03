@@ -131,7 +131,7 @@ class SearchViewer(Viewer):
         tag_counter = 0
         for text, found in self.result:
             view = text.viewer.view
-            self.view.insert(tk.INSERT, text.fullname, (constants.BOLD,))
+            self.view.insert(tk.INSERT, text.fullname, constants.BOLD)
             self.view.insert(tk.INSERT, "\n")
             for first, length in found:
                 begin = self.view.index(tk.INSERT)

@@ -47,7 +47,7 @@ class IndexedViewer(Viewer):
     def display_view(self):
         for term, fullnames in self.terms:
             self.indexed[term] = self.view.index(tk.INSERT)
-            self.view.insert(tk.INSERT, term, (constants.INDEXED,))
+            self.view.insert(tk.INSERT, term, constants.INDEXED)
             for fullname, positions in sorted(fullnames.items()):
                 self.view.insert(tk.INSERT, "\n")
                 positions = sorted(positions, key=lambda p: int(p[: p.index(".")]))
