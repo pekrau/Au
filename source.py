@@ -233,7 +233,7 @@ class Item:
 
     @property
     def fullname(self):
-        if isinstance(self.parent, Source):
+        if self.parent is self.source:
             return self.name
         else:
             return os.path.join(self.parent.fullname, self.name)
@@ -298,10 +298,18 @@ class Item:
 
     @property
     def parentpath(self):
-        if isinstance(self.parent, Source):
+        if self.parent is self.source:
             return ""
         else:
             return self.parent.fullname
+
+    @property
+    def chapter(self):
+        "Top-level section/text for this item; possibly itself."
+        item = self
+        while item.parent is not self.source:
+            item = item.parent
+        return item
 
     def filename(self, newname=None):
         "To be implemented by inheriting classes."

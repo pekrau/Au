@@ -3,7 +3,7 @@
 import functools
 import os
 
-VERSION = (0, 14, 10)
+VERSION = (0, 14, 11)
 __version__ = ".".join([str(n) for n in VERSION])
 
 
@@ -28,6 +28,7 @@ MODIFIED_COLOR = "lightpink"
 
 ITEM = "item"
 ITEM_PREFIX = "item-"
+TEXT = "text"
 SECTION = "section"
 SECTION_COLOR = "gainsboro"
 

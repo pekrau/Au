@@ -593,7 +593,7 @@ class Viewer:
             self.tag_elide(tag)
 
     def footnotes_show(self, event=None):
-        "Display all footnotes."
+        "Show all footnotes."
         for tag in self.view.tag_names():
             if tag.startswith(constants.FOOTNOTE_DEF_PREFIX):
                 self.tag_not_elide(tag)

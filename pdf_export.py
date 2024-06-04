@@ -46,6 +46,19 @@ class Exporter:
         self.config = config
 
     def write(self):
+        "Output a PDF file."
+        if self.config.get("contents_pages", True):
+            for contents_pages in range(1, 20):
+                try:
+                    self.write_attempt(contents_pages)
+                    return
+                except fpdf.errors.FPDFException as msg:
+                    pass
+        # If 20 isn't enough, give up and skip the contents page.
+        self.write_attempt(0)
+
+    def write_attempt(self, contents_pages):
+        "Attempt at writing PDF given the number of content pages to use."
         self.indexed = {}  # Key: canonical; value: dict(ordinal, fullname, heading, page)
         self.indexed_count = 0
         self.referenced = {}  # Key: reference id; value: dict(ordinal, fullname, heading, page)
@@ -100,12 +113,10 @@ class Exporter:
         self.state = State(self.pdf)
 
         self.write_title_page()
-        if self.config["contents_pages"]:
+        if contents_pages:
             self.pdf.add_page()
             self.pdf.start_section(Tr("Contents"), level=0)
-            self.pdf.insert_toc_placeholder(
-                self.write_toc, pages=self.config["contents_pages"]
-            )
+            self.pdf.insert_toc_placeholder(self.write_toc, pages=contents_pages)
             self.skip_first_add_page = True
         else:
             self.skip_first_add_page = False
@@ -119,12 +130,10 @@ class Exporter:
         self.write_references()
         self.write_indexed()
 
-        try:
-            self.pdf.output(
-                os.path.join(self.config["dirpath"], self.config["filename"])
-            )
-        except fpdf.errors.FPDFException as msg:
-            raise ValueError(str(msg))
+        # This may fail if the number of content pages is wrong.
+        self.pdf.output(
+            os.path.join(self.config["dirpath"], self.config["filename"])
+        )
 
     def write_title_page(self):
         self.pdf.add_page()
@@ -740,14 +749,15 @@ class Dialog(tk.simpledialog.Dialog):
         row += 1
         label = tk.ttk.Label(body, text=Tr("Contents pages"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.contents_pages_var = tk.IntVar(value=self.config.get("contents_pages", 1))
+        self.contents_pages_var = tk.IntVar(value=self.config.get("contents_pages", True))
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        spinbox = tk.ttk.Spinbox(
-            frame, from_=0, to=20, increment=1, textvariable=self.contents_pages_var
-        )
-        spinbox.state(["readonly"])
-        spinbox.pack(anchor=tk.W)
+        button = tk.ttk.Checkbutton(frame,
+                                    text=Tr("Display contents page(s)"),
+                                    onvalue=True,
+                                    offvalue=False,
+                                    variable=self.contents_pages_var)
+        button.pack(anchor=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Xref display for indexed"))
@@ -783,7 +793,7 @@ class Dialog(tk.simpledialog.Dialog):
         self.config["filename"] = os.path.splitext(filename)[0] + ".pdf"
         self.config["page_break_level"] = self.page_break_level_var.get()
         self.config["contents_level"] = self.contents_level_var.get()
-        self.config["contents_pages"] = self.contents_pages_var.get()
+        self.config["contents_pages"] = bool(self.contents_pages_var.get())
         self.config["indexed_xref"] = self.indexed_xref_var.get()
         self.config["references_xref"] = self.references_xref_var.get()
         self.result = self.config
