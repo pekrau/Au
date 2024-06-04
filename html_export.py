@@ -295,27 +295,39 @@ class Exporter:
             pass
 
     def write_reference_external_links(self, reference):
-        any_item = False
+        links = []
         for key, label, template in constants.REFERENCE_LINKS:
             try:
                 value = reference[key]
-                if any_item:
-                    self.output(",")
+                text = f"{label}:{value}"
                 url = template.format(value=value)
-                self.output(f'<a target="_blank" href="{url}">{label}:{value}</a>')
-                any_item = True
+                links.append((text, url))
             except KeyError:
                 pass
+        if not links:
+            return
+        self.output("<br>")
+        after_first = False
+        for pos, (text, url) in enumerate(links):
+            if after_first:
+                self.output(",")
+            else:
+                after_first = True
+            if pos == 0:
+                self.output(f'<a class="ms-4" target="_blank" href="{url}">{text}</a>')
+            else:
+                self.output(f'<a target="_blank" href="{url}">{text}</a>')
 
     def write_reference_xrefs(self, entries):
+        if not entries:
+            return
         self.output("<br>")
-        entries.sort(key=lambda e: e["ordinal"])
-        for entry in entries:
+        for pos, entry in enumerate(sorted(entries, key=lambda e: e["ordinal"])):
             if self.config["multiple_files"]:
                 url = f'{entry["fullname"]}.html#{entry["id"]}'
             else:
                 url = f'#{entry["id"]}'
-            if entry is entries[0]:
+            if pos == 0:
                 self.output(f'<a class="ms-4" href="{url}">{entry["heading"]}</a>')
             else:
                 self.output(f'<a href="{url}">{entry["heading"]}</a>')

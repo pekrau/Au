@@ -434,7 +434,9 @@ class Main:
         # Set selected text tab in notebook.
         try:
             text = self.source[self.config["source"]["selected"]]
-        except KeyError:
+            if not text.is_text:
+                raise ValueError
+        except (KeyError, ValueError):
             pass
         else:
             self.treeview.selection_set(text.fullname)

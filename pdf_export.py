@@ -323,21 +323,22 @@ class Exporter:
                 value = reference[key]
                 text = f"{label}:{value}"
                 url = template.format(value=value)
-                links.append((value, text, url))
+                links.append((text, url))
             except KeyError:
                 pass
         if not links:
             return
         self.state.set(left_indent=20)
         self.state.ln()
-        for pos, (value, text, link) in enumerate(links):
+        for pos, (text, link) in enumerate(links):
             if pos != 0:
-                self.state.write("  ")
+                self.state.write(", ")
             self.state.set(style="U", text_color=BLUE)
             self.pdf.cell(
                 h=self.state.line_height * self.state.font_size,
                 text=text,
                 link=url,
+                new_x=fpdf.enums.XPos.WCONT,
             )
             self.state.reset()
         self.state.reset()
@@ -350,17 +351,17 @@ class Exporter:
             return
         self.state.set(left_indent=20)
         self.state.ln()
-        entries.sort(key=lambda e: e["ordinal"])
-        for entry in entries:
+        for pos, entry in enumerate(sorted(entries, key=lambda e: e["ordinal"])):
+            if pos != 0:
+                self.state.write(", ")
             self.state.set(style="U", text_color=BLUE)
             self.pdf.cell(
                 h=self.state.line_height * self.state.font_size,
                 text=str(entry[display]),  # Page number is 'int'.
                 link=self.pdf.add_link(page=entry["page"]),
+                new_x=fpdf.enums.XPos.WCONT,
             )
             self.state.reset()
-            if entry is not entries[-1]:
-                self.state.write("  ")
         self.state.reset()
 
     def write_indexed(self):
@@ -375,16 +376,17 @@ class Exporter:
             self.state.write("  ")
             entries.sort(key=lambda e: e["ordinal"])
             display = self.config["indexed_xref"]
-            for entry in entries:
+            for pos, entry in enumerate(entries):
+                if pos != 0:
+                    self.state.write(", ")
                 self.state.set(style="U", text_color=BLUE)
                 self.pdf.cell(
                     h=self.state.line_height * self.state.font_size,
                     text=str(entry[display]),  # Page number is 'int'.
                     link=self.pdf.add_link(page=entry["page"]),
+                    new_x=fpdf.enums.XPos.WCONT,
                 )
                 self.state.reset()
-                if entry is not entries[-1]:
-                    self.state.write("  ")
             self.state.ln()
 
     def render(self, ast):

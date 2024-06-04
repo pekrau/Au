@@ -1040,15 +1040,15 @@ class AddReference(tk.simpledialog.Dialog):
         self.treeview.column(
             "#0",
             anchor=tk.W,
-            minwidth=8 * constants.FONT_NORMAL_SIZE,
-            width=12 * constants.FONT_NORMAL_SIZE,
+            minwidth=10 * constants.FONT_NORMAL_SIZE,
+            width=20 * constants.FONT_NORMAL_SIZE,
         )
         self.treeview.heading("title", text=Tr("Title"), anchor=tk.W)
         self.treeview.column(
             "title",
-            minwidth=16 * constants.FONT_NORMAL_SIZE,
-            width=20 * constants.FONT_NORMAL_SIZE,
             anchor=tk.W,
+            minwidth=20 * constants.FONT_NORMAL_SIZE,
+            width=40 * constants.FONT_NORMAL_SIZE,
             stretch=True,
         )
         self.treeview_scroll_y = tk.ttk.Scrollbar(

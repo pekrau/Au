@@ -60,9 +60,13 @@ class ReferencesViewer(Viewer):
         super().view_create(self.super_frame)
 
     def configure_tags(self):
-        "Reconfigure and add some tags."
+        "Reconfigure and add tags."
         super().configure_tags()
-        self.view.tag_configure(constants.LINK, font=constants.FONT_SMALL)
+        self.view.tag_configure(
+            constants.LINK,
+            lmargin1=2 * constants.REFERENCE_INDENT,
+            lmargin2=2 * constants.REFERENCE_INDENT,
+        )
         self.view.tag_configure(
             constants.REFERENCE,
             spacing1=constants.REFERENCE_SPACING,
@@ -72,7 +76,6 @@ class ReferencesViewer(Viewer):
         )
         self.view.tag_configure(
             constants.XREF,
-            font=constants.FONT_SMALL,
             foreground=constants.XREF_COLOR,
             lmargin1=2 * constants.REFERENCE_INDENT,
             lmargin2=2 * constants.REFERENCE_INDENT,
@@ -132,10 +135,10 @@ class ReferencesViewer(Viewer):
                 ic("unknown", reference["type"])
             else:
                 method(reference)
-            self.display_view_external_links(reference)
             # Done at this stage to avoid mark from being moved by insert.
             self.view.mark_set(reference["id"].replace(" ", "_"), first)
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
+            self.display_view_external_links(reference)
             self.display_view_xrefs(reference)
             self.view.insert(tk.INSERT, "\n")
 
@@ -212,34 +215,49 @@ class ReferencesViewer(Viewer):
             pass
 
     def display_view_external_links(self, reference):
-        any_item = False
+        links = []
         for key, label, template in constants.REFERENCE_LINKS:
             try:
                 value = reference[key]
-                if any_item:
-                    self.view.insert(tk.INSERT, ", ")
-                start = self.view.index(tk.INSERT)
-                self.view.insert(tk.INSERT, f"{label}:{value}")
-                self.link_create(
-                    url=template.format(value=value),
-                    title=value,
-                    first=start,
-                    last=self.view.index(tk.INSERT),
-                )
-                any_item = True
+                text = f"{label}:{value}"
+                url = template.format(value=value)
+                links.append((value, text, url))
             except KeyError:
                 pass
+        if not links:
+            return
+        first = self.view.index(tk.INSERT)
+        self.view.insert(tk.INSERT, "\n")
+        after_first = False
+        for value, text, url in links:
+            if after_first:
+                self.view.insert(tk.INSERT, ", ")
+            else:
+                after_first = True
+            start = self.view.index(tk.INSERT)
+            self.view.insert(tk.INSERT, text)
+            self.link_create(
+                url=url,
+                title=value,
+                first=start,
+                last=self.view.index(tk.INSERT),
+            )
 
     def display_view_xrefs(self, reference):
         fullnames = self.texts_pos.get(reference["id"]) or {}
+        if not fullnames:
+            return
+        self.view.insert(tk.INSERT, "\n")
         reference["orphan"] = not fullnames
+        after_first = False
         for fullname, positions in sorted(fullnames.items()):
-            self.view.insert(tk.INSERT, "\n")
             positions = sorted(positions, key=lambda p: int(p[: p.index(".")]))
-            self.xref_create(fullname, positions[0], constants.REFERENCE)
-            for i, position in enumerate(positions[1:], start=2):
-                self.view.insert(tk.INSERT, ", ")
-                self.xref_create(str(i), position, constants.REFERENCE)
+            for position in positions:
+                if after_first:
+                    self.view.insert(tk.INSERT, ", ")
+                else:
+                    after_first = True
+                self.xref_create(fullname, position, constants.REFERENCE)
 
     def reference_enter(self, event):
         self.view.configure(cursor=constants.REFERENCE_CURSOR)
