@@ -60,21 +60,21 @@ class Main:
         assert constants.QUOTE_FONT in font_families
         assert constants.CODE_FONT in font_families
 
+        self.root.minsize(600, 600)
         self.root.geometry(
             self.config["main"].get("geometry", constants.DEFAULT_ROOT_GEOMETRY)
         )
         self.root.option_add("*tearOff", tk.FALSE)
-        self.root.minsize(600, 600)
         self.au64 = tk.PhotoImage(data=constants.AU64)
         self.root.iconphoto(False, self.au64, self.au64)
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
-        self.root.bind("<Configure>", self.root_resized)
         self.root.bind("<Control-q>", self.quit)
         self.root.bind("<Control-Q>", self.quit)
 
-        self.title = self.config["main"].get("title") or str(self.source)
-        self.subtitle = self.config["main"].get("subtitle") or ""
-        self.authors = self.config["main"].get("authors") or []
+        self.title = self.config["main"].get("title", str(self.source))
+        self.subtitle = self.config["main"].get("subtitle", "")
+        self.authors = self.config["main"].get("authors", [])
+        self.language = self.config["main"].get("language", "")
         self.source.display_heading_ordinal = self.config["main"].get(
             "display_heading_ordinal", True
         )
@@ -90,15 +90,6 @@ class Main:
         self.texts_notebook_create()
         self.meta_notebook_create()
 
-        # Set the sizes of the panes.
-        try:
-            sash = self.config["main"]["sash"]
-        except KeyError:
-            pass
-        else:
-            self.panedwindow.sashpos(0, sash[0])
-            self.panedwindow.sashpos(1, sash[1])
-
         self.treeview_display()
         self.texts_notebook_display()
         self.title_viewer.display()
@@ -106,6 +97,16 @@ class Main:
         self.indexed_viewer.display()
         self.search_viewer.display()
         self.help_viewer.display()
+
+        # Set the sizes of the panes.
+        self.root.update_idletasks() # Required for this to work, for some reason.
+        try:
+            panes = self.config["main"]["panes"]
+        except KeyError:
+            pass
+        else:
+            self.panedwindow.sashpos(0, panes[0])
+            self.panedwindow.sashpos(1, panes[1])
 
     @property
     def configpath(self):
@@ -137,8 +138,9 @@ class Main:
             title=self.title,
             subtitle=self.subtitle,
             authors=self.authors,
+            language=self.language,
             geometry=self.root.geometry(),
-            sash=[self.panedwindow.sashpos(0), self.panedwindow.sashpos(1)],
+            panes=[self.panedwindow.sashpos(0), self.panedwindow.sashpos(1)],
             display_heading_ordinal=self.source.display_heading_ordinal,
         )
 
@@ -158,17 +160,6 @@ class Main:
         with open(self.configpath, "w") as outfile:
             json.dump(config, outfile, indent=2)
         self.config = config
-
-    def root_resized(self, event):
-        "Save configuration after root window resize."
-        if event.widget != self.root:
-            return
-        if getattr(self, "_after_config_save_id", None):
-            self.root.after_cancel(self._after_config_save_id)
-        self.config_save()
-        self._after_config_save_id = self.root.after(
-            constants.CONFIG_SAVE_DELAY, self.config_save
-        )
 
     def menubar_setup(self):
         self.menubar = tk.Menu(self.root, background="gold")
@@ -243,6 +234,7 @@ class Main:
         self.menu_settings.add_command(label=Tr("Title"), command=self.edit_title)
         self.menu_settings.add_command(label=Tr("Subtitle"), command=self.edit_subtitle)
         self.menu_settings.add_command(label=Tr("Authors"), command=self.edit_authors)
+        self.menu_settings.add_command(label=Tr("Language"), command=self.edit_language)
         self.display_heading_ordinal_var = tk.IntVar()
         self.display_heading_ordinal_var.set(int(self.source.display_heading_ordinal))
         self.menu_settings.add_checkbutton(
@@ -604,7 +596,6 @@ class Main:
         self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index - 1)
         self.texts_notebook_reorder_tabs(item)
-        self.config_save()
         return "break"
 
     def move_item_down(self, event=None):
@@ -623,7 +614,6 @@ class Main:
         self.source.check_integrity()
         self.treeview.move(fullname, parentfullname, index + 1)
         self.texts_notebook_reorder_tabs(item)
-        self.config_save()
         return "break"
 
     def texts_notebook_reorder_tabs(self, item):
@@ -653,7 +643,6 @@ class Main:
         self.treeview.see(item.fullname)
         self.treeview.focus(item.fullname)
         self.refresh_meta_notebook()
-        self.config_save()
         return "break"
 
     def move_item_out_of_section(self, event=None):
@@ -675,7 +664,6 @@ class Main:
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
         self.refresh_meta_notebook()
-        self.config_save()
         return "break"
 
     def edit_title(self):
@@ -688,7 +676,6 @@ class Main:
         if result is None:
             return
         self.title = result.strip() or str(self.source)
-        self.config_save()
         self.title_viewer.display()
 
     def edit_subtitle(self):
@@ -701,7 +688,6 @@ class Main:
         if result is None:
             return
         self.subtitle = result.strip() or None
-        self.config_save()
         self.title_viewer.display()
 
     def edit_authors(self):
@@ -709,14 +695,19 @@ class Main:
         if response.result is None:
             return
         self.authors = response.result
-        self.config_save()
+        self.title_viewer.display()
+
+    def edit_language(self):
+        response = LanguageDialog(self.root, self.config)
+        if response.result is None:
+            return
+        self.language = response.result
         self.title_viewer.display()
 
     def set_display_heading_ordinal(self):
         self.source.display_heading_ordinal = bool(
             self.display_heading_ordinal_var.get()
         )
-        self.config_save()
         self.treeview_display()
         self.texts_notebook_display()
 
@@ -759,7 +750,6 @@ class Main:
         self.source.check_integrity()
         self.treeview.selection_set(item.fullname)
         self.treeview.focus(item.fullname)
-        self.config_save()
 
     def copy(self):
         "Make a copy of the currently selected item."
@@ -791,7 +781,6 @@ class Main:
         self.treeview.selection_set(newitem.fullname)
         self.treeview.focus(newitem.fullname)
         self.refresh_meta_notebook()
-        self.config_save()
 
     def delete(self):
         try:
@@ -826,7 +815,6 @@ class Main:
             self.texts_notebook.update_idletasks()
         self.source.check_integrity()
         self.refresh_meta_notebook()
-        self.config_save()
 
     def open_text_editor(self, event=None, text=None):
         if text is None:
@@ -914,7 +902,6 @@ class Main:
         self.treeview.selection_set(text.fullname)
         self.treeview.focus(text.fullname)
         self.title_viewer.update_statistics()
-        self.config_save()
 
     def create_section(self):
         try:
@@ -945,7 +932,6 @@ class Main:
         self.treeview.see(section.fullname)
         self.treeview.focus(section.fullname)
         self.title_viewer.update_statistics()
-        self.config_save()
 
     def popup_menu(self, event):
         fullname = self.treeview.identify_row(event.y)
@@ -1004,6 +990,29 @@ class AuthorsDialog(tk.simpledialog.Dialog):
             author = entry.get().strip()
             if author:
                 self.result.append(author)
+
+
+class LanguageDialog(tk.simpledialog.Dialog):
+    "Dialog to edit the language."
+
+    def __init__(self, master, config):
+        self.language = config["main"]["language"]
+        self.result = None
+        super().__init__(master, title=Tr("Edit language"))
+
+    def body(self, body):
+        self.language_var = tk.StringVar(value=self.language)
+        label = tk.ttk.Label(body, text=Tr("Language"), padding=4)
+        label.grid(row=0, column=0, sticky=tk.NE)
+        combobox = tk.ttk.Combobox(
+            body,
+            values=constants.DEFAULT_LANGUAGES,
+            textvariable=self.language_var,
+        )
+        combobox.grid(row=0, column=1, sticky=tk.W)
+
+    def apply(self):
+        self.result = self.language_var.get()
 
 
 if __name__ == "__main__":

@@ -89,6 +89,12 @@ class TitleViewer(Viewer):
         label = tk.ttk.Label(frame, textvariable=self.references_var)
         label.grid(row=row, column=1, sticky=tk.E, padx=4)
 
+        row += 1
+        label = tk.ttk.Label(frame, text=Tr("Language") + ":")
+        label.grid(row=row, column=0, sticky=tk.E, padx=4)
+        label = tk.ttk.Label(frame, text=self.main.language)
+        label.grid(row=row, column=1, sticky=tk.E, padx=4)
+
         self.view.insert(tk.INSERT, "\n")
         self.view.window_create(tk.INSERT, window=frame)
 

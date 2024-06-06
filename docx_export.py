@@ -16,8 +16,6 @@ import constants
 import utils
 from utils import Tr
 
-LANGUAGES = ("sv-SE", "en-US", "en-GB")
-
 CODE_STYLE = "Au Code"
 CODE_LEFT_INDENT = 30
 
@@ -39,15 +37,11 @@ class Exporter:
 
         # Set the default document-wide language.
         # From https://stackoverflow.com/questions/36967416/how-can-i-set-the-language-in-text-with-python-docx
-        try:
-            language = self.config["language"]
-        except KeyError:
-            pass
-        else:
+        if self.main.language:
             styles_element = self.document.styles.element
             rpr_default = styles_element.xpath("./w:docDefaults/w:rPrDefault/w:rPr")[0]
             lang_default = rpr_default.xpath("w:lang")[0]
-            lang_default.set(docx.oxml.shared.qn("w:val"), language)
+            lang_default.set(docx.oxml.shared.qn("w:val"), self.main.language)
 
         # Set to A4 page size.
         section = self.document.sections[0]
@@ -77,7 +71,7 @@ class Exporter:
         style.font.name = constants.QUOTE_FONT
 
         # Set Dublin core metadata.
-        self.document.core_properties.language = language
+        self.document.core_properties.language = self.main.language
         self.document.core_properties.modified = datetime.datetime.now()
         # XXX authors
 
@@ -506,17 +500,6 @@ class Dialog(tk.simpledialog.Dialog):
         self.filename_entry.grid(row=row, column=1, sticky=tk.W)
 
         row += 1
-        label = tk.ttk.Label(body, text=Tr("Language"))
-        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.language_var = tk.StringVar(value=self.config.get("language") or "")
-        combobox = tk.ttk.Combobox(
-            body,
-            values=LANGUAGES,
-            textvariable=self.language_var,
-        )
-        combobox.grid(row=row, column=1, sticky=tk.W)
-
-        row += 1
         label = tk.ttk.Label(body, text=Tr("Page break level"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.page_break_level_var = tk.IntVar(
@@ -605,7 +588,6 @@ class Dialog(tk.simpledialog.Dialog):
         self.config["dirpath"] = self.dirpath_entry.get().strip() or "."
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
-        self.config["language"] = self.language_var.get().strip()
         self.config["page_break_level"] = self.page_break_level_var.get()
         self.config["indexed_font"] = self.indexed_font_var.get()
         self.config["references_font"] = self.references_font_var.get()

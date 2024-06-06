@@ -58,7 +58,7 @@ class ReferenceEditor(Editor):
             if key == "language":
                 entry = tk.ttk.Combobox(
                     self.metadata_frame,
-                    values=constants.REFERENCE_LANGUAGES,
+                    values=constants.DEFAULT_LANGUAGES,
                     textvariable=self.variables[key],
                 )
             else:

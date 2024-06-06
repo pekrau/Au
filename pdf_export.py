@@ -8,6 +8,8 @@ import io
 import os
 
 import tkinter as tk
+import tkinter.simpledialog
+import tkinter.ttk
 
 import fpdf
 
@@ -67,6 +69,14 @@ class Exporter:
         self.list_stack = []
 
         self.pdf = fpdf.FPDF(format="a4", unit="pt")
+        self.pdf.set_title(self.main.title)
+        if self.main.language:
+            self.pdf.set_lang(self.main.language)
+        if self.main.authors:
+            self.pdf.set_author(", ".join(self.main.authors))
+        self.pdf.set_creator(f"Au {constants.__version__}")
+        self.pdf.set_creation_date(datetime.datetime.now())
+
         self.pdf.add_font(
             "FreeSans", style="", fname=os.path.join(FONTDIR, "FreeSans.ttf")
         )

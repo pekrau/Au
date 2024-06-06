@@ -15,8 +15,6 @@ import utils
 import constants
 from utils import Tr
 
-LANGUAGES = ("sv", "en")
-
 
 class Exporter:
     "HTML exporter."
@@ -101,7 +99,7 @@ class Exporter:
         self.outputs.append((basename, io.StringIO()))
         self.output(
             f"""<!doctype html>
-<html lang="{self.config.get('language', 'en')}">
+<html lang="{self.main.language or 'en'}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -508,17 +506,6 @@ class Dialog(tk.simpledialog.Dialog):
         button.grid(row=row, column=3)
 
         row += 1
-        label = tk.ttk.Label(body, text=Tr("Language"), padding=4)
-        label.grid(row=row, column=0, sticky=tk.NE)
-        self.language_var = tk.StringVar(value=self.config.get("language") or "")
-        combobox = tk.ttk.Combobox(
-            body,
-            values=LANGUAGES,
-            textvariable=self.language_var,
-        )
-        combobox.grid(row=row, column=1, sticky=tk.W)
-
-        row += 1
         label = tk.ttk.Label(body, text=Tr("File or files"), padding=4)
         label.grid(row=row, column=0, sticky=tk.NE)
         self.multiple_files_var = tk.IntVar(
@@ -559,7 +546,6 @@ class Dialog(tk.simpledialog.Dialog):
 
     def apply(self):
         self.config["dirpath"] = self.dirpath_entry.get().strip() or os.getcwd()
-        self.config["language"] = self.language_var.get().strip()
         self.config["multiple_files"] = bool(self.multiple_files_var.get())
         self.config["tarfile"] = bool(self.tarfile_var.get())
         self.result = self.config

@@ -37,9 +37,10 @@ volume,volym
 issue,utgåva
 pages,sidor
 add,lägg till
-add author,lägg till författare
 add reference,lägg till referens
+edit authors,editera författare
 language,språk
+edit language,editera språk
 index,index
 remove indexing?,ta bort indexering?
 really remove indexing for,verkligen ta bort indexering för
