@@ -3,7 +3,7 @@
 import functools
 import os
 
-VERSION = (0, 14, 12)
+VERSION = (0, 15, 0)
 __version__ = ".".join([str(n) for n in VERSION])
 
 
@@ -12,7 +12,6 @@ AU64 = "iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAABhGlDQ1BJQ0MgcHJvZmlsZQAA
 DEFAULT_ROOT_GEOMETRY = "1500x400+700+0"
 DEFAULT_LANGUAGES = ("sv-SE", "en-GB", "en-US")
 
-CONFIG_SAVE_DELAY = 2000
 AGES_UPDATE_DELAY = 2000
 
 MARKDOWN_EXT = ".md"

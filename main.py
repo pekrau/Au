@@ -18,6 +18,7 @@ import constants
 import utils
 import docx_export
 import pdf_export
+import epub_export
 import html_export
 
 from utils import Tr
@@ -74,7 +75,9 @@ class Main:
         self.title = self.config["main"].get("title", str(self.source))
         self.subtitle = self.config["main"].get("subtitle", "")
         self.authors = self.config["main"].get("authors", [])
-        self.language = self.config["main"].get("language", "")
+        self.language = self.config["main"].get(
+            "language", constants.DEFAULT_LANGUAGES[0]
+        )
         self.source.display_heading_ordinal = self.config["main"].get(
             "display_heading_ordinal", True
         )
@@ -521,7 +524,7 @@ class Main:
             )
 
     def export_docx(self, interactive=True, dirpath=None):
-        config = self.config["export"].get("docx") or {}
+        config = self.config["export"].get("docx", {})
         if interactive:
             response = docx_export.Dialog(self.root, self.source, config)
             if response.result is None:
@@ -537,7 +540,7 @@ class Main:
             self.root.config(cursor="")
 
     def export_pdf(self, interactive=True, dirpath=None):
-        config = self.config["export"].get("pdf") or {}
+        config = self.config["export"].get("pdf", {})
         if interactive:
             response = pdf_export.Dialog(self.root, self.source, config)
             if response.result is None:
@@ -562,10 +565,23 @@ class Main:
             self.root.config(cursor="")
 
     def export_epub(self, interactive=True, dirpath=None):
-        raise NotImplementedError
+        config = self.config["export"].get("epub", {})
+        if interactive:
+            response = epub_export.Dialog(self.root, self.source, config)
+            if response.result is None:
+                return
+            config = response.result
+            self.root.config(cursor=constants.WRITE_CURSOR)
+        if dirpath:
+            config["dirpath"] = dirpath
+        exporter = epub_export.Exporter(self, self.source, config)
+        exporter.write()
+        if interactive:
+            self.config["export"]["epub"] = config
+            self.root.config(cursor="")
 
     def export_html(self, interactive=True, dirpath=None):
-        config = self.config["export"].get("html") or {}
+        config = self.config["export"].get("html", {})
         if interactive:
             response = html_export.Dialog(self.root, self.source, config)
             if response.result is None:

@@ -33,6 +33,15 @@ class Exporter:
         self.config = config
 
     def write(self):
+        # Key: canonical; value: dict(id, fullname, ordinal)
+        self.indexed = {}
+        self.indexed_count = 0
+        # Key: reference id; value: dict(id, fullname)
+        self.referenced = {}
+        self.referenced_count = 0
+        # Key: fullname; value: dict(label, ast_children)
+        self.footnotes = {}
+
         self.document = docx.Document()
 
         # Set the default document-wide language.
@@ -74,12 +83,6 @@ class Exporter:
         self.document.core_properties.language = self.main.language
         self.document.core_properties.modified = datetime.datetime.now()
         # XXX authors
-
-        self.indexed = {}  # Key: canonical; value: dict(id, fullname, ordinal)
-        self.indexed_count = 0
-        self.referenced = {}  # Key: reference id; value: dict(id, fullname)
-        self.referenced_count = 0
-        self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
 
         self.write_title()
         self.current_text = None
@@ -585,7 +588,7 @@ class Dialog(tk.simpledialog.Dialog):
         button.pack(anchor=tk.W)
 
     def apply(self):
-        self.config["dirpath"] = self.dirpath_entry.get().strip() or "."
+        self.config["dirpath"] = self.dirpath_entry.get().strip() or os.getcwd()
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
         self.config["page_break_level"] = self.page_break_level_var.get()

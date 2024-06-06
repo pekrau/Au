@@ -61,11 +61,14 @@ class Exporter:
 
     def write_attempt(self, contents_pages):
         "Attempt at writing PDF given the number of content pages to use."
-        self.indexed = {}  # Key: canonical; value: dict(ordinal, fullname, heading, page)
+        # Key: canonical; value: dict(ordinal, fullname, heading, page)
+        self.indexed = {}
         self.indexed_count = 0
-        self.referenced = {}  # Key: reference id; value: dict(ordinal, fullname, heading, page)
+        # Key: reference id; value: dict(ordinal, fullname, heading, page)
+        self.referenced = {}
         self.referenced_count = 0
-        self.footnotes = {}  # Key: fullname; value: dict(label, number, ast_children)
+        # Key: fullname; value: dict(label, number, ast_children)
+        self.footnotes = {}
         self.list_stack = []
 
         self.pdf = fpdf.FPDF(format="a4", unit="pt")
@@ -798,7 +801,7 @@ class Dialog(tk.simpledialog.Dialog):
             button.pack(anchor=tk.W)
 
     def apply(self):
-        self.config["dirpath"] = self.dirpath_entry.get().strip() or "."
+        self.config["dirpath"] = self.dirpath_entry.get().strip() or os.getcwd()
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".pdf"
         self.config["page_break_level"] = self.page_break_level_var.get()

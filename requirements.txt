@@ -2,6 +2,7 @@ asttokens==2.4.1
 bibtexparser==2.0.0b7
 colorama==0.4.6
 defusedxml==0.7.1
+EbookLib==0.18
 executing==2.0.1
 fonttools==4.52.4
 fpdf2==2.7.9

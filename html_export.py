@@ -25,15 +25,15 @@ class Exporter:
         self.config = config
 
     def write(self):
-        self.indexed = {}  # Key: canonical; value: dict(id, fullname, heading, ordinal)
+        # Key: canonical; value: dict(id, fullname, heading, ordinal)
+        self.indexed = {}
         self.indexed_count = 0
-        self.referenced = (
-            {}
-        )  # Key: reference id; value: dict(id, fullname, heading, ordinal)
+        # Key: reference id; value: dict(id, fullname, heading, ordinal)
+        self.referenced = {}
         self.referenced_count = 0
-        self.footnotes = {}  # Key: fullname; value: dict(label, ast_children)
+        # Key: fullname; value: dict(label, ast_children)
+        self.footnotes = {}
         self.outputs = []
-        self.footnote_output = None
 
         if self.config["multiple_files"]:  # Separate files for each chapter.
             self.write_page_begin("index", self.main.title)
@@ -41,7 +41,6 @@ class Exporter:
             self.write_toc()
             self.write_page_end()
 
-            self.current_text = None
             for item in self.source.items:
                 self.write_page_begin(item.name, item.name)
                 if item.is_section:
@@ -93,7 +92,7 @@ class Exporter:
         line = line.rstrip()
         if newline:
             line += "\n"
-        return self.outputs[-1][1].write(line)
+        self.outputs[-1][1].write(line)
 
     def write_page_begin(self, basename, title):
         self.outputs.append((basename, io.StringIO()))
