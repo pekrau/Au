@@ -62,14 +62,14 @@ class Exporter:
             self.write_toc()
             self.current_text = None
             for item in self.source.items:
-                self.output('<hr class="border border-secondary border-3 m-5">')
+                self.output_newline('<hr class="border border-secondary border-3 m-5">')
                 if item.is_section:
                     self.write_section(item, level=1)
                 else:
                     self.write_text(item, level=1)
-            self.output('<hr class="border border-secondary border-3 m-5">')
+            self.output_newline('<hr class="border border-secondary border-3 m-5">')
             self.write_references()
-            self.output('<hr class="border border-secondary border-3 m-5">')
+            self.output_newline('<hr class="border border-secondary border-3 m-5">')
             self.write_indexed()
             self.write_page_end()
 
@@ -88,15 +88,15 @@ class Exporter:
                 with open(filepath, "w") as outfile:
                     outfile.write(output.getvalue())
 
-    def output(self, line, newline=True):
-        line = line.rstrip()
-        if newline:
-            line += "\n"
+    def output(self, line):
         self.outputs[-1][1].write(line)
+
+    def output_newline(self, line):
+        self.outputs[-1][1].write(line + "\n")
 
     def write_page_begin(self, basename, title):
         self.outputs.append((basename, io.StringIO()))
-        self.output(
+        self.output_newline(
             f"""<!doctype html>
 <html lang="{self.main.language or 'en'}">
   <head>
@@ -111,7 +111,7 @@ class Exporter:
         )
 
     def write_page_end(self):
-        self.output(
+        self.output_newline(
             f"""
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
@@ -121,39 +121,39 @@ class Exporter:
         )
 
     def write_title_page(self):
-        self.output('<div class="row">')
-        self.output('<div class="col-md-9 offset-md-1">')
-        self.output(f'<h1 class="mt-5">{self.main.title}</h1>')
+        self.output_newline('<div class="row">')
+        self.output_newline('<div class="col-md-9 offset-md-1">')
+        self.output_newline(f'<h1 class="mt-5">{self.main.title}</h1>')
         if self.main.subtitle:
-            self.output(f'<h2 class="mt-3 mb-5">{self.main.subtitle}</h2>')
+            self.output_newline(f'<h2 class="mt-3 mb-5">{self.main.subtitle}</h2>')
         for author in self.main.authors:
-            self.output(f'<h3 class="my-3">{author}</h3>')
+            self.output_newline(f'<h3 class="my-3">{author}</h3>')
         status = str(
             min([t.status for t in self.source.all_texts] + [max(constants.STATUSES)])
         )
-        self.output(f'<p class="mt-5">{Tr("Status")}: {Tr(status)}</p>')
+        self.output_newline(f'<p class="mt-5">{Tr("Status")}: {Tr(status)}</p>')
         now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
-        self.output(f'<p class="mb-4">{Tr("Created")}: {now}</p>')
-        self.output("</div>")
-        self.output("</div>")
+        self.output_newline(f'<p class="mb-4">{Tr("Created")}: {now}</p>')
+        self.output_newline("</div>")
+        self.output_newline("</div>")
 
     def write_toc(self):
-        self.output('<div class="row">')
-        self.output('<div class="col-md-5 offset-md-1">')
-        self.output('<ul class="list-group">')
+        self.output_newline('<div class="row">')
+        self.output_newline('<div class="col-md-5 offset-md-1">')
+        self.output_newline('<ul class="list-group">')
         for item in self.source.items:
-            self.output('<li class="list-group-item">')
-            self.output(f'<a href="{self.get_url(item.fullname)}">{item.heading}</a>')
-            self.output("</li>")
-        self.output('<li class="list-group-item">')
-        self.output(f'<a href="{self.get_url("_References")}">{Tr("References")}</a>')
-        self.output("</li>")
-        self.output('<li class="list-group-item">')
-        self.output(f'<a href="{self.get_url("_Index")}">{Tr("Index")}</a>')
-        self.output("</li>")
-        self.output("</ul>")
-        self.output("</div>")
-        self.output("</div>")
+            self.output_newline('<li class="list-group-item">')
+            self.output_newline(f'<a href="{self.get_url(item.fullname)}">{item.heading}</a>')
+            self.output_newline("</li>")
+        self.output_newline('<li class="list-group-item">')
+        self.output_newline(f'<a href="{self.get_url("_References")}">{Tr("References")}</a>')
+        self.output_newline("</li>")
+        self.output_newline('<li class="list-group-item">')
+        self.output_newline(f'<a href="{self.get_url("_Index")}">{Tr("Index")}</a>')
+        self.output_newline("</li>")
+        self.output_newline("</ul>")
+        self.output_newline("</div>")
+        self.output_newline("</div>")
 
     def get_url(self, name, id=None):
         if self.config["multiple_files"]:
@@ -174,23 +174,23 @@ class Exporter:
             return f"{name}-{id}"
 
     def write_section(self, section, level):
-        self.output(f'<section id="{section.fullname}">')
+        self.output_newline(f'<section id="{section.fullname}">')
         self.write_heading(section.heading, level)
         for item in section.items:
             if item.is_section:
                 self.write_section(item, level=level + 1)
             else:
                 self.write_text(item, level=level + 1)
-        self.output("</section>")
+        self.output_newline("</section>")
 
     def write_text(self, text, level):
-        self.output(f'<article id="{text.fullname}">')
+        self.output_newline(f'<article id="{text.fullname}">')
         if self.config["multiple_files"] or text.get("display_heading", True):
             self.write_heading(text.heading, level)
         self.current_text = text
         self.render(text.ast)
         self.write_text_footnotes(text)
-        self.output("</article>")
+        self.output_newline("</article>")
 
     def write_text_footnotes(self, text):
         "Footnotes at end of the text."
@@ -198,29 +198,29 @@ class Exporter:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
             return
-        self.output('<hr width="50%" align="left" class="mt-5">')
+        self.output_newline('<hr width="50%" align="left" class="mt-5">')
         self.write_heading(Tr("Footnotes"), 6)
         # This implementation relies on labels being consecutive numbers from 1.
-        self.output("<ol>")
+        self.output_newline("<ol>")
         for label, entry in sorted(footnotes.items()):
-            self.output(f'<li id="{entry["id"]}">')
+            self.output_newline(f'<li id="{entry["id"]}">')
             for child in entry["ast_children"]:
                 self.render(child)
-            self.output("</li>")
-        self.output("</ol>")
+            self.output_newline("</li>")
+        self.output_newline("</ol>")
 
     def write_heading(self, title, level):
         level = min(level, constants.MAX_H_LEVEL)
         klass = f"my-{max(1, 6-level)}"
-        self.output(f'<h{level} class="{klass}">{title}</h{level}>')
+        self.output_newline(f'<h{level} class="{klass}">{title}</h{level}>')
 
     def write_references(self):
-        self.output(f'<section id="_References">')
+        self.output_newline(f'<section id="_References">')
         self.write_heading(Tr("References"), 1)
         lookup = self.main.references_viewer.reference_lookup
         for refid, entries in sorted(self.referenced.items()):
             reference = lookup[refid]
-            self.output(f'<p id="{self.get_id("_References", refid)}">')
+            self.output_newline(f'<p id="{self.get_id("_References", refid)}">')
             self.output(f"<strong>{refid}</strong>")
             self.write_reference_authors(reference)
             try:
@@ -231,65 +231,68 @@ class Exporter:
                 method(reference)
             self.write_reference_external_links(reference)
             self.write_reference_xrefs(entries)
-            self.output("</p>")
-        self.output(f"</section>")
+            self.output_newline("</p>")
+        self.output_newline(f"</section>")
 
     def write_reference_authors(self, reference):
         count = len(reference["authors"])
         for pos, author in enumerate(reference["authors"]):
             if pos > 0:
                 if pos == count - 1:
-                    self.output("&amp;")
+                    self.output(" &amp;")
                 else:
                     self.output(",")
-            self.output(utils.shortname(author))
+            self.output(" " + utils.shortname(author))
 
     def write_reference_article(self, reference):
-        self.output(f"({reference['year']}) ")
+        self.output(f" ({reference['year']})")
         try:
-            self.output(reference["title"].strip(".") + ". ")
+            self.output(f" {reference['title'].strip('.')}.")
         except KeyError:
             pass
         try:
-            self.output(f"<em>{reference['journal']}</em>")
+            self.output(f" <em>{reference['journal']}</em>")
         except KeyError:
             pass
         try:
-            self.output(reference["volume"])
+            self.output(f' {reference["volume"]}')
         except KeyError:
             pass
         else:
             try:
-                self.output(f"({reference['number']})")
+                self.output(f" ({reference['number']})")
             except KeyError:
                 pass
         try:
             self.output(f": pp. {reference['pages'].replace('--', '-')}.")
         except KeyError:
             pass
+        self.output_newline("")
 
     def write_reference_book(self, reference):
-        self.output(f"({reference['year']}).")
-        self.output(f"<em>{reference['title'].strip('.') + '. '}</em>")
+        self.output(f" ({reference['year']}).")
+        self.output(f" <em>{reference['title'].strip('.')}.</em>")
         try:
-            self.output(f"{reference['publisher']}.")
+            self.output(f" {reference['publisher']}.")
         except KeyError:
             pass
+        self.output_newline("")
 
     def write_reference_link(self, reference):
-        self.output(f"({reference['year']}).")
+        self.output(f" ({reference['year']}).")
         try:
-            self.output(reference["title"].strip(".") + ". ")
+            self.output(f" {reference['title'].strip('.')}.")
         except KeyError:
             pass
         try:
-            self.output(f'<a href="{reference["url"]}"><{reference["title"]}</a>')
+            self.output(f' <a href="{reference["url"]}"><{reference["title"]}</a>')
         except KeyError:
             pass
         try:
-            self.output(f"Accessed {reference['accessed']}.")
+            self.output(f" Accessed {reference['accessed']}.")
         except KeyError:
             pass
+        self.output_newline("")
 
     def write_reference_external_links(self, reference):
         links = []
@@ -303,52 +306,47 @@ class Exporter:
                 pass
         if not links:
             return
-        self.output("<br>")
-        after_first = False
+        self.output_newline("<br/>")
+        self.output_newline(f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">')
         for pos, (text, url) in enumerate(links):
-            if after_first:
-                self.output(",")
-            else:
-                after_first = True
-            if pos == 0:
-                self.output(f'<a class="ms-4" target="_blank" href="{url}">{text}</a>')
-            else:
-                self.output(f'<a target="_blank" href="{url}">{text}</a>')
+            if pos != 0:
+                self.output(", ")
+            self.output(f'<a href="{url}">{text}</a>')
+        self.output_newline("")
+        self.output_newline("</span>")
 
     def write_reference_xrefs(self, entries):
         if not entries:
             return
-        self.output("<br>")
-        for pos, entry in enumerate(sorted(entries, key=lambda e: e["ordinal"])):
-            if self.config["multiple_files"]:
-                url = f'{entry["fullname"]}.html#{entry["id"]}'
-            else:
-                url = f'#{entry["id"]}'
-            if pos == 0:
-                self.output(f'<a class="ms-4" href="{url}">{entry["heading"]}</a>')
-            else:
-                self.output(f'<a href="{url}">{entry["heading"]}</a>')
-            if entry is not entries[-1]:
-                self.output(",")
+        self.output_newline("<br>")
+        self.output_newline(f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">')
+        entries = sorted(entries, key=lambda e: e["ordinal"])
+        for pos, entry in enumerate(entries):
+            if pos != 0:
+                self.output(", ")
+            url = f'{entry["fullname"]}.xhtml#{entry["id"]}'
+            self.output(f'<a href="{url}">{entry["heading"]}</a>')
+        self.output_newline("")
+        self.output_newline("</span>")
 
     def write_indexed(self):
-        self.output(f'<section id="_Index">')
+        self.output_newline(f'<section id="_Index">')
         self.write_heading(Tr("Index"), 1)
         items = sorted(self.indexed.items(), key=lambda i: i[0].lower())
         for canonical, entries in items:
-            self.output(f'<p id="{self.get_id("_Index", canonical)}">')
-            self.output(f"<strong>{canonical}</strong>")
+            self.output_newline(f'<p id="{self.get_id("_Index", canonical)}">')
+            self.output(f"<strong>{canonical}</strong> ")
             entries.sort(key=lambda e: e["ordinal"])
-            for entry in entries:
+            for pos, entry in enumerate(entries):
+                if pos != 0:
+                    self.output(", ")
                 if self.config["multiple_files"]:
                     url = f'{entry["fullname"]}.html#{entry["id"]}'
                 else:
                     url = f'#{entry["id"]}'
                 self.output(f'<a href="{url}">{entry["heading"]}</a>')
-                if entry is not entries[-1]:
-                    self.output(",")
-            self.output("</p>")
-        self.output(f"</section>")
+            self.output_newline("</p>")
+        self.output_newline(f"</section>")
 
     def render(self, ast):
         try:
@@ -363,10 +361,10 @@ class Exporter:
             self.render(child)
 
     def render_paragraph(self, ast):
-        self.output("<p>")
+        self.output_newline("<p>")
         for child in ast["children"]:
             self.render(child)
-        self.output("</p>")
+        self.output_newline("</p>")
 
     def render_raw_text(self, ast):
         self.output(ast["children"])
@@ -375,25 +373,25 @@ class Exporter:
         pass
 
     def render_quote(self, ast):
-        self.output('<blockquote class="blockquote mx-5">')
+        self.output_newline('<blockquote class="blockquote mx-5">')
         for child in ast["children"]:
             self.render(child)
-        self.output("</blockquote>")
+        self.output_newline("</blockquote>")
 
     def render_code_span(self, ast):
         self.output(f"<code>{ast['children']}</code>")
 
     def render_code_block(self, ast):
-        self.output('<pre class="ms-5"><code>', newline=False)
+        self.output('<pre class="ms-5"><code>')
         for child in ast["children"]:
             self.render(child)
-        self.output("</code></pre>")
+        self.output_newline("</code></pre>")
 
     def render_fenced_code(self, ast):
-        self.output('<pre class="ms-5"><code>', newline=False)
+        self.output('<pre class="ms-5"><code>')
         for child in ast["children"]:
             self.render(child)
-        self.output("</code></pre>")
+        self.output_newline("</code></pre>")
 
     def render_emphasis(self, ast):
         self.output("<em>")
@@ -408,7 +406,7 @@ class Exporter:
         self.output("</strong>")
 
     def render_thematic_break(self, ast):
-        self.output('<hr width="75%">')
+        self.output_newline('<hr width="75%">')
 
     def render_link(self, ast):
         self.output(f'<a href="{ast["dest"]}">')
@@ -418,21 +416,21 @@ class Exporter:
 
     def render_list(self, ast):
         if ast["ordered"]:
-            self.output("<ol>")
+            self.output_newline("<ol>")
         else:
-            self.output("<ul>")
+            self.output_newline("<ul>")
         for child in ast["children"]:
             self.render(child)
         if ast["ordered"]:
-            self.output("</ol>")
+            self.output_newline("</ol>")
         else:
-            self.output("</ul>")
+            self.output_newline("</ul>")
 
     def render_list_item(self, ast):
-        self.output("<li>")
+        self.output_newline("<li>")
         for child in ast["children"]:
             self.render(child)
-        self.output("</li>")
+        self.output_newline("</li>")
 
     def render_indexed(self, ast):
         entries = self.indexed.setdefault(ast["canonical"], [])
