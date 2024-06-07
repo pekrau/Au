@@ -38,64 +38,46 @@ class Exporter:
 
         book = epub.EpubBook()
         book.set_identifier(self.config["identifier"])
+        if self.main.subtitle:
+            book.add_metadata("DC", "description", self.main.subtitle)
         book.set_title(self.main.title)
         book.set_language(self.main.language)
         for author in self.main.authors:
             book.add_author(author)
 
         chapters = []
-        for number, item in enumerate(self.source.items, start=1):
-            title = item.name
-            file_name = f"chapter_{number}.xhtml"
-            self.chapter = epub.EpubHtml(title=title,
-                                                  file_name=file_name,
-                                                  lang=self.main.language)
-            chapters.append({"number": number,
-                             "title": title,
-                             "file_name": file_name,
-                             "chapter": self.chapter})
+        for item in self.source.items:
+            chapter = epub.EpubHtml(title=item.name,
+                                    file_name=f"{item.name}.xhtml",
+                                    lang=self.main.language)
             self.outfile = io.StringIO()
             if item.is_section:
                 self.write_section(item, level=1)
             else:
                 self.write_text(item, level=1)
-            self.chapter.content = self.outfile.getvalue()
-            book.add_item(self.chapter)
+            chapter.content = self.outfile.getvalue()
+            book.add_item(chapter)
+            chapters.append(chapter)
 
-        # number += 1
-        # title = Tr("References")
-        # file_name = "_References.xhtml"
-        # self.chapter = epub.EpubHtml(title=title,
-        #                                       file_name=file_name,
-        #                                       lang=self.main.language)
-        # chapters.append({"number": number,
-        #                  "title": title,
-        #                  "file_name": file_name,
-        #                  "chapter": self.chapter})
-        # self.outfile = io.StringIO()
-        # self.write_references()
-        # self.chapter.content = self.outfile.getvalue()
-        # book.add_item(self.chapter)
+        chapter = epub.EpubHtml(title=Tr("References"),
+                                     file_name="_References.xhtml",
+                                     lang=self.main.language)
+        self.outfile = io.StringIO()
+        self.write_references()
+        chapter.content = self.outfile.getvalue()
+        chapters.append(chapter)
+        book.add_item(chapter)
 
-        # number += 1
-        # title = Tr("Index")
-        # file_name = "_Index.xhtml"
-        # self.chapter = epub.EpubHtml(title=title,
-        #                                       file_name=file_name,
-        #                                       lang=self.main.language)
-        # chapters.append({"number": number,
-        #                  "title": title,
-        #                  "file_name": file_name,
-        #                  "chapter": self.chapter})
-        # self.outfile = io.StringIO()
-        # self.write_indexed()
-        # self.chapter.content = self.outfile.getvalue()
-        # book.add_item(self.chapter)
+        chapter = epub.EpubHtml(title=Tr("Index"),
+                                file_name="_Index.xhtml",
+                                lang=self.main.language)
+        self.outfile = io.StringIO()
+        self.write_indexed()
+        chapter.content = self.outfile.getvalue()
+        chapters.append(chapter)
+        book.add_item(chapter)
 
-        book.toc =(
-            epub.Link("chapter1.xhtml", "Introduction", "intro"),
-            (epub.Section("Book"), (chapters[0]["chapter"],))
-        )
+        book.toc = chapters
 
         book.add_item(epub.EpubNcx())
         book.add_item(epub.EpubNav())
@@ -109,7 +91,7 @@ class Exporter:
         )
         book.add_item(nav_css)
 
-        book.spine = ["nav", chapters[0]["chapter"]]
+        book.spine = ["nav"] + chapters
 
         filepath = os.path.join(self.config["dirpath"], self.config["filename"])
         epub.write_epub(filepath, book, {})
@@ -120,192 +102,165 @@ class Exporter:
             line += "\n"
         self.outfile.write(line)
 
-    def get_url(self, name, id=None):
-        if id:
-            return f"{name}.html#{id}"
-        else:
-            return f"{name}.html"
-
-    def get_id(self, name, id):
-        return id
-
     def write_section(self, section, level):
         self.write_heading(section.heading, level)
-        # self.output(f'<section id="{section.fullname}">')
-        # for item in section.items:
-        #     if item.is_section:
-        #         self.write_section(item, level=level + 1)
-        #     else:
-        #         self.write_text(item, level=level + 1)
-        # self.output("</section>")
+        for item in section.items:
+            if item.is_section:
+                self.write_section(item, level=level + 1)
+            else:
+                self.write_text(item, level=level + 1)
 
     def write_text(self, text, level):
         self.write_heading(text.heading, level)
-        # self.output(f'<article id="{text.fullname}">')
-        # self.current_text = text
-        # self.render(text.ast)
-        # self.write_text_footnotes(text)
-        # self.output("</article>")
+        self.current_text = text
+        self.render(text.ast)
+        self.write_text_footnotes(text)
 
     def write_text_footnotes(self, text):
         "Footnotes at end of the text."
-        pass
-        # try:
-        #     footnotes = self.footnotes[text.fullname]
-        # except KeyError:
-        #     return
-        # self.output('<hr class="mt-5 mx-5" width="50%">')
-        # self.write_heading(Tr("Footnotes"), 6)
-        # # This implementation relies on labels being consecutive numbers from 1.
-        # self.output("<ol>")
-        # for label, entry in sorted(footnotes.items()):
-        #     self.output(f'<li id="{entry["id"]}">')
-        #     for child in entry["ast_children"]:
-        #         self.render(child)
-        #     self.output("</li>")
-        # self.output("</ul>")
+        try:
+            footnotes = self.footnotes[text.fullname]
+        except KeyError:
+            return
+        self.output('<hr width="50%" align="left" style="margin-top: 40pt;"/>')
+        self.write_heading(Tr("Footnotes"), 5)
+        # This implementation relies on labels being consecutive numbers from 1.
+        self.output("<ol>")
+        for label, entry in sorted(footnotes.items()):
+            self.output(f'<li id="{entry["id"]}">')
+            for child in entry["ast_children"]:
+                self.render(child)
+            self.output("</li>")
+        self.output("</ol>")
 
     def write_heading(self, title, level):
         level = min(level, constants.MAX_H_LEVEL)
         self.output(f'<h{level}>{title}</h{level}>')
 
     def write_references(self):
-        pass
-        # self.output(f'<section id="_References">')
-        # self.write_heading(Tr("References"), 1)
-        # lookup = self.main.references_viewer.reference_lookup
-        # for refid, entries in sorted(self.referenced.items()):
-        #     reference = lookup[refid]
-        #     self.output(f'<p id="{self.get_id("_References", refid)}">')
-        #     self.output(f"<strong>{refid}</strong>")
-        #     self.write_reference_authors(reference)
-        #     try:
-        #         method = getattr(self, f"write_reference_{reference['type']}")
-        #     except AttributeError:
-        #         ic("unknown", reference["type"])
-        #     else:
-        #         method(reference)
-        #     self.write_reference_external_links(reference)
-        #     self.write_reference_xrefs(entries)
-        #     self.output("</p>")
-        # self.output(f"</section>")
+        self.write_heading(Tr("References"), 1)
+        lookup = self.main.references_viewer.reference_lookup
+        for refid, entries in sorted(self.referenced.items()):
+            reference = lookup[refid]
+            self.output(f'<p id="{refid}">')
+            self.output(f"<strong>{refid}</strong>")
+            self.write_reference_authors(reference)
+            try:
+                method = getattr(self, f"write_reference_{reference['type']}")
+            except AttributeError:
+                ic("unknown", reference["type"])
+            else:
+                method(reference)
+            self.write_reference_external_links(reference)
+            self.write_reference_xrefs(entries)
+            self.output("</p>")
 
     def write_reference_authors(self, reference):
-        pass
-        # count = len(reference["authors"])
-        # for pos, author in enumerate(reference["authors"]):
-        #     if pos > 0:
-        #         if pos == count - 1:
-        #             self.output("&amp;")
-        #         else:
-        #             self.output(",")
-        #     self.output(utils.shortname(author))
+        count = len(reference["authors"])
+        for pos, author in enumerate(reference["authors"]):
+            if pos > 0:
+                if pos == count - 1:
+                    self.output("&amp;")
+                else:
+                    self.output(",")
+            self.output(utils.shortname(author))
 
     def write_reference_article(self, reference):
-        pass
-        # self.output(f"({reference['year']}) ")
-        # try:
-        #     self.output(reference["title"].strip(".") + ". ")
-        # except KeyError:
-        #     pass
-        # try:
-        #     self.output(f"<em>{reference['journal']}</em>")
-        # except KeyError:
-        #     pass
-        # try:
-        #     self.output(reference["volume"])
-        # except KeyError:
-        #     pass
-        # else:
-        #     try:
-        #         self.output(f"({reference['number']})")
-        #     except KeyError:
-        #         pass
-        # try:
-        #     self.output(f": pp. {reference['pages'].replace('--', '-')}.")
-        # except KeyError:
-        #     pass
+        self.output(f"({reference['year']}) ")
+        try:
+            self.output(reference["title"].strip(".") + ". ")
+        except KeyError:
+            pass
+        try:
+            self.output(f"<em>{reference['journal']}</em>")
+        except KeyError:
+            pass
+        try:
+            self.output(reference["volume"])
+        except KeyError:
+            pass
+        else:
+            try:
+                self.output(f"({reference['number']})")
+            except KeyError:
+                pass
+        try:
+            self.output(f": pp. {reference['pages'].replace('--', '-')}.")
+        except KeyError:
+            pass
 
     def write_reference_book(self, reference):
-        pass
-        # self.output(f"({reference['year']}).")
-        # self.output(f"<em>{reference['title'].strip('.') + '. '}</em>")
-        # try:
-        #     self.output(f"{reference['publisher']}.")
-        # except KeyError:
-        #     pass
+        self.output(f"({reference['year']}).")
+        self.output(f"<em>{reference['title'].strip('.') + '. '}</em>")
+        try:
+            self.output(f"{reference['publisher']}.")
+        except KeyError:
+            pass
 
     def write_reference_link(self, reference):
-        pass
-        # self.output(f"({reference['year']}).")
-        # try:
-        #     self.output(reference["title"].strip(".") + ". ")
-        # except KeyError:
-        #     pass
-        # try:
-        #     self.output(f'<a href="{reference["url"]}"><{reference["title"]}</a>')
-        # except KeyError:
-        #     pass
-        # try:
-        #     self.output(f"Accessed {reference['accessed']}.")
-        # except KeyError:
-        #     pass
+        self.output(f"({reference['year']}).")
+        try:
+            self.output(reference["title"].strip(".") + ". ")
+        except KeyError:
+            pass
+        try:
+            self.output(f'<a href="{reference["url"]}"><{reference["title"]}</a>')
+        except KeyError:
+            pass
+        try:
+            self.output(f"Accessed {reference['accessed']}.")
+        except KeyError:
+            pass
 
     def write_reference_external_links(self, reference):
-        pass
-        # links = []
-        # for key, label, template in constants.REFERENCE_LINKS:
-        #     try:
-        #         value = reference[key]
-        #         text = f"{label}:{value}"
-        #         url = template.format(value=value)
-        #         links.append((text, url))
-        #     except KeyError:
-        #         pass
-        # if not links:
-        #     return
-        # self.output("<br>")
-        # after_first = False
-        # for pos, (text, url) in enumerate(links):
-        #     if after_first:
-        #         self.output(",")
-        #     else:
-        #         after_first = True
-        #     if pos == 0:
-        #         self.output(f'<a class="ms-4" target="_blank" href="{url}">{text}</a>')
-        #     else:
-        #         self.output(f'<a target="_blank" href="{url}">{text}</a>')
+        links = []
+        for key, label, template in constants.REFERENCE_LINKS:
+            try:
+                value = reference[key]
+                text = f"{label}:{value}"
+                url = template.format(value=value)
+                links.append((text, url))
+            except KeyError:
+                pass
+        if not links:
+            return
+        self.output("<br/>")
+        self.output(f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">')
+        after_first = False
+        for text, url in links:
+            if after_first:
+                self.output(",")
+            else:
+                after_first = True
+            self.output(f'<a href="{url}">{text}</a>')
+        self.output("</span>")
 
     def write_reference_xrefs(self, entries):
-        pass
-        # if not entries:
-        #     return
-        # self.output("<br>")
-        # for pos, entry in enumerate(sorted(entries, key=lambda e: e["ordinal"])):
-        #     url = f'{entry["fullname"]}.html#{entry["id"]}'
-        #     if pos == 0:
-        #         self.output(f'<a class="ms-4" href="{url}">{entry["heading"]}</a>')
-        #     else:
-        #         self.output(f'<a href="{url}">{entry["heading"]}</a>')
-        #     if entry is not entries[-1]:
-        #         self.output(",")
+        if not entries:
+            return
+        self.output("<br/>")
+        self.output(f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">')
+        entries = sorted(entries, key=lambda e: e["ordinal"])
+        for entry in entries:
+            url = f'{entry["fullname"]}.xhtml#{entry["id"]}'
+            self.output(f'<a href="{url}">{entry["heading"]}</a>')
+            if entry is not entries[-1]:
+                self.output(",")
+        self.output("</span>")
 
     def write_indexed(self):
-        pass
-        # self.output(f'<section id="_Index">')
-        # self.write_heading(Tr("Index"), 1)
-        # items = sorted(self.indexed.items(), key=lambda i: i[0].lower())
-        # for canonical, entries in items:
-        #     self.output(f'<p id="{self.get_id("_Index", canonical)}">')
-        #     self.output(f"<strong>{canonical}</strong>")
-        #     entries.sort(key=lambda e: e["ordinal"])
-        #     for entry in entries:
-        #         url = f'{entry["fullname"]}.html#{entry["id"]}'
-        #         self.output(f'<a href="{url}">{entry["heading"]}</a>')
-        #         if entry is not entries[-1]:
-        #             self.output(",")
-        #     self.output("</p>")
-        # self.output(f"</section>")
+        self.write_heading(Tr("Index"), 1)
+        items = sorted(self.indexed.items(), key=lambda i: i[0].lower())
+        for canonical, entries in items:
+            self.output(f'<p id="{canonical}">')
+            self.output(f"<strong>{canonical}</strong>")
+            entries.sort(key=lambda e: e["ordinal"])
+            for entry in entries:
+                url = f'{entry["chapter"]}#{entry["id"]}'
+                self.output(f'<a href="{url}">{entry["heading"]}</a>')
+                if entry is not entries[-1]:
+                    self.output(",")
+            self.output("</p>")
 
     def render(self, ast):
         try:
@@ -365,7 +320,7 @@ class Exporter:
         self.output("</strong>")
 
     def render_thematic_break(self, ast):
-        self.output("<hr></hr>")
+        self.output('<hr width="75%"></hr>')
 
     def render_link(self, ast):
         self.output(f'<a href="{ast["dest"]}">')
@@ -392,53 +347,49 @@ class Exporter:
         self.output("</li>")
 
     def render_indexed(self, ast):
-        self.output(ast["term"])
-        # entries = self.indexed.setdefault(ast["canonical"], [])
-        # self.indexed_count += 1
-        # id = f"_Indexed-{self.indexed_count}"
-        # entries.append(
-        #     dict(
-        #         id=id,
-        #         fullname=self.current_text.fullname,
-        #         heading=self.current_text.heading,
-        #         ordinal=self.current_text.ordinal,
-        #     )
-        # )
-        # self.output(
-        #     f'<a id="{id}" href="{self.get_url("_Index", id=ast["canonical"])}">{ast["term"]}</a>'
-        # )
+        entries = self.indexed.setdefault(ast["canonical"], [])
+        self.indexed_count += 1
+        id = f"_Indexed-{self.indexed_count}"
+        entries.append(
+            dict(
+                id=id,
+                chapter=f"{self.current_text.chapter.name}.xhtml",
+                heading=self.current_text.heading,
+                ordinal=self.current_text.ordinal,
+            )
+        )
+        self.output(
+            f'<a id="{id}" href="_Index.xhtml#{ast["canonical"]}">{ast["term"]}</a>'
+        )
 
     def render_footnote_ref(self, ast):
-        self.output(ast["label"])
-        # entries = self.footnotes.setdefault(self.current_text.fullname, {})
-        # label = int(ast["label"])
-        # id = f"_footnote-{self.current_text.fullname}-{label}"
-        # entries[label] = dict(label=label, id=id)
-        # self.output(f'<sup><strong><a href="#{id}">{ast["label"]}</a></strong></sup>')
+        entries = self.footnotes.setdefault(self.current_text.fullname, {})
+        label = int(ast["label"])
+        id = f"_footnote-{self.current_text.fullname}-{label}"
+        entries[label] = dict(label=label, id=id)
+        self.output(f'<sup><strong><a href="#{id}">{ast["label"]}</a></strong></sup>')
 
     def render_footnote_def(self, ast):
-        pass
-        # label = int(ast["label"])
-        # self.footnotes[self.current_text.fullname][label]["ast_children"] = ast[
-        #     "children"
-        # ]
+        label = int(ast["label"])
+        self.footnotes[self.current_text.fullname][label]["ast_children"] = ast[
+            "children"
+        ]
 
     def render_reference(self, ast):
-        self.output(ast["reference"])
-        # entries = self.referenced.setdefault(ast["reference"], [])
-        # self.referenced_count += 1
-        # id = f"_Referenced-{self.referenced_count}"
-        # entries.append(
-        #     dict(
-        #         id=id,
-        #         fullname=self.current_text.fullname,
-        #         heading=self.current_text.heading,
-        #         ordinal=self.current_text.ordinal,
-        #     )
-        # )
-        # self.output(
-        #     f'<a id="{id}" href="{self.get_url("_References", id=ast["reference"])}">{ast["reference"]}</a>'
-        # )
+        entries = self.referenced.setdefault(ast["reference"], [])
+        self.referenced_count += 1
+        id = f"_Referenced-{self.referenced_count}"
+        entries.append(
+            dict(
+                id=id,
+                fullname=self.current_text.fullname,
+                heading=self.current_text.heading,
+                ordinal=self.current_text.ordinal,
+            )
+        )
+        self.output(
+            f'<a id="{id}" href="_References.xhtml#{ast["reference"]}">{ast["reference"]}</a>'
+        )
 
 
 class Dialog(tk.simpledialog.Dialog):

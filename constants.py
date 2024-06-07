@@ -3,7 +3,7 @@
 import functools
 import os
 
-VERSION = (0, 15, 0)
+VERSION = (0, 15, 1)
 __version__ = ".".join([str(n) for n in VERSION])
 
 
@@ -170,7 +170,7 @@ REFERENCE = "reference"
 REFERENCE_PREFIX = "reference-"
 REFERENCE_COLOR = "magenta"
 REFERENCE_SPACING = 12
-REFERENCE_INDENT = 20
+REFERENCE_INDENT = 30
 REFERENCE_CURSOR = "target"
 REFERENCE_MAX_AUTHORS = 5
 REFERENCE_LINKS = [

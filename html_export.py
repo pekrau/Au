@@ -198,7 +198,7 @@ class Exporter:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
             return
-        self.output('<hr class="mt-5 mx-5" width="50%">')
+        self.output('<hr width="50%" align="left" class="mt-5">')
         self.write_heading(Tr("Footnotes"), 6)
         # This implementation relies on labels being consecutive numbers from 1.
         self.output("<ol>")
@@ -207,7 +207,7 @@ class Exporter:
             for child in entry["ast_children"]:
                 self.render(child)
             self.output("</li>")
-        self.output("</ul>")
+        self.output("</ol>")
 
     def write_heading(self, title, level):
         level = min(level, constants.MAX_H_LEVEL)
@@ -408,7 +408,7 @@ class Exporter:
         self.output("</strong>")
 
     def render_thematic_break(self, ast):
-        self.output("<hr>")
+        self.output('<hr width="75%">')
 
     def render_link(self, ast):
         self.output(f'<a href="{ast["dest"]}">')

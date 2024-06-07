@@ -40,8 +40,9 @@ class Main:
     3) The meta notebook with indexed, references, search and help.
     """
 
-    def __init__(self, absdirpath):
+    def __init__(self, absdirpath, interactive=True):
         self.absdirpath = absdirpath
+        self.interactive = interactive
 
         # Create hard-wired directories, if not done.
         archivedirpath = os.path.join(self.absdirpath, constants.ARCHIVE_DIRNAME)
@@ -101,15 +102,16 @@ class Main:
         self.search_viewer.display()
         self.help_viewer.display()
 
-        # Set the sizes of the panes.
-        self.root.update_idletasks() # Required for this to work, for some reason.
-        try:
-            panes = self.config["main"]["panes"]
-        except KeyError:
-            pass
-        else:
-            self.panedwindow.sashpos(0, panes[0])
-            self.panedwindow.sashpos(1, panes[1])
+        if self.interactive:
+            # Set the sizes of the panes.
+            self.root.update_idletasks() # Required for this to work, for some reason.
+            try:
+                panes = self.config["main"]["panes"]
+            except KeyError:
+                pass
+            else:
+                self.panedwindow.sashpos(0, panes[0])
+                self.panedwindow.sashpos(1, panes[1])
 
     @property
     def configpath(self):
@@ -523,9 +525,9 @@ class Main:
                 message=f"{count} {Tr('items written to archive file')} '{filepath}'.",
             )
 
-    def export_docx(self, interactive=True, dirpath=None):
+    def export_docx(self, dirpath=None):
         config = self.config["export"].get("docx", {})
-        if interactive:
+        if self.interactive:
             response = docx_export.Dialog(self.root, self.source, config)
             if response.result is None:
                 return
@@ -535,13 +537,13 @@ class Main:
             config["dirpath"] = dirpath
         exporter = docx_export.Exporter(self, self.source, config)
         exporter.write()
-        if interactive:
+        if self.interactive:
             self.config["export"]["docx"] = config
             self.root.config(cursor="")
 
-    def export_pdf(self, interactive=True, dirpath=None):
+    def export_pdf(self, dirpath=None):
         config = self.config["export"].get("pdf", {})
-        if interactive:
+        if self.interactive:
             response = pdf_export.Dialog(self.root, self.source, config)
             if response.result is None:
                 return
@@ -553,20 +555,20 @@ class Main:
         try:
             exporter.write()
         except ValueError as msg:
-            if interactive:
+            if self.interactive:
                 tk.messagebox.showerror(
                     title="Error", message=f"Wrong number of contents pages: {msg}"
                 )
                 return
             else:
                 sys.exit(f"Error: Wrong number of contents pages: {msg}")
-        if interactive:
+        if self.interactive:
             self.config["export"]["pdf"] = config
             self.root.config(cursor="")
 
-    def export_epub(self, interactive=True, dirpath=None):
+    def export_epub(self, dirpath=None):
         config = self.config["export"].get("epub", {})
-        if interactive:
+        if self.interactive:
             response = epub_export.Dialog(self.root, self.source, config)
             if response.result is None:
                 return
@@ -576,13 +578,13 @@ class Main:
             config["dirpath"] = dirpath
         exporter = epub_export.Exporter(self, self.source, config)
         exporter.write()
-        if interactive:
+        if self.interactive:
             self.config["export"]["epub"] = config
             self.root.config(cursor="")
 
-    def export_html(self, interactive=True, dirpath=None):
+    def export_html(self, dirpath=None):
         config = self.config["export"].get("html", {})
-        if interactive:
+        if self.interactive:
             response = html_export.Dialog(self.root, self.source, config)
             if response.result is None:
                 return
@@ -592,7 +594,7 @@ class Main:
             config["dirpath"] = dirpath
         exporter = html_export.Exporter(self, self.source, config)
         exporter.write()
-        if interactive:
+        if self.interactive:
             self.config["export"]["html"] = config
             self.root.config(cursor="")
 
@@ -1068,15 +1070,14 @@ if __name__ == "__main__":
         sys.exit(f"{Tr('Error')}: '{inputdir}' does not exist.")
     if not os.path.isdir(inputdir):
         sys.exit(f"{Tr('Error')}: '{inputdir}' is not a directory.")
-    main = Main(inputdir)
 
     if args.docx:
-        main.export_docx(interactive=False, dirpath=args.dirpath)
+        Main(inputdir, interactive=False).export_docx(dirpath=args.dirpath)
     elif args.pdf:
-        main.export_pdf(interactive=False, dirpath=args.dirpath)
+        Main(inputdir, interactive=False).export_pdf(dirpath=args.dirpath)
     elif args.epub:
-        main.export_epub(interactive=False, dirpath=args.dirpath)
+        Main(inputdir, interactive=False).export_epub(dirpath=args.dirpath)
     elif args.html:
-        main.export_html(interactive=False, dirpath=args.dirpath)
+        Main(inputdir, interactive=False).export_html(dirpath=args.dirpath)
     else:
-        main.run()
+        Main(inputdir).run()
