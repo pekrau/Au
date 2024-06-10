@@ -11,6 +11,7 @@ import tkinter.simpledialog
 import tkinter.filedialog
 
 import docx
+import docx.oxml
 
 import constants
 import utils
@@ -84,7 +85,9 @@ class Exporter:
         self.document.core_properties.modified = datetime.datetime.now()
         # XXX authors
 
-        self.write_title()
+        self.write_title_page()
+        self.write_toc()
+        self.write_page_number()
         self.current_text = None
         self.footnote_paragraph = None
         for item in self.source.items:
@@ -99,8 +102,7 @@ class Exporter:
             os.path.join(self.config["dirpath"], self.config["filename"])
         )
 
-    def write_title(self):
-        "Title page."
+    def write_title_page(self):
         paragraph = self.document.add_paragraph(style="Title")
         run = paragraph.add_run(self.main.title)
         run.font.size = docx.shared.Pt(constants.FONT_TITLE_SIZE)
@@ -125,6 +127,27 @@ class Exporter:
 
         now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
         self.document.add_paragraph(f"{Tr('Created')}: {now}")
+
+    def write_toc(self):
+        # self.document.add_page_break()
+        pass
+
+    def write_page_number(self):
+        "Display page number in the header."
+        # From https://stackoverflow.com/questions/56658872/add-page-number-using-python-docx
+        paragraph = self.document.sections[-1].header.paragraphs[0]
+        paragraph.alignment = docx.enum.text.WD_ALIGN_PARAGRAPH.RIGHT
+        run = paragraph.add_run()
+        fldChar1 = docx.oxml.OxmlElement("w:fldChar")
+        fldChar1.set(docx.oxml.ns.qn('w:fldCharType'), 'begin')
+        instrText = docx.oxml.OxmlElement("w:instrText")
+        instrText.set(docx.oxml.ns.qn('xml:space'), 'preserve')
+        instrText.text = "PAGE"
+        fldChar2 = docx.oxml.OxmlElement("w:fldChar")
+        fldChar2.set(docx.oxml.ns.qn('w:fldCharType'), 'end')
+        run._r.append(fldChar1)
+        run._r.append(instrText)
+        run._r.append(fldChar2)
 
     def write_section(self, section, level):
         if level <= self.config["page_break_level"]:
