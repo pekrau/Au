@@ -147,9 +147,12 @@ Store in gzipped tar file,Skriv till en gzippad tar fil
 indexing font,typsnitt för index
 reference font,typsnitt för referens
 contents,innehåll
-xref display for indexed,visning av korsreferens för indexerade
-xref display for references,visning av korsreferens för referenser
+xref for indexed,korsreferens för indexerade
+xref for references,korsreferens för referenser
 no xrefs,inga korsreferenser
 page number,sidnummer
 text full name,hel rubrik för text
 text heading,numrerad rubrik för text
+after each text,efter varje text
+after each chapter,efter varje kapitel
+at end of book,i slutet av boken

@@ -19,24 +19,34 @@ from utils import Tr
 
 FONTDIR = "/usr/share/fonts/truetype/freefont"
 
-BLUE = (20, 20, 255)
+HREF_COLOR = (20, 20, 255)
 THEMATIC_BREAK_INDENT = 100
 
-NO_XREF = "No xrefs"
+EACH_TEXT = "After each text"
+EACH_CHAPTER = "After each chapter"
+END_OF_BOOK = "At end of book"
+FOOTNOTES_DISPLAY = (
+    EACH_TEXT,
+    EACH_CHAPTER,
+    END_OF_BOOK,
+)
+    
 PAGE_NUMBER = "Page number"
 TEXT_FULL_NAME = "Text full name"
 TEXT_HEADING = "Text heading"
-INDEXED_XREF_DISPLAY = {
-    PAGE_NUMBER: "page",
-    TEXT_FULL_NAME: "fullname",
-    TEXT_HEADING: "heading",
-}
-REFERENCES_XREF_DISPLAY = {
-    NO_XREF: "none",
-    PAGE_NUMBER: "page",
-    TEXT_FULL_NAME: "fullname",
-    TEXT_HEADING: "heading",
-}
+INDEXED_XREF_DISPLAY = (
+    PAGE_NUMBER,
+    TEXT_FULL_NAME,
+    TEXT_HEADING,
+)
+
+NO_XREF = "No xrefs"
+REFERENCES_XREF_DISPLAY = (
+    NO_XREF,
+    PAGE_NUMBER,
+    TEXT_FULL_NAME,
+    TEXT_HEADING,
+)
 
 
 class Exporter:
@@ -67,9 +77,9 @@ class Exporter:
         # Key: reference id; value: dict(ordinal, fullname, heading, page)
         self.referenced = {}
         self.referenced_count = 0
+        self.list_stack = []
         # Key: fullname; value: dict(label, number, ast_children)
         self.footnotes = {}
-        self.list_stack = []
 
         self.pdf = fpdf.FPDF(format="a4", unit="pt")
         self.pdf.set_title(self.main.title)
@@ -135,11 +145,16 @@ class Exporter:
             self.skip_first_add_page = False
 
         self.current_text = None
+        # First-level items are chapters.
         for item in self.source.items:
             if item.is_section:
                 self.write_section(item, level=1)
             else:
                 self.write_text(item, level=1)
+            if self.config["footnotes"] == EACH_CHAPTER:
+                self.write_footnotes_chapter(item)
+        if self.config["footnotes"] == END_OF_BOOK:
+            self.write_footnotes_book()
         self.write_references()
         self.write_indexed()
 
@@ -224,7 +239,8 @@ class Exporter:
             self.write_heading(text.heading, level)
         self.current_text = text
         self.render(text.ast)
-        self.write_text_footnotes(text)
+        if self.config["footnotes"] == EACH_TEXT:
+            self.write_footnotes_text(text)
 
     def write_heading(self, heading, level, factor=1.5):
         level = min(level, constants.MAX_H_LEVEL)
@@ -233,8 +249,8 @@ class Exporter:
         self.state.ln(factor)
         self.state.reset()
 
-    def write_text_footnotes(self, text):
-        "Footnotes at end of the text."
+    def write_footnotes_text(self, text):
+        "Write footnotes definitions at the end of each text."
         try:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
@@ -242,18 +258,54 @@ class Exporter:
         self.state.ln()
         self.write_heading(Tr("Footnotes"), 6)
         self.state.set(line_height=1.1)
-        for label, entry in sorted(footnotes.items()):
-            self.state.write(f"{label}. ")
+        for entry in sorted(footnotes.values(), key=lambda e: e["number"]):
+            self.state.write(f"{entry['number']}. ")
             self.state.set(left_indent=20)
             for child in entry["ast_children"]:
                 self.render(child)
             self.state.reset()
         self.state.reset()
 
+    def write_footnotes_chapter(self, item):
+        "Write footnotes definitions at the end of a chapter."
+        try:
+            footnotes = self.footnotes[item.chapter.fullname]
+        except KeyError:
+            return
+        self.pdf.add_page()
+        self.write_heading(Tr("Footnotes"), 4)
+        self.state.set(line_height=1.1)
+        for entry in sorted(footnotes.values(), key=lambda e: e["number"]):
+            self.state.write(f"{entry['number']}. ")
+            self.state.set(left_indent=20)
+            for child in entry["ast_children"]:
+                self.render(child)
+            self.state.reset()
+        self.state.reset()
+
+    def write_footnotes_book(self):
+        "Write footnotes definitions as a separate section at the end of the book."
+        self.pdf.add_page()
+        self.pdf.start_section(Tr("Footnotes"), level=0)
+        self.write_heading(Tr("Footnotes"), 1)
+        for item in self.source.items:
+            footnotes = self.footnotes.get(item.fullname, {})
+            if not footnotes:
+                continue
+            self.write_heading(item.heading, 2)
+            self.state.set(line_height=1.1)
+            for entry in sorted(footnotes.values(), key=lambda e: e["number"]):
+                self.state.write(f"{entry['number']}. ")
+                self.state.set(left_indent=20)
+                for child in entry["ast_children"]:
+                    self.render(child)
+                self.state.reset()
+            self.state.reset()
+
     def write_references(self):
         self.pdf.add_page()
-        self.write_heading(Tr("References"), 1)
         self.pdf.start_section(Tr("References"), level=0)
+        self.write_heading(Tr("References"), 1)
         lookup = self.main.references_viewer.reference_lookup
         for refid, entries in sorted(self.referenced.items()):
             reference = lookup[refid]
@@ -324,7 +376,7 @@ class Exporter:
         except KeyError:
             pass
         try:
-            self.state.set(style="U", text_color=BLUE)
+            self.state.set(style="U", text_color=HREF_COLOR)
             self.pdf.cell(
                 h=self.state.line_height * self.state.font_size,
                 text=reference["title"],
@@ -355,7 +407,7 @@ class Exporter:
         for pos, (text, link) in enumerate(links):
             if pos != 0:
                 self.state.write(", ")
-            self.state.set(style="U", text_color=BLUE)
+            self.state.set(style="U", text_color=HREF_COLOR)
             self.pdf.cell(
                 h=self.state.line_height * self.state.font_size,
                 text=text,
@@ -368,18 +420,25 @@ class Exporter:
     def write_reference_xrefs(self, entries):
         if not entries:
             return
-        display = self.config["references_xref"]
-        if display == REFERENCES_XREF_DISPLAY[NO_XREF]:
+        if self.config["references_xref"] == NO_XREF:
+            return
+        if self.config["references_xref"] == PAGE_NUMBER:
+            key = "page"
+        elif self.config["references_xref"] == TEXT_FULL_NAME:
+            key = "fullname"
+        elif self.config["references_xref"] == TEXT_HEADING:
+            key = "heading"
+        else:
             return
         self.state.set(left_indent=20)
         self.state.ln()
         for pos, entry in enumerate(sorted(entries, key=lambda e: e["ordinal"])):
             if pos != 0:
                 self.state.write(", ")
-            self.state.set(style="U", text_color=BLUE)
+            self.state.set(style="U", text_color=HREF_COLOR)
             self.pdf.cell(
                 h=self.state.line_height * self.state.font_size,
-                text=str(entry[display]),  # Page number is 'int'.
+                text=str(entry[key]),  # Page number is 'int'.
                 link=self.pdf.add_link(page=entry["page"]),
                 new_x=fpdf.enums.XPos.WCONT,
             )
@@ -388,8 +447,16 @@ class Exporter:
 
     def write_indexed(self):
         self.pdf.add_page()
-        self.write_heading(Tr("Index"), 1)
         self.pdf.start_section(Tr("Index"), level=0)
+        self.write_heading(Tr("Index"), 1)
+        if self.config["indexed_xref"] == PAGE_NUMBER:
+            key = "page"
+        elif self.config["indexed_xref"] == TEXT_FULL_NAME:
+            key = "fullname"
+        elif self.config["indexed_xref"] == TEXT_HEADING:
+            key = "heading"
+        else:
+            return
         items = sorted(self.indexed.items(), key=lambda i: i[0].lower())
         for canonical, entries in items:
             self.state.set(style="B")
@@ -397,14 +464,13 @@ class Exporter:
             self.state.reset()
             self.state.write("  ")
             entries.sort(key=lambda e: e["ordinal"])
-            display = self.config["indexed_xref"]
             for pos, entry in enumerate(entries):
                 if pos != 0:
                     self.state.write(", ")
-                self.state.set(style="U", text_color=BLUE)
+                self.state.set(style="U", text_color=HREF_COLOR)
                 self.pdf.cell(
                     h=self.state.line_height * self.state.font_size,
-                    text=str(entry[display]),  # Page number is 'int'.
+                    text=str(entry[key]),  # Page number is 'int'.
                     link=self.pdf.add_link(page=entry["page"]),
                     new_x=fpdf.enums.XPos.WCONT,
                 )
@@ -509,11 +575,12 @@ class Exporter:
         for child in ast["children"]:
             if child["element"] == "raw_text":
                 raw_text.append(child["children"])
-        self.state.set(style="U", text_color=BLUE)
+        self.state.set(style="U", text_color=HREF_COLOR)
         self.pdf.cell(
             h=self.state.line_height * self.state.font_size,
             text="".join(raw_text),
             link=ast["dest"],
+            new_x=fpdf.enums.XPos.WCONT,
         )
         self.state.reset()
 
@@ -565,19 +632,31 @@ class Exporter:
         self.state.reset()
 
     def render_footnote_ref(self, ast):
-        entries = self.footnotes.setdefault(self.current_text.fullname, {})
+        "The label is used only for lookup; number is used for output."
         label = ast["label"]
-        number = int(label)
-        entries[number] = dict(label=label, number=number)
+        if self.config["footnotes"] == EACH_TEXT:
+            entries = self.footnotes.setdefault(self.current_text.fullname, {})
+            number = len(entries) + 1
+            key = label
+        elif self.config["footnotes"] in (EACH_CHAPTER, END_OF_BOOK):
+            fullname = self.current_text.chapter.fullname
+            entries = self.footnotes.setdefault(fullname, {})
+            number = len(entries) + 1
+            key = f"{fullname}-{label}"
+        entries[key] = dict(label=label, number=number, page=self.pdf.page_no())
         self.state.set(vertical="superscript", style="B")
-        self.state.write(label)
+        self.state.write(str(number))
         self.state.reset()
 
     def render_footnote_def(self, ast):
-        number = int(ast["label"])
-        self.footnotes[self.current_text.fullname][number]["ast_children"] = ast[
-            "children"
-        ]
+        label = ast["label"]
+        if self.config["footnotes"] == EACH_TEXT:
+            fullname = self.current_text.fullname
+            key = label
+        elif self.config["footnotes"] in (EACH_CHAPTER, END_OF_BOOK):
+            fullname = self.current_text.chapter.fullname
+            key = f"{fullname}-{label}"
+        self.footnotes[fullname][key]["ast_children"] = ast["children"]
 
     def render_reference(self, ast):
         entries = self.referenced.setdefault(ast["reference"], [])
@@ -773,30 +852,44 @@ class Dialog(tk.simpledialog.Dialog):
         button.pack(anchor=tk.W)
 
         row += 1
-        label = tk.ttk.Label(body, text=Tr("Xref display for indexed"))
+        label = tk.ttk.Label(body, text=Tr("Footnotes"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.indexed_xref_var = tk.StringVar(
-            value=self.config.get("indexed_xref", INDEXED_XREF_DISPLAY[PAGE_NUMBER])
+        self.footnotes_var = tk.StringVar(
+            value=self.config.get("footnotes", FOOTNOTES_DISPLAY[0])
         )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        for label, display in INDEXED_XREF_DISPLAY.items():
+        for label in FOOTNOTES_DISPLAY:
             button = tk.ttk.Radiobutton(
-                frame, text=Tr(label), value=display, variable=self.indexed_xref_var
+                frame, text=Tr(label), value=label, variable=self.footnotes_var
             )
             button.pack(anchor=tk.W)
 
         row += 1
-        label = tk.ttk.Label(body, text=Tr("Xref display for references"))
+        label = tk.ttk.Label(body, text=Tr("Xref for indexed"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.references_xref_var = tk.StringVar(
-            value=self.config.get("references_xref", REFERENCES_XREF_DISPLAY[PAGE_NUMBER])
+        self.indexed_xref_var = tk.StringVar(
+            value=self.config.get("indexed_xref", INDEXED_XREF_DISPLAY[0])
         )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        for label, display in REFERENCES_XREF_DISPLAY.items():
+        for label in INDEXED_XREF_DISPLAY:
             button = tk.ttk.Radiobutton(
-                frame, text=Tr(label), value=display, variable=self.references_xref_var
+                frame, text=Tr(label), value=label, variable=self.indexed_xref_var
+            )
+            button.pack(anchor=tk.W)
+
+        row += 1
+        label = tk.ttk.Label(body, text=Tr("Xref for references"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.references_xref_var = tk.StringVar(
+            value=self.config.get("references_xref", REFERENCES_XREF_DISPLAY[0])
+        )
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        for label in REFERENCES_XREF_DISPLAY:
+            button = tk.ttk.Radiobutton(
+                frame, text=Tr(label), value=label, variable=self.references_xref_var
             )
             button.pack(anchor=tk.W)
 
@@ -807,6 +900,7 @@ class Dialog(tk.simpledialog.Dialog):
         self.config["page_break_level"] = self.page_break_level_var.get()
         self.config["contents_level"] = self.contents_level_var.get()
         self.config["contents_pages"] = bool(self.contents_pages_var.get())
+        self.config["footnotes"] = self.footnotes_var.get()
         self.config["indexed_xref"] = self.indexed_xref_var.get()
         self.config["references_xref"] = self.references_xref_var.get()
         self.result = self.config

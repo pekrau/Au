@@ -3,7 +3,7 @@
 import functools
 import os
 
-VERSION = (0, 15, 2)
+VERSION = (0, 15, 3)
 __version__ = ".".join([str(n) for n in VERSION])
 
 
@@ -160,6 +160,7 @@ LIST_PREFIX = "list-"
 LIST_ITEM_PREFIX = "list_item-"
 LIST_BULLET_PREFIX = "list_bullet-"
 LIST_INDENT = 16
+LIST_COLOR = "lightcyan"
 
 LINK = "link"
 LINK_PREFIX = "link-"
