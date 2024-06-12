@@ -151,10 +151,8 @@ class Exporter:
                 self.write_section(item, level=1)
             else:
                 self.write_text(item, level=1)
-            if self.config["footnotes"] == EACH_CHAPTER:
-                self.write_footnotes_chapter(item)
-        if self.config["footnotes"] == END_OF_BOOK:
-            self.write_footnotes_book()
+            self.write_footnotes_chapter(item)
+        self.write_footnotes_book()
         self.write_references()
         self.write_indexed()
 
@@ -239,8 +237,7 @@ class Exporter:
             self.write_heading(text.heading, level)
         self.current_text = text
         self.render(text.ast)
-        if self.config["footnotes"] == EACH_TEXT:
-            self.write_footnotes_text(text)
+        self.write_footnotes_text(text)
 
     def write_heading(self, heading, level, factor=1.5):
         level = min(level, constants.MAX_H_LEVEL)
@@ -250,7 +247,9 @@ class Exporter:
         self.state.reset()
 
     def write_footnotes_text(self, text):
-        "Write footnotes definitions at the end of each text."
+        "Footnote definitions at the end of each text."
+        if self.config["footnotes"] != EACH_TEXT:
+            return
         try:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
@@ -267,7 +266,9 @@ class Exporter:
         self.state.reset()
 
     def write_footnotes_chapter(self, item):
-        "Write footnotes definitions at the end of a chapter."
+        "Footnote definitions at the end of a chapter."
+        if self.config["footnotes"] != EACH_CHAPTER:
+            return
         try:
             footnotes = self.footnotes[item.chapter.fullname]
         except KeyError:
@@ -284,7 +285,9 @@ class Exporter:
         self.state.reset()
 
     def write_footnotes_book(self):
-        "Write footnotes definitions as a separate section at the end of the book."
+        "Footnote definitions as a separate section at the end of the book."
+        if self.config["footnotes"] != END_OF_BOOK:
+            return
         self.pdf.add_page()
         self.pdf.start_section(Tr("Footnotes"), level=0)
         self.write_heading(Tr("Footnotes"), 1)
@@ -632,7 +635,7 @@ class Exporter:
         self.state.reset()
 
     def render_footnote_ref(self, ast):
-        "The label is used only for lookup; number is used for output."
+        # The label is used only for lookup; number is used for output.
         label = ast["label"]
         if self.config["footnotes"] == EACH_TEXT:
             entries = self.footnotes.setdefault(self.current_text.fullname, {})

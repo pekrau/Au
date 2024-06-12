@@ -24,6 +24,15 @@ QUOTE_STYLE = "Au Quote"
 QUOTE_LEFT_INDENT = 30
 QUOTE_RIGHT_INDENT = 70
 
+EACH_TEXT = "After each text"
+EACH_CHAPTER = "After each chapter"
+END_OF_BOOK = "At end of book"
+FOOTNOTES_DISPLAY = (
+    EACH_TEXT,
+    EACH_CHAPTER,
+    END_OF_BOOK,
+)
+    
 
 class Exporter:
     "DOCX exporter."
@@ -95,6 +104,8 @@ class Exporter:
                 self.write_section(item, level=1)
             else:
                 self.write_text(item, level=1)
+            self.write_footnotes_chapter(item)
+        self.write_footnotes_book()
         self.write_references()
         self.write_indexed()
 
@@ -129,7 +140,7 @@ class Exporter:
         self.document.add_paragraph(f"{Tr('Created')}: {now}")
 
     def write_toc(self):
-        # self.document.add_page_break()
+        # XXX
         pass
 
     def write_page_number(self):
@@ -170,7 +181,7 @@ class Exporter:
         self.italic = False
         self.current_text = text
         self.render(text.ast)
-        self.write_text_footnotes(text)
+        self.write_footnotes_text(text)
 
     def write_heading(self, heading, level):
         level = min(level, constants.MAX_H_LEVEL)
@@ -181,8 +192,10 @@ class Exporter:
         run = paragraph.add_run(heading)
         run.font.size = docx.shared.Pt(h["font"][1])
 
-    def write_text_footnotes(self, text):
+    def write_footnotes_text(self, text):
         "Footnotes at end of the text."
+        if self.config["footnotes"] != EACH_TEXT:
+            return
         try:
             footnotes = self.footnotes[text.fullname]
         except KeyError:
@@ -190,13 +203,50 @@ class Exporter:
         paragraph = self.document.add_heading(Tr("Footnotes"), 6)
         paragraph.paragraph_format.space_before = docx.shared.Pt(25)
         paragraph.paragraph_format.space_after = docx.shared.Pt(10)
-        for label in sorted(footnotes.keys()):
+        for entry in sorted(footnotes.values(), key=lambda e: e["number"]):
             self.footnote_paragraph = self.document.add_paragraph()
-            run = self.footnote_paragraph.add_run(f"{label}  ")
+            run = self.footnote_paragraph.add_run(f"{entry['number']}. ")
             run.italic = True
-            for child in footnotes[label]["ast_children"]:
+            for child in entry["ast_children"]:
                 self.render(child)
             self.footnote_paragraph = None
+
+    def write_footnotes_chapter(self, item):
+        "Footnote definitions at the end of a chapter."
+        if self.config["footnotes"] != EACH_CHAPTER:
+            return
+        try:
+            footnotes = self.footnotes[item.chapter.fullname]
+        except KeyError:
+            return
+        self.document.add_page_break()
+        self.write_heading(Tr("Footnotes"), 4)
+        for entry in sorted(footnotes.values(), key=lambda e: e["number"]):
+            self.footnote_paragraph = self.document.add_paragraph()
+            run = self.footnote_paragraph.add_run(f"{entry['number']}. ")
+            run.italic = True
+            for child in entry["ast_children"]:
+                self.render(child)
+            self.footnote_paragraph = None
+
+    def write_footnotes_book(self):
+        "Footnote definitions as a separate section at the end of the book."
+        if self.config["footnotes"] != END_OF_BOOK:
+            return
+        self.document.add_page_break()
+        self.write_heading(Tr("Footnotes"), 1)
+        for item in self.source.items:
+            footnotes = self.footnotes.get(item.fullname, {})
+            if not footnotes:
+                continue
+            self.write_heading(item.heading, 2)
+            for entry in sorted(footnotes.values(), key=lambda e: e["number"]):
+                self.footnote_paragraph = self.document.add_paragraph()
+                run = self.footnote_paragraph.add_run(f"{entry['number']}. ")
+                run.italic = True
+                for child in entry["ast_children"]:
+                    self.render(child)
+                self.footnote_paragraph = None
 
     def write_references(self):
         self.document.add_page_break()
@@ -464,18 +514,31 @@ class Exporter:
             run.underline = True
 
     def render_footnote_ref(self, ast):
-        entries = self.footnotes.setdefault(self.current_text.fullname, {})
-        label = int(ast["label"])
-        entries[label] = dict(label=label)
-        run = self.paragraph.add_run(str(label))
+        # The label is used only for lookup; number is used for output.
+        label = ast["label"]
+        if self.config["footnotes"] == EACH_TEXT:
+            entries = self.footnotes.setdefault(self.current_text.fullname, {})
+            number = len(entries) + 1
+            key = label
+        elif self.config["footnotes"] in (EACH_CHAPTER, END_OF_BOOK):
+            fullname = self.current_text.chapter.fullname
+            entries = self.footnotes.setdefault(fullname, {})
+            number = len(entries) + 1
+            key = f"{fullname}-{label}"
+        entries[key] = dict(label=label, number=number)
+        run = self.paragraph.add_run(str(number))
         run.font.superscript = True
         run.font.bold = True
 
     def render_footnote_def(self, ast):
-        label = int(ast["label"])
-        self.footnotes[self.current_text.fullname][label]["ast_children"] = ast[
-            "children"
-        ]
+        label = ast["label"]
+        if self.config["footnotes"] == EACH_TEXT:
+            fullname = self.current_text.fullname
+            key = label
+        elif self.config["footnotes"] in (EACH_CHAPTER, END_OF_BOOK):
+            fullname = self.current_text.chapter.fullname
+            key = f"{fullname}-{label}"
+        self.footnotes[fullname][key]["ast_children"] = ast["children"]
 
     def render_reference(self, ast):
         entries = self.referenced.setdefault(ast["reference"], [])
@@ -540,6 +603,20 @@ class Dialog(tk.simpledialog.Dialog):
             button.pack(anchor=tk.W)
 
         row += 1
+        label = tk.ttk.Label(body, text=Tr("Footnotes"))
+        label.grid(row=row, column=0, padx=4, sticky=tk.NE)
+        self.footnotes_var = tk.StringVar(
+            value=self.config.get("footnotes", FOOTNOTES_DISPLAY[0])
+        )
+        frame = tk.ttk.Frame(body)
+        frame.grid(row=row, column=1, padx=4, sticky=tk.W)
+        for label in FOOTNOTES_DISPLAY:
+            button = tk.ttk.Radiobutton(
+                frame, text=Tr(label), value=label, variable=self.footnotes_var
+            )
+            button.pack(anchor=tk.W)
+
+        row += 1
         label = tk.ttk.Label(body, text=Tr("Indexing font"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.indexed_font_var = tk.StringVar(
@@ -547,31 +624,14 @@ class Dialog(tk.simpledialog.Dialog):
         )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        button = tk.ttk.Radiobutton(
-            frame,
-            text=Tr("Normal"),
-            variable=self.indexed_font_var,
-            value=constants.NORMAL,
-        )
-        button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(
-            frame,
-            text=Tr("Italic"),
-            variable=self.indexed_font_var,
-            value=constants.ITALIC,
-        )
-        button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(
-            frame, text=Tr("Bold"), variable=self.indexed_font_var, value=constants.BOLD
-        )
-        button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(
-            frame,
-            text=Tr("Underline"),
-            variable=self.indexed_font_var,
-            value=constants.UNDERLINE,
-        )
-        button.pack(anchor=tk.W)
+        for label in (constants.NORMAL, constants.ITALIC, constants.BOLD, constants.UNDERLINE):
+            button = tk.ttk.Radiobutton(
+                frame,
+                text=Tr(label).capitalize(),
+                variable=self.indexed_font_var,
+                value=label,
+            )
+            button.pack(anchor=tk.W)
 
         row += 1
         label = tk.ttk.Label(body, text=Tr("Reference font"))
@@ -581,40 +641,21 @@ class Dialog(tk.simpledialog.Dialog):
         )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        button = tk.ttk.Radiobutton(
-            frame,
-            text=Tr("Normal"),
-            variable=self.references_font_var,
-            value=constants.NORMAL,
-        )
-        button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(
-            frame,
-            text=Tr("Italic"),
-            variable=self.references_font_var,
-            value=constants.ITALIC,
-        )
-        button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(
-            frame,
-            text=Tr("Bold"),
-            variable=self.references_font_var,
-            value=constants.BOLD,
-        )
-        button.pack(anchor=tk.W)
-        button = tk.ttk.Radiobutton(
-            frame,
-            text=Tr("Underline"),
-            variable=self.references_font_var,
-            value=constants.UNDERLINE,
-        )
-        button.pack(anchor=tk.W)
+        for label in (constants.NORMAL, constants.ITALIC, constants.BOLD, constants.UNDERLINE):
+            button = tk.ttk.Radiobutton(
+                frame,
+                text=Tr(label).capitalize(),
+                variable=self.references_font_var,
+                value=label,
+            )
+            button.pack(anchor=tk.W)
 
     def apply(self):
         self.config["dirpath"] = self.dirpath_entry.get().strip() or os.getcwd()
         filename = self.filename_entry.get().strip() or constants.BOOK
         self.config["filename"] = os.path.splitext(filename)[0] + ".docx"
         self.config["page_break_level"] = self.page_break_level_var.get()
+        self.config["footnotes"] = self.footnotes_var.get()
         self.config["indexed_font"] = self.indexed_font_var.get()
         self.config["references_font"] = self.references_font_var.get()
         self.result = self.config
