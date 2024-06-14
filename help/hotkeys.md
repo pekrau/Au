@@ -18,7 +18,7 @@
 - **End**: Move cursor to the end of the text.
 - **PgUp**: Move cursor one page up.
 - **PgDn**: Move cursor one page down.
-- **R-click**: Bring up popup menu for available actions.
+- **Right-click**: Bring up popup menu for available actions.
 - **Ctrl-S**: Save text.
 - **Ctrl-Q**: Close window.
 - **Ctrl-N**: Move cursor to next line.
@@ -28,6 +28,7 @@
 - **Ctrl-C**: Copy selected text into system paste buffer.
 - **Ctrl-X**: Copy selected text into system paste buffer and delete.
 - **Ctrl-V**: Insert text from system paste buffer.
+- **Ctrl-space**: Select word at cursor in text.
 - **F1**: Debug tags at current position.
 - **F2**: Debug tags and dump of current selection.
 - **F3**: Debug current paste buffer.

@@ -14,7 +14,6 @@ create section,skapa sektion
 rename,ändra namn
 copy,kopiera
 delete,radera
-really delete reference,verkligen radera referensen
 move up,flytta upp
 move down,flytta ner
 rearrange,flytta
@@ -38,17 +37,17 @@ issue,utgåva
 pages,sidor
 add,lägg till
 add reference,lägg till referens
+remove reference,ta bort referens
 edit authors,editera författare
 language,språk
 edit language,editera språk
 index,index
-remove indexing?,ta bort indexering?
-really remove indexing for,verkligen ta bort indexering för
+remove indexing,ta bort indexering
 search,sök
 help,hjälp
 canonical,kanonisk
 canonical?,kanonisk?
-give canonical term:,ange kanonisk term
+give canonical term,ange kanonisk term
 ok,ok
 show,visa
 remove,ta bort
@@ -59,23 +58,17 @@ reference id,referens id
 cut,klipp
 paste,klistra
 bold,fetstil
-remove bold?,ta bort fetstil?
-really remove bold?,verkligen ta bort fetstil?
+remove bold,ta bort fetstil
 italic,kursiv
-remove italic?,ta bort kursiv?
-really remove italic?,verkligen ta bort kursiv?
+remove italic,ta bort kursiv
 quote,citat
-remove quote?,ta bort citat?
-really remove quote?,verkligen ta bort citat?
+remove quote,ta bort citat
 code,kod
-remove code?,ta bort kod?
-really remove code?,verkligen ta bort kod?
+remove code,ta bort kod
 fenced code,avgränsad kod
-remove fenced code?,ta bort avgränsad kod?
-really remove fenced code?,verkligen ta bort avgränsad kod?
+remove fenced code,ta bort avgränsad kod
 code block,kodblock
-remove code block?,ta bort kodblock?
-really remove code block?,verkligen ta bort kodblock?
+remove code block,ta bort kodblock
 heading,rubrik
 ordered,numrerad
 unordered,onumrerad
@@ -85,8 +78,7 @@ Link URL?,URL för länk?
 Give URL for link:,Ange URL for länk:
 footnote,fotnot
 footnotes,fotnoter
-remove footnote?,ta bort fotnot?
-really remove footnote?,verkligen ta bort fotnot?
+remove footnote,ta bort fotnot
 list,lista
 add list item,lägg till listpunkt
 remove list item,ta bort listpunkt

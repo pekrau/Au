@@ -4,6 +4,7 @@ from icecream import ic
 
 import functools
 import io
+import string
 import webbrowser
 
 import tkinter as tk
@@ -91,22 +92,13 @@ class Editor(TextViewer):
         )
         self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
 
-    def bind_tags(self):
-        super().bind_tags()
-        self.view.tag_bind(constants.BOLD, "<Button-1>", self.bold_remove)
-        self.view.tag_bind(constants.ITALIC, "<Button-1>", self.italic_remove)
-        self.view.tag_bind(constants.QUOTE, "<Button-1>", self.quote_remove)
-        self.view.tag_bind(constants.CODE_SPAN, "<Button-1>", self.code_span_remove)
-        self.view.tag_bind(constants.CODE_BLOCK, "<Button-1>", self.code_block_remove)
-        self.view.tag_bind(constants.FENCED_CODE, "<Button-1>", self.fenced_code_remove)
-        self.view.tag_bind(constants.FOOTNOTE_REF, "<Button-1>", self.footnote_remove)
-
     def bind_events(self):
         super().bind_events()
         self.view.bind("<Control-x>", self.clipboard_cut)
         self.view.bind("<Control-X>", self.clipboard_cut)
         self.view.bind("<Control-v>", self.clipboard_paste)
         self.view.bind("<Control-V>", self.clipboard_paste)
+        self.view.bind("<Control-space>", self.select)
         self.view.bind("<<Modified>>", self.handle_modified)
         self.view.bind("<<Selection>>", self.selection_changed)
 
@@ -132,8 +124,6 @@ class Editor(TextViewer):
             if list_item_tag:
                 self.list_item_add(list_item_tag=list_item_tag)
                 return "break"
-            # Add another newline, apart from the one created naturally.
-            self.view.insert(tk.INSERT, "\n")
 
     def display_heading(self):
         "Do not display the heading in the text edit area."
@@ -161,6 +151,44 @@ class Editor(TextViewer):
         try:
             first, last = self.get_selection()
         except ValueError:  # No current selection.
+            tags = self.view.tag_names(tk.CURRENT)
+            if constants.BOLD in tags:
+                menu.add_command(label=Tr("Remove bold"),
+                                 command=self.bold_remove)
+            if constants.ITALIC in tags:
+                menu.add_command(label=Tr("Remove italic"),
+                                 command=self.italic_remove)
+            if constants.QUOTE in tags:
+                menu.add_command(label=Tr("Remove quote"),
+                                 command=self.quote_remove)
+            if constants.CODE_SPAN in tags:
+                menu.add_command(label=Tr("Remove code span"),
+                                 command=self.code_span_remove)
+            if constants.QUOTE in tags:
+                menu.add_command(label=Tr("Remove quote"),
+                                 command=self.quote_remove)
+            if constants.CODE_BLOCK in tags:
+                menu.add_command(label=Tr("Remove code block"),
+                                 command=self.code_block_remove)
+            if constants.FENCED_CODE in tags:
+                menu.add_command(label=Tr("Remove fenced code"),
+                                 command=self.fenced_code_remove)
+            term = self.get_indexed()
+            if term:
+                menu.add_command(label=f"{Tr('Remove indexed')} '{term}'",
+                                 command=self.indexed_remove)
+            for tag in tags:
+                if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
+                    menu.add_command(label=Tr("Remove footnote"),
+                                     command=self.footnote_remove)
+                    break
+            reference = self.get_reference()
+            if reference:
+                menu.add_command(label=Tr("Remove reference"),
+                                 command=self.reference_remove)
+
+            if menu.index(tk.END) is not None:
+                menu.add_separator()
             list_item_tag = self.get_list_item_tag()
             if list_item_tag:
                 menu.add_command(
@@ -219,16 +247,11 @@ class Editor(TextViewer):
         self.view.tag_add(constants.BOLD, first, last)
         self.modified = True
 
-    def bold_remove(self, event):
-        if constants.BOLD not in self.view.tag_names(tk.CURRENT):
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title=f"{Tr('Remove bold?')}",
-            message=f"{Tr('Really remove bold?')}",
-        ):
-            return
-        first, last = self.view.tag_prevrange(constants.BOLD, tk.CURRENT)
+    def bold_remove(self):
+        try:
+            first, last = self.view.tag_prevrange(constants.BOLD, tk.CURRENT)
+        except ValueError:
+            first, last = self.view.tag_nextrange(constants.BOLD, tk.CURRENT)
         self.view.tag_remove(constants.BOLD, first, last)
         self.modified = True
 
@@ -242,18 +265,10 @@ class Editor(TextViewer):
         self.view.tag_add(constants.ITALIC, first, last)
         self.modified = True
 
-    def italic_remove(self, event):
-        if constants.ITALIC not in self.view.tag_names(tk.CURRENT):
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title=f"{Tr('Remove italic?')}",
-            message=f"{Tr('Really remove italic?')}",
-        ):
-            return
+    def italic_remove(self):
         try:
             first, last = self.view.tag_prevrange(constants.ITALIC, tk.CURRENT)
-        except ValueError:  # XXX Not sure why this is needed?
+        except ValueError:
             first, last = self.view.tag_nextrange(constants.ITALIC, tk.CURRENT)
         self.view.tag_remove(constants.ITALIC, first, last)
         self.modified = True
@@ -267,16 +282,11 @@ class Editor(TextViewer):
         self.view.tag_add(constants.CODE_SPAN, first, last)
         self.modified = True
 
-    def code_span_remove(self, event):
-        if constants.CODE_SPAN not in self.view.tag_names(tk.CURRENT):
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title=f"{Tr('Remove code span?')}",
-            message=f"{Tr('Really remove code span?')}",
-        ):
-            return
-        first, last = self.view.tag_prevrange(constants.CODE_SPAN, tk.CURRENT)
+    def code_span_remove(self):
+        try:
+            first, last = self.view.tag_prevrange(constants.CODE_SPAN, tk.CURRENT)
+        except ValueError:
+            first, last = self.view.tag_nextrange(constants.CODE_SPAN, tk.CURRENT)
         self.view.tag_remove(constants.CODE_SPAN, first, last)
         self.modified = True
 
@@ -297,16 +307,11 @@ class Editor(TextViewer):
         if "\n\n" not in self.view.get(first + "-2c", first):
             self.view.insert(first, "\n\n")
 
-    def quote_remove(self, event):
-        if constants.QUOTE not in self.view.tag_names(tk.CURRENT):
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title=f"{Tr('Remove quote?')}",
-            message=f"{Tr('Really remove quote?')}",
-        ):
-            return
-        first, last = self.view.tag_prevrange(constants.QUOTE, tk.CURRENT)
+    def quote_remove(self):
+        try:
+            first, last = self.view.tag_prevrange(constants.QUOTE, tk.CURRENT)
+        except ValueError:
+            first, last = self.view.tag_nextrange(constants.QUOTE, tk.CURRENT)
         self.view.tag_remove(constants.QUOTE, first, last)
         self.modified = True
 
@@ -320,16 +325,11 @@ class Editor(TextViewer):
         self.make_paragraph(first, last)
         self.modified = True
 
-    def code_block_remove(self, event):
-        if constants.CODE_BLOCK not in self.view.tag_names(tk.CURRENT):
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title=f"{Tr('Remove code block?')}",
-            message=f"{Tr('Really remove code block?')}",
-        ):
-            return
-        first, last = self.view.tag_prevrange(constants.CODE_BLOCK, tk.CURRENT)
+    def code_block_remove(self):
+        try:
+            first, last = self.view.tag_prevrange(constants.CODE_BLOCK, tk.CURRENT)
+        except ValueError:
+            first, last = self.view.tag_nextrange(constants.CODE_BLOCK, tk.CURRENT)
         self.view.tag_remove(constants.CODE_BLOCK, first, last)
         self.modified = True
 
@@ -343,16 +343,11 @@ class Editor(TextViewer):
         self.make_paragraph(first, last)
         self.modified = True
 
-    def fenced_code_remove(self, event):
-        if constants.FENCED_CODE not in self.view.tag_names(tk.CURRENT):
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title=f"{Tr('Remove fenced code?')}",
-            message=f"{Tr('Really remove fenced code?')}",
-        ):
-            return
-        first, last = self.view.tag_prevrange(constants.FENCED_CODE, tk.CURRENT)
+    def fenced_code_remove(self):
+        try:
+            first, last = self.view.tag_prevrange(constants.FENCED_CODE, tk.CURRENT)
+        except ValueError:
+            first, last = self.view.tag_nextrange(constants.FENCED_CODE, tk.CURRENT)
         self.view.tag_remove(constants.FENCED_CODE, first, last)
         self.modified = True
 
@@ -485,15 +480,9 @@ class Editor(TextViewer):
         self.view.tag_add(constants.INDEXED_PREFIX + canonical, first, last)
         self.modified = True
 
-    def indexed_remove(self, event):
+    def indexed_remove(self):
         term = self.get_indexed()
         if not term:
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title=Tr("Remove indexing?"),
-            message=f"{Tr('Really remove indexing for')} '{term}'?",
-        ):
             return
         first, last = self.view.tag_prevrange(constants.INDEXED, tk.CURRENT)
         self.view.tag_remove(constants.INDEXED, first, last)
@@ -501,6 +490,7 @@ class Editor(TextViewer):
         self.modified = True
 
     def indexed_action(self, event):
+        "Edit the indexing of the term."
         term = self.get_indexed()
         if not term:
             return
@@ -524,20 +514,17 @@ class Editor(TextViewer):
         tags = (constants.REFERENCE, tag) + self.view.tag_names(tk.INSERT)
         self.view.insert(tk.INSERT, add.result, tags)
 
-    def reference_action(self, event):
+    def reference_remove(self):
         reference = self.get_reference()
         if not reference:
-            return
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title="Remove reference?",
-            message=f"Really remove reference '{reference}'?",
-        ):
             return
         tag = f"{constants.REFERENCE_PREFIX}{reference}".replace(" ", "_")
         first, last = self.view.tag_prevrange(tag, tk.CURRENT)
         self.view.delete(first, last)
         self.modified = True
+
+    def footnote_toggle(self, event=None):
+        pass
 
     def footnote_add(self):
         try:
@@ -567,7 +554,7 @@ class Editor(TextViewer):
         except ValueError:
             return "1"
 
-    def footnote_remove(self, event):
+    def footnote_remove(self):
         tags = self.view.tag_names(tk.CURRENT)
         for tag in tags:
             if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
@@ -577,12 +564,6 @@ class Editor(TextViewer):
             return
         tag = constants.FOOTNOTE_REF_PREFIX + label
         first, last = self.view.tag_nextrange(tag, "1.0")
-        if not tk.messagebox.askokcancel(
-            parent=self.toplevel,
-            title=Tr("Remove footnote?"),
-            message=Tr("Really remove footnote?"),
-        ):
-            return
         self.view.tag_remove(constants.FOOTNOTE_REF, first, last)
         self.view.tag_delete(tag)
         self.view.delete(first, last)
@@ -637,6 +618,23 @@ class Editor(TextViewer):
         else:
             self.view.insert(tk.INSERT, chars)
         return "break"  # When called by keyboard event.
+
+    def select(self, event):
+        pos = self.view.index(tk.INSERT)
+        first = pos
+        while True:
+            prev = self.view.index(first + "-1c")
+            if self.view.get(prev) in string.whitespace:
+                break
+            first = prev
+        last = pos
+        while True:
+            next = self.view.index(last + "+1c")
+            char = self.view.get(next)
+            last = next
+            if char in string.whitespace or char == ".":
+                break
+        self.view.tag_add(tk.SEL, first, last)
 
     def selection_changed(self, event):
         "Selection changed; normalize or disable menu items accordingly."
