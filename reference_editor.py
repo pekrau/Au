@@ -39,7 +39,7 @@ class ReferenceEditor(Editor):
 
     def metadata_create(self, parent):
         self.metadata_frame = tk.ttk.Frame(parent)
-        self.metadata_frame.pack(fill=tk.BOTH, expand=True)
+        self.metadata_frame.pack(fill=tk.X)
         self.metadata_frame.columnconfigure(1, weight=1)
         self.authors = list(self.text["authors"])
 
