@@ -355,6 +355,14 @@ class Viewer:
         self.link_create(ast["dest"], ast["title"], first, self.view.index(tk.INSERT))
 
     def render_list(self, ast):
+        # Begin list on a new line.
+        level = len(self.list_stack)
+        if level > 0:
+            self.view.insert(tk.INSERT, "\n")
+            if not self.list_stack[-1]["tight"]:
+                self.view.insert(tk.INSERT, "\n")
+
+        # The number and tags of the list.
         number = len(self.list_lookup) + 1
         list_tag = f"{constants.LIST_PREFIX}{number}"
         item_tag_prefix = f"{constants.LIST_ITEM_PREFIX}{number}-"
@@ -362,9 +370,10 @@ class Viewer:
         self.view.tag_configure(
             bullet_tag,
             font=constants.FONT_BOLD,
-            lmargin1=constants.LIST_INDENT * len(self.list_stack),
+            lmargin1=constants.LIST_INDENT * level,
         )
-        level = len(self.list_stack) + 1
+
+        # The data for this list, for future use.
         data = dict(
             number=number,
             list_tag=list_tag,
@@ -378,17 +387,19 @@ class Viewer:
             level=level,
         )
         self.list_lookup[list_tag] = data
-        if level > 1:
-            self.view.insert(tk.INSERT, "\n")
-            if not self.list_stack[-1]["tight"]:
-                self.view.insert(tk.INSERT, "\n")
         self.list_stack.append(data)
+
+        # Remember where this list starts.
         first = self.view.index(tk.INSERT)
+
+        # Render children, i.e. list items.
         for child in ast["children"]:
             self.prev_line_blank = True
             self.render(child)
+
+        # Set the overall tag for this list.
         self.view.tag_add(list_tag, first, tk.INSERT)
-        if level == 1:
+        if level == 0:
             self.line_break()
         self.list_stack.pop()
         if self.list_stack:
@@ -398,14 +409,15 @@ class Viewer:
         data = self.list_stack[-1]
         data["count"] += 1
         data["first_paragraph"] = True
+
+        # Add bullet for item.
         if data["ordered"]:
-            self.view.insert(
-                tk.INSERT,
-                f"{data['start'] + data['count'] - 1}. ",
-                data["bullet_tag"],
-            )
+            bullet = f"{data['start'] + data['count'] - 1}. "
         else:
-            self.view.insert(tk.INSERT, f"{data['bullet']}  ", data["bullet_tag"])
+            bullet = f"{data['bullet']}  "
+        self.view.insert(tk.INSERT, bullet, data["bullet_tag"])
+
+        # Create item tag and output item content.
         item_tag = f"{data['item_tag_prefix']}{data['count']}"
         self.list_lookup[item_tag] = data
         indent = constants.LIST_INDENT * len(self.list_stack)
@@ -424,7 +436,7 @@ class Viewer:
 
     def get_list_item_tag(self):
         result = []
-        for tag in self.view.tag_names(tk.CURRENT):
+        for tag in self.view.tag_names(tk.INSERT):
             if tag.startswith(constants.LIST_ITEM_PREFIX):
                 result.append(tag)
         if result:
@@ -712,7 +724,7 @@ class Viewer:
 
     def debug_tags(self, event=None):
         ic(
-            "--- insert ---",
+            "--- tk.INSERT ---",
             self.view.index(tk.INSERT),
             self.cursor,
             self.view.tag_names(tk.INSERT),
@@ -724,7 +736,7 @@ class Viewer:
         except ValueError:
             return
         ic(
-            "--- selected ---",
+            "--- tk.SEL ---",
             self.view.tag_names(first),
             self.view.tag_names(last),
             self.view.dump(first, last),

@@ -116,10 +116,9 @@ class Editor(TextViewer):
             return "break"
         if constants.FOOTNOTE_REF in tags:
             return "break"
-        # Special 'Return' handling, unless used with 'Control'.
+        # Add list item if 'Return' done while within list.
         if (event.keysym == "Return" and
             not (event.state & constants.EVENT_STATE_CONTROL)):
-            # Add list item if 'Return' within list.
             list_item_tag = self.get_list_item_tag()
             if list_item_tag:
                 self.list_item_add(list_item_tag=list_item_tag)
@@ -360,34 +359,44 @@ class Editor(TextViewer):
     def list_item_add(self, event=None, list_item_tag=None):
         data = self.list_lookup[list_item_tag]
         data["count"] += 1
-        self.view.mark_set(
-            tk.INSERT, self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1]
-        )
+
+        # Set cursor at end of list item.
+        try:
+            first, last = self.view.tag_prevrange(list_item_tag, tk.CURRENT)
+        except ValueError:
+            first, last = self.view.tag_nextrange(list_item_tag, tk.CURRENT)
+        self.view.mark_set(tk.INSERT, last)
         outer_tags = [
             t
             for t in self.view.tag_names(tk.INSERT + "-1c")
             if int(t.split("-")[1]) != data["number"]
         ]
         tags = [data["bullet_tag"], data["list_tag"]]
+
+        # Add bullet for new item. Does not contain trailing blank.
+        # Blank to be added later so that tag is applied to later text.
         if data["ordered"]:
-            self.view.insert(
-                tk.INSERT, f"{data['start'] + data['count'] - 1}. ", tags + outer_tags
-            )
+            bullet = f"{data['start'] + data['count'] - 1}."
         else:
-            self.view.insert(tk.INSERT, f"{data['bullet']}  ", tags + outer_tags)
+            bullet = f"{data['bullet']} "
+        self.view.insert(tk.INSERT, bullet, tags + outer_tags)
+
+        # Create item tag and output item content.
         item_tag = f"{data['item_tag_prefix']}{data['count']}"
         self.list_lookup[item_tag] = data
-        indent = constants.LIST_INDENT * len(self.list_stack)
+        indent = constants.LIST_INDENT * data["level"]
         self.view.tag_configure(item_tag, lmargin1=indent, lmargin2=indent)
+
+        # Remember where this list item starts. Add blank before it.
+        tags = [item_tag, data["list_tag"]] + outer_tags
         first = self.view.index(tk.INSERT)
-        self.view.insert(tk.INSERT, " \n", (item_tag,))
+        self.view.insert(tk.INSERT, " \n", tags)
         if not data["tight"]:
-            self.view.insert(tk.INSERT, "\n", (item_tag,))
-        self.view.tag_add(item_tag, first, tk.INSERT)
-        self.view.tag_add(data["list_tag"], first, tk.INSERT)
-        for tag in outer_tags:
-            self.view.tag_add(tag, first, tk.INSERT)
-        self.view.mark_set(tk.INSERT, first)
+            self.view.insert(tk.INSERT, "\n", tags)
+
+        # Position within the embryo of the list item, so that tags are applied
+        # to the text entered subsequently.
+        self.view.mark_set(tk.INSERT, first + "+1c")
 
     def list_item_remove(self, event=None, list_item_tag=None):
         if not tk.messagebox.askokcancel(
