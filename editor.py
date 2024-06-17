@@ -106,6 +106,7 @@ class Editor(TextViewer):
         "Special actions for some keys."
         if not event.char:
             return
+
         # For 'Backspace', check the position before.
         if event.keysym == "BackSpace":
             tags = self.view.tag_names(tk.INSERT + "-1c")
@@ -116,22 +117,26 @@ class Editor(TextViewer):
             return "break"
         if constants.FOOTNOTE_REF in tags:
             return "break"
-        # Add list item if 'Return' done while within list.
-        if (event.keysym == "Return" and
-            not (event.state & constants.EVENT_STATE_CONTROL)):
+
+        # Terminate current list, if any, with a new paragraph.
+        if event.keysym == "Escape":
+            self.list_end()
+
+        # Add list item if 'Control-Return' done while within list.
+        if event.keysym == "Return" and (event.state & constants.EVENT_STATE_CONTROL):
             list_item_tag = self.get_list_item_tag()
             if list_item_tag:
                 self.list_item_add(list_item_tag=list_item_tag)
                 return "break"
 
     def display_heading(self):
-        "Do not display the heading in the text edit area."
+        "Do not display heading in text edit area."
         pass
 
     def get_modified(self):
         return self.view.edit_modified()
 
-    def set_modified(self, yes):
+    def set_modified(self, yes): # Set as callback in menu.
         if not isinstance(yes, bool):
             raise ValueError("invalid value for 'modified'; must be bool")
         self.view.edit_modified(yes)
@@ -356,15 +361,32 @@ class Editor(TextViewer):
     def list_unordered_add(self, event=None):
         raise NotImplementedError
 
+    def list_end(self):
+        number = None
+        tags = list(self.view.tag_names(tk.INSERT))
+        for tag in tags:
+            if tag.startswith(constants.LIST_ITEM_PREFIX):
+                if number is None:
+                    number = int(tag.split("-")[1])
+                else:
+                    number = max(number, int(tag.split("-")[1]))
+        if number is None:
+            return
+        tags.remove(constants.LIST_PREFIX + str(number))
+        tags = [t for t in tags
+                if not t.startswith(f"{constants.LIST_ITEM_PREFIX}{number}-")]
+        self.view.insert(tk.INSERT, "\n\n", tags)
+        self.view.mark_set(tk.INSERT, self.view.index(tk.INSERT + "-1c"))
+
     def list_item_add(self, event=None, list_item_tag=None):
         data = self.list_lookup[list_item_tag]
         data["count"] += 1
 
         # Set cursor at end of list item.
         try:
-            first, last = self.view.tag_prevrange(list_item_tag, tk.CURRENT)
+            first, last = self.view.tag_prevrange(list_item_tag, tk.INSERT)
         except ValueError:
-            first, last = self.view.tag_nextrange(list_item_tag, tk.CURRENT)
+            first, last = self.view.tag_nextrange(list_item_tag, tk.INSERT)
         self.view.mark_set(tk.INSERT, last)
         outer_tags = [
             t
@@ -394,8 +416,8 @@ class Editor(TextViewer):
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n", tags)
 
-        # Position within the embryo of the list item, so that tags are applied
-        # to the text entered subsequently.
+        # Position within the embryo of the list item, so that
+        # tags are applied to the text entered subsequently.
         self.view.mark_set(tk.INSERT, first + "+1c")
 
     def list_item_remove(self, event=None, list_item_tag=None):
@@ -406,11 +428,11 @@ class Editor(TextViewer):
         ):
             return
         data = self.list_lookup[list_item_tag]
-        first = self.view.tag_prevrange(data["bullet_tag"], tk.CURRENT)[0]
+        first = self.view.tag_prevrange(data["bullet_tag"], tk.INSERT)[0]
         try:
-            last = self.view.tag_prevrange(list_item_tag, tk.CURRENT)[1]
+            last = self.view.tag_prevrange(list_item_tag, tk.INSERT)[1]
         except IndexError:  # Not sure why this is needed.
-            last = self.view.tag_nextrange(list_item_tag, tk.CURRENT)[1]
+            last = self.view.tag_nextrange(list_item_tag, tk.INSERT)[1]
         self.view.delete(first, last)
 
     def link_add(self):
@@ -777,7 +799,7 @@ class Editor(TextViewer):
         except AttributeError:
             if item[1].startswith(constants.LIST_ITEM_PREFIX):
                 data = self.list_lookup[item[1]]
-                self.line_indents.append(data["level"] * "   ")
+                self.line_indents.append("   " * (data["level"] + 1))
                 self.line_indented = True
         else:
             method(item)

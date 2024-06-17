@@ -420,7 +420,7 @@ class Viewer:
         # Create item tag and output item content.
         item_tag = f"{data['item_tag_prefix']}{data['count']}"
         self.list_lookup[item_tag] = data
-        indent = constants.LIST_INDENT * len(self.list_stack)
+        indent = constants.LIST_INDENT * (data["level"] + 1)
         self.view.tag_configure(item_tag, lmargin1=indent, lmargin2=indent)
         first = self.view.index(tk.INSERT)
         for child in ast["children"]:
