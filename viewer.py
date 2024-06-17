@@ -373,7 +373,7 @@ class Viewer:
             lmargin1=constants.LIST_INDENT * level,
         )
 
-        # The data for this list, for future use.
+        # The data for this list.
         data = dict(
             number=number,
             list_tag=list_tag,

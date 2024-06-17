@@ -64,10 +64,10 @@ class Editor(TextViewer):
         self.menu_edit.add_command(label=Tr("Paste"), command=self.clipboard_paste)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(
-            label=Tr("New ordered list"), command=self.list_ordered_add
+            label=Tr("Add ordered list"), command=functools.partial(self.list_add, ordered=True)
         )
         self.menu_edit.add_command(
-            label=Tr("New unordered list"), command=self.list_unordered_add
+            label=Tr("Add unordered list"), command=functools.partial(self.list_add, ordered=False)
         )
 
         self.menu_format = tk.Menu(self.menubar)
@@ -207,11 +207,15 @@ class Editor(TextViewer):
                         self.list_item_remove, list_item_tag=list_item_tag
                     ),
                 )
+                menu.add_command(
+                    label=Tr("Terminate list"),
+                    command=self.list_end,
+                )
             menu.add_command(
-                label=Tr("New ordered list"), command=self.list_ordered_add
+                label=Tr("Add ordered list"), command=functools.partial(self.list_add, ordered=True)
             )
             menu.add_command(
-                label=Tr("New unordered list"), command=self.list_unordered_add
+                label=Tr("Add unordered list"), command=functools.partial(self.list_add, ordered=False)
             )
             menu.add_separator()
             menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
@@ -355,11 +359,66 @@ class Editor(TextViewer):
         self.view.tag_remove(constants.FENCED_CODE, first, last)
         self.modified = True
 
-    def list_ordered_add(self, event=None):
-        raise NotImplementedError
+    def list_add(self, event=None, ordered=True):
+        tags = self.view.tag_names(tk.INSERT)
+        level = 0
+        for tag in tags:
+            if tag.startswith(constants.LIST_PREFIX):
+                level += 1
 
-    def list_unordered_add(self, event=None):
-        raise NotImplementedError
+        # New list must begin on its own line.
+        if self.view.get(self.view.index(tk.INSERT + "-1c")) != "\n":
+            self.view.insert(tk.INSERT, "\n")
+
+        # Prepare parameters for this list.
+        number = len(self.list_lookup) + 1
+        list_tag = f"{constants.LIST_PREFIX}{number}"
+        item_tag_prefix = f"{constants.LIST_ITEM_PREFIX}{number}-"
+        bullet_tag = f"{constants.LIST_BULLET_PREFIX}{number}"
+        self.view.tag_configure(
+            bullet_tag,
+            font=constants.FONT_BOLD,
+            lmargin1=constants.LIST_INDENT * level,
+        )
+
+        # The data for this list.
+        data = dict(
+            number=number,
+            list_tag=list_tag,
+            item_tag_prefix=item_tag_prefix,
+            bullet_tag=bullet_tag,
+            ordered=ordered,
+            bullet="-",
+            start=1,
+            tight=False,
+            count=1,
+            first_paragraph=True,
+            level=level,
+        )
+        self.list_lookup[list_tag] = data
+
+        # Remember where this list starts.
+        first = self.view.index(tk.INSERT)
+
+        # Add the bullet for the first item, and the first blank.
+        if data["ordered"]:
+            bullet = f"{data['start'] + data['count'] - 1}. "
+        else:
+            bullet = f"{data['bullet']}  "
+        self.view.insert(tk.INSERT, bullet, data["bullet_tag"])
+        item_tag = f"{data['item_tag_prefix']}{data['count']}"
+        self.list_lookup[item_tag] = data
+        indent = constants.LIST_INDENT * (data["level"] + 1)
+        self.view.tag_configure(item_tag, lmargin1=indent, lmargin2=indent)
+        self.view.insert(tk.INSERT, " \n", item_tag)
+
+        # Set the overall tag for this list.
+        self.view.tag_add(list_tag, first, tk.INSERT)
+        for tag in tags:
+            self.view.tag_add(tag, first, tk.INSERT)
+
+        # Step back to within first item.
+        self.view.mark_set(tk.INSERT, self.view.index(tk.INSERT + "-1c"))
 
     def list_end(self):
         number = None
@@ -376,7 +435,6 @@ class Editor(TextViewer):
         tags = [t for t in tags
                 if not t.startswith(f"{constants.LIST_ITEM_PREFIX}{number}-")]
         self.view.insert(tk.INSERT, "\n\n", tags)
-        self.view.mark_set(tk.INSERT, self.view.index(tk.INSERT + "-1c"))
 
     def list_item_add(self, event=None, list_item_tag=None):
         data = self.list_lookup[list_item_tag]
@@ -413,6 +471,7 @@ class Editor(TextViewer):
         tags = [item_tag, data["list_tag"]] + outer_tags
         first = self.view.index(tk.INSERT)
         self.view.insert(tk.INSERT, " \n", tags)
+        ic(data)
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n", tags)
 
