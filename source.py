@@ -138,10 +138,11 @@ class Source:
             section = anchor.parent
         else:
             section = anchor
-        fullpath = os.path.join(section.abspath, name + constants.MARKDOWN_EXT)
-        if os.path.exists(fullpath):
+        dirpath = os.path.join(section.abspath, name)
+        filepath = dirpath + constants.MARKDOWN_EXT
+        if os.path.exists(dirpath) or os.path.exists(filepath):
             raise ValueError(f"The name is already in use within '{section.fullname}'.")
-        with open(fullpath, "w") as outfile:
+        with open(filepath, "w") as outfile:
             pass
         new = Text(self, section, name)
         if anchor is None:
@@ -163,10 +164,11 @@ class Source:
             section = anchor.parent
         else:
             section = anchor
-        fullpath = os.path.join(section.abspath, name)
-        if os.path.exists(fullpath):
+        dirpath = os.path.join(section.abspath, name)
+        filepath = dirpath + constants.MARKDOWN_EXT
+        if os.path.exists(dirpath) or os.path.exists(filepath):
             raise ValueError(f"The name is already in use within '{section.fullname}'.")
-        os.mkdir(fullpath)
+        os.mkdir(dirpath)
         new = Section(self, section, name)
         if anchor.is_text:
             section.items.insert(anchor.index + 1, new)
@@ -204,8 +206,7 @@ class Source:
         assert os.path.exists(self.abspath), (self, self.abspath)
         assert os.path.isdir(self.abspath), (self, self.abspath)
         assert len(self.lookup) == len(self.all_items), (
-            self,
-            ic(self.lookup, self.all_items),
+            ic(len(self.lookup), len(self.all_items), self.lookup.keys(), self.all_items),
         )
         for item in self.all_items:
             assert item.source is self, (self, item)

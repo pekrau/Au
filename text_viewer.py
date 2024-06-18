@@ -24,8 +24,8 @@ class TextViewer(Viewer):
         return self.text.fullname
 
     def __len__(self):
-        "Number of characters. XXX Not quite sure why '+ 1' is needed..."
-        return len(self.view.get("1.0", tk.END)) - (self.heading_offset + 1)
+        "Number of characters."
+        return len(self.view.get("1.0", tk.END)) - self.heading_offset
 
     @property
     def section(self):

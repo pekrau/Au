@@ -399,6 +399,8 @@ class Main:
         """Create views for tabs in the texts notebook.
         Also updates the text information in the treeview.
         """
+        # This is a kludge; not sure why it is needed.
+        self.ignore_texts_notebook_tab_changed = False
         # First delete any existing text views.
         while self.texts_notebook_lookup:
             self.texts_notebook.forget(self.texts_notebook_lookup.popitem()[0])
@@ -754,12 +756,12 @@ class Main:
             )
             return
         if item.is_text:
+            item.viewer.display()
             index = self.treeview.index(fullname)
             self.treeview.delete(fullname)
             self.add_treeview_entry(item, index=index)
             self.treeview_update_info(item)
             self.texts_notebook.tab(item.tabid, text=item.name)
-            item.viewer.display()
         elif item.is_section:
             self.treeview_display()
             self.treeview.update_idletasks()
