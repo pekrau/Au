@@ -98,7 +98,7 @@ class Editor(TextViewer):
         self.view.bind("<Control-X>", self.clipboard_cut)
         self.view.bind("<Control-v>", self.clipboard_paste)
         self.view.bind("<Control-V>", self.clipboard_paste)
-        self.view.bind("<Control-space>", self.select)
+        self.view.bind("<Control-space>", self.select_word)
         self.view.bind("<<Modified>>", self.handle_modified)
         self.view.bind("<<Selection>>", self.selection_changed)
 
@@ -155,6 +155,34 @@ class Editor(TextViewer):
         try:
             first, last = self.get_selection()
         except ValueError:  # No current selection.
+            menu.add_command(label=Tr("Select word"), command=self.select_word)
+            menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
+            menu.add_separator()
+            list_item_tag = self.get_list_item_tag()
+            if list_item_tag:
+                menu.add_command(
+                    label=Tr("Add list item"),
+                    command=functools.partial(
+                        self.list_item_add, list_item_tag=list_item_tag
+                    ),
+                )
+                menu.add_command(
+                    label=Tr("Remove list item"),
+                    command=functools.partial(
+                        self.list_item_remove, list_item_tag=list_item_tag
+                    ),
+                )
+                menu.add_command(
+                    label=Tr("Terminate list"),
+                    command=self.list_end,
+                )
+            menu.add_command(
+                label=Tr("Add ordered list"), command=functools.partial(self.list_add, ordered=True)
+            )
+            menu.add_command(
+                label=Tr("Add unordered list"), command=functools.partial(self.list_add, ordered=False)
+            )
+            menu.add_separator()
             tags = self.view.tag_names(tk.CURRENT)
             if constants.BOLD in tags:
                 menu.add_command(label=Tr("Remove bold"),
@@ -191,34 +219,6 @@ class Editor(TextViewer):
                 menu.add_command(label=Tr("Remove reference"),
                                  command=self.reference_remove)
 
-            if menu.index(tk.END) is not None:
-                menu.add_separator()
-            list_item_tag = self.get_list_item_tag()
-            if list_item_tag:
-                menu.add_command(
-                    label=Tr("Add list item"),
-                    command=functools.partial(
-                        self.list_item_add, list_item_tag=list_item_tag
-                    ),
-                )
-                menu.add_command(
-                    label=Tr("Remove list item"),
-                    command=functools.partial(
-                        self.list_item_remove, list_item_tag=list_item_tag
-                    ),
-                )
-                menu.add_command(
-                    label=Tr("Terminate list"),
-                    command=self.list_end,
-                )
-            menu.add_command(
-                label=Tr("Add ordered list"), command=functools.partial(self.list_add, ordered=True)
-            )
-            menu.add_command(
-                label=Tr("Add unordered list"), command=functools.partial(self.list_add, ordered=False)
-            )
-            menu.add_separator()
-            menu.add_command(label=Tr("Paste"), command=self.clipboard_paste)
         else:  # There is current selection.
             try:
                 self.check_broken_selection(first, last)
@@ -471,7 +471,6 @@ class Editor(TextViewer):
         tags = [item_tag, data["list_tag"]] + outer_tags
         first = self.view.index(tk.INSERT)
         self.view.insert(tk.INSERT, " \n", tags)
-        ic(data)
         if not data["tight"]:
             self.view.insert(tk.INSERT, "\n", tags)
 
@@ -709,7 +708,7 @@ class Editor(TextViewer):
             self.view.insert(tk.INSERT, chars)
         return "break"  # When called by keyboard event.
 
-    def select(self, event):
+    def select_word(self, event=None):
         pos = self.view.index(tk.INSERT)
         first = pos
         while True:

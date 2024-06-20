@@ -12,6 +12,8 @@ edit,editera
 create text,skapa text
 create section,skapa sektion
 rename,ändra namn
+select,välj
+select word,markera ord
 copy,kopiera
 delete,radera
 move up,flytta upp

@@ -92,7 +92,7 @@ class ReferencesViewer(Viewer):
             os.path.join(self.main.absdirpath, constants.REFERENCES_DIRNAME)
         )
         self.reference_texts = [t for t in self.source.all_texts if "id" in t]
-        self.reference_texts.sort(key=lambda r: r["id"])
+        self.reference_texts.sort(key=lambda r: r["id"].lower())
         self.reference_lookup = dict([(r["id"], r) for r in self.reference_texts])
         # This variable is already displayed, so needs to be updated.
         self.main.title_viewer.references_var.set(len(self.reference_texts))
