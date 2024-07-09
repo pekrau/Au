@@ -38,6 +38,9 @@ volume,volym
 issue,utgåva
 pages,sidor
 add,lägg till
+add manually,lägg till manuellt
+Add BibTeX,Lägg till BibTeX
+Add RIS,Lägg till RIS
 add reference,lägg till referens
 remove reference,ta bort referens
 edit authors,editera författare
@@ -87,8 +90,7 @@ remove list item,ta bort listpunkt
 add ordered list,lägg till numrerad lista
 add unordered list,lägg till onumrerad lista
 terminate list,avsluta lista
-Import BibTeX,Importera BibTeX
-add manually,lägg till manuellt
+manually,manuellt
 started,påbörjad
 outline,skiss
 incomplete,ofullständig

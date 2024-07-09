@@ -33,3 +33,8 @@ def shortname(name):
 def get_normalized_mark(value):
     "Return a valid tk.Text mark."
     return value.replace(" ", "_").replace(".", "_")
+
+
+if __name__ == "__main__":
+    print(cleanup("Zuberb\xFChler, Klaus"))
+    

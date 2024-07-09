@@ -3,7 +3,7 @@
 import functools
 import os
 
-VERSION = (0, 15, 13)
+VERSION = (0, 15, 14)
 __version__ = ".".join([str(n) for n in VERSION])
 
 
@@ -32,7 +32,9 @@ TEXT = "text"
 SECTION = "section"
 SECTION_COLOR = "gainsboro"
 
-TIME_ISO_FORMAT = "%Y-%m-%d %H:%M:%S"
+DATETIME_ISO_FORMAT = "%Y-%m-%d %H:%M:%S"
+MONTHS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+          "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
 EM_DASH = "\u2014"
 
 
@@ -184,7 +186,7 @@ BOOK = "book"
 REFERENCE_TYPES = (ARTICLE, BOOK, LINK)
 REFERENCE_GENERAL_KEYS = ("title", "language", "year")
 REFERENCE_TYPE_KEYS = {
-    ARTICLE: ("journal", "month", "volume", "number", "pages", "issn", "doi", "pmid"),
+    ARTICLE: ("journal", "date", "volume", "number", "pages", "issn", "doi", "pmid"),
     BOOK: ("publisher", "pages", "isbn"),
     LINK: ("url", "accessed"),
 }

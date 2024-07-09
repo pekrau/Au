@@ -184,7 +184,7 @@ class Source:
         Return the archive filepath and the number of items written.
         Raise an OSError if any error.
         """
-        filename = time.strftime(constants.TIME_ISO_FORMAT, time.localtime()) + ".tgz"
+        filename = time.strftime(constants.DATETIME_ISO_FORMAT, time.localtime()) + ".tgz"
         archivefilepath = os.path.join(
             self.absdirpath, constants.ARCHIVE_DIRNAME, filename
         )

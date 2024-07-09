@@ -136,7 +136,7 @@ class Exporter:
         )
         paragraph.add_run(f"{Tr('Status')}: {Tr(status)}")
 
-        now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
+        now = datetime.datetime.now().strftime(constants.DATETIME_ISO_FORMAT)
         self.document.add_paragraph(f"{Tr('Created')}: {now}")
 
     def write_toc(self):

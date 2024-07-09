@@ -189,7 +189,7 @@ class Exporter:
         self.state.write(f'{Tr("Status")}: {Tr(status)}')
         self.state.ln()
 
-        now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
+        now = datetime.datetime.now().strftime(constants.DATETIME_ISO_FORMAT)
         self.state.write(f'{Tr("Created")}: {now}')
         self.state.ln(2)
 

@@ -132,7 +132,7 @@ class Exporter:
             min([t.status for t in self.source.all_texts] + [max(constants.STATUSES)])
         )
         self.output_newline(f'<p class="mt-5">{Tr("Status")}: {Tr(status)}</p>')
-        now = datetime.datetime.now().strftime(constants.TIME_ISO_FORMAT)
+        now = datetime.datetime.now().strftime(constants.DATETIME_ISO_FORMAT)
         self.output_newline(f'<p class="mb-4">{Tr("Created")}: {now}</p>')
         self.output_newline("</div>")
         self.output_newline("</div>")

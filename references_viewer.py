@@ -4,6 +4,7 @@ from icecream import ic
 
 import functools
 import os
+import string
 
 import tkinter as tk
 import tkinter.messagebox
@@ -38,24 +39,37 @@ class ReferencesViewer(Viewer):
 
         self.actions_frame = tk.ttk.Frame(self.super_frame, padding=6)
         self.actions_frame.pack(fill=tk.X)
+
+        label = tk.ttk.Label(self.actions_frame, text=Tr("Add"))
+        label.grid(row=0, column=0)
         self.actions_frame.columnconfigure(0, weight=1)
+
+        button = tk.ttk.Button(
+            self.actions_frame,
+            text=Tr("BibTeX"),
+            padding=4,
+            command=self.import_bibtex,
+        )
+        button.grid(row=0, column=1)
         self.actions_frame.columnconfigure(1, weight=1)
 
         button = tk.ttk.Button(
             self.actions_frame,
-            text=Tr("Import BibTeX"),
+            text=Tr("RIS"),
             padding=4,
-            command=self.import_bibtex,
+            command=self.import_ris,
         )
-        button.grid(row=0, column=0)
+        button.grid(row=0, column=2)
+        self.actions_frame.columnconfigure(2, weight=1)
 
         button = tk.ttk.Button(
             self.actions_frame,
-            text=Tr("Add manually"),
+            text=Tr("Manually"),
             padding=4,
             command=self.add_manually,
         )
-        button.grid(row=0, column=1)
+        button.grid(row=0, column=3)
+        self.actions_frame.columnconfigure(3, weight=1)
 
         super().view_create(self.super_frame)
 
@@ -86,6 +100,8 @@ class ReferencesViewer(Viewer):
         "Remove tag binding that is irrelevant in this context."
         super().bind_tags()
         self.view.tag_unbind(constants.REFERENCE, "<Button-1>")
+        self.view.tag_unbind(constants.REFERENCE, "<Enter>")
+        self.view.tag_unbind(constants.REFERENCE, "<Leave>")
 
     def read_references(self):
         self.source = Source(
@@ -119,13 +135,6 @@ class ReferencesViewer(Viewer):
             self.view.tag_configure(
                 tag, font=constants.FONT_BOLD, foreground=constants.REFERENCE_COLOR
             )
-            self.view.tag_bind(tag, "<Enter>", self.reference_enter)
-            self.view.tag_bind(tag, "<Leave>", self.reference_leave)
-            self.view.tag_bind(
-                tag,
-                "<Button-1>",
-                functools.partial(self.reference_action, reference=reference),
-            )
             self.view.insert(tk.INSERT, reference["id"], tag)
             self.view.insert(tk.INSERT, "  ")
             self.display_view_authors(reference)
@@ -138,6 +147,11 @@ class ReferencesViewer(Viewer):
             # Done at this stage to avoid mark from being moved by insert.
             self.view.mark_set(reference["id"].replace(" ", "_"), first)
             self.view.tag_add(constants.REFERENCE, first, tk.INSERT)
+            button = tk.ttk.Button(
+                self.view_frame,
+                text=Tr("Notes"),
+                command=functools.partial(self.main.open_reference_editor, self, reference))
+            self.view.window_create(tk.INSERT, window=button)
             self.display_view_external_links(reference)
             self.display_view_xrefs(reference)
             self.view.insert(tk.INSERT, "\n")
@@ -171,7 +185,7 @@ class ReferencesViewer(Viewer):
             pass
         else:
             try:
-                self.view.insert(tk.INSERT, f"({reference['number']})")
+                self.view.insert(tk.INSERT, f" ({reference['number']})")
             except KeyError:
                 pass
             self.view.insert(tk.INSERT, ": ")
@@ -245,10 +259,10 @@ class ReferencesViewer(Viewer):
 
     def display_view_xrefs(self, reference):
         fullnames = self.texts_pos.get(reference["id"]) or {}
+        reference["orphan"] = not fullnames
         if not fullnames:
             return
         self.view.insert(tk.INSERT, "\n")
-        reference["orphan"] = not fullnames
         after_first = False
         for fullname, positions in sorted(fullnames.items()):
             positions = sorted(positions, key=lambda p: int(p[: p.index(".")]))
@@ -264,9 +278,6 @@ class ReferencesViewer(Viewer):
 
     def reference_leave(self, event):
         self.view.configure(cursor="")
-
-    def reference_action(self, event, reference=None):
-        self.main.open_reference_editor(self, reference)
 
     def highlight(self, refid):
         "Highlight and ensure that the reference and this pane is visible."
@@ -291,6 +302,15 @@ class ReferencesViewer(Viewer):
         self.reference_add(reference)
         self.display()
 
+    def import_ris(self):
+        ris = RisImport(self)
+        if ris.result is None:
+            return
+        reference = ris.result
+        reference.read()
+        self.reference_add(reference)
+        self.display()
+
     def add_manually(self):
         add_manually = AddManually(self)
         if add_manually.result is None:
@@ -302,6 +322,8 @@ class ReferencesViewer(Viewer):
         self.main.open_reference_editor(self, reference)
 
     def get_unique_id(self, author, year):
+        if not year:
+            return None
         name = author.split(",")[0].strip()
         for char in [""] + list("abcdefghijklmnopqrstuvxyz"):
             id = f"{name} {year}{char}"
@@ -323,7 +345,7 @@ class BibtexImport(tk.simpledialog.Dialog):
     def __init__(self, viewer):
         self.viewer = viewer
         self.result = None
-        super().__init__(viewer.view_frame, title=Tr("Import BibTeX"))
+        super().__init__(viewer.view_frame, title=Tr("Add BibTeX"))
 
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("BibTeX"))
@@ -368,6 +390,123 @@ class BibtexImport(tk.simpledialog.Dialog):
             value = utils.cleanup(field.value).strip()
             if value:
                 self.result[key] = value
+        # Split keywords into a list.
+        try:
+            self.result["keywords"] = [k.strip() for k in self.result["keywords"].split(";")]
+        except KeyError:
+            pass
+        # Change month into date; sometimes has day number.
+        try:
+            month = self.result.pop("month")
+            parts = month.split("#")
+            if len(parts) == 2:
+                month = constants.MONTHS[parts[1].strip().lower()]
+                day = int("".join([c for c in parts[0] if c in string.digits]))
+            else:
+                month = constants.MONTHS[parts[0].strip().lower()]
+                day = 0
+            self.result["date"] = f"{year}-{month:02d}-{day:02d}"
+        except (KeyError, ValueError):
+            pass
+        return True
+
+    def apply(self):
+        text = self.viewer.source.create_text(self.result["id"])
+        abstract = self.result.pop("abstract", None)
+        for key, value in self.result.items():
+            text[key] = value
+        if abstract:
+            text.write("**Abstract**\n\n" + abstract)
+        else:
+            text.write()
+        self.result = text
+
+
+class RisImport(tk.simpledialog.Dialog):
+    "Dialog window for importing a RIS entry."
+
+    def __init__(self, viewer):
+        self.viewer = viewer
+        self.result = None
+        super().__init__(viewer.view_frame, title=Tr("Add RIS"))
+
+    def body(self, body):
+        label = tk.ttk.Label(body, text=Tr("RIS"))
+        label.grid(row=1, column=0, padx=4, sticky=(tk.E, tk.N))
+        self.ris_text = tk.Text(body, width=80)
+        self.ris_text.grid(row=1, column=1)
+        return self.ris_text
+
+    def validate(self):
+        text = self.ris_text.get("1.0", tk.END).strip()
+        if not text:
+            tk.messagebox.showerror(
+                parent=self.viewer.view_frame,
+                title="Error",
+                message="No RIS entry in data.",
+            )
+            return False
+        self.result = dict()
+        for line in text.split("\n"):
+            prefix = line[0:2]
+            if prefix != "  ":
+                code = prefix
+            value = line[6:].rstrip()
+            if code == "TY":
+                if value == "BOOK":
+                    self.result["type"] = "book"
+                elif value == "JOUR":
+                    self.result["type"] = "article"
+                else:
+                    ic(line)
+            elif code == "TI":
+                self.result.setdefault("title", []).append(value)
+            elif code == "AU":
+                self.result.setdefault("authors", []).append(value)
+            elif code == "PY":
+                self.result["year"] = value
+            elif code == "AB":
+                self.result.setdefault("abstract", []).append(value)
+            elif code == "T2":
+                self.result["journal"] = value
+            elif code == "KW":
+                self.result.setdefault("keywords", []).append(value)
+            elif code == "DA":
+                try:
+                    parts = value.split("/")
+                    self.result["date"] = f"{parts[0]}-{parts[1]:02d}-{parts[1]:02d}"
+                except (IndexError, ValueError):
+                    pass
+            elif code == "SN":
+                if self.result.get("type") == "book":
+                    self.result["isbn"] = value
+                elif self.result.get("type") == "article":
+                    self.result["issn"] = value
+            elif code == "SP":
+                self.result["pages"] = value
+            elif code == "PB":
+                self.result["publisher"] = value
+            elif code == "DO":
+                self.result["doi"] = value
+            elif code == "UR":
+                self.result.setdefault("links", []).append(value)
+        try:
+            self.result["title"] = " ".join(self.result["title"])
+        except KeyError:
+            self.result["title"] = "[no title]"
+        try:
+            self.result["abstract"] = " ".join(self.result["abstract"])
+        except KeyError:
+            pass
+        id = self.viewer.get_unique_id(self.result["authors"][0], self.result.get("year"))
+        if id is None:
+            tk.messagebox.showerror(
+                parent=self,
+                title="Error",
+                message="Could not create unique id for reference.",
+            )
+            return False
+        self.result["id"] = id
         return True
 
     def apply(self):
