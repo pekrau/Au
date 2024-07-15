@@ -3,7 +3,7 @@
 import functools
 import os
 
-VERSION = (0, 15, 14)
+VERSION = (0, 16, 0)
 __version__ = ".".join([str(n) for n in VERSION])
 
 
@@ -224,3 +224,9 @@ SEARCH_INDENT = 10
 WRITE_CURSOR = "watch"
 
 EVENT_STATE_CONTROL = 0x0004
+
+SVG_NS = "http://www.w3.org/2000/svg"
+SVG = f"{{{SVG_NS}}}svg"
+CIRCLE = f"{{{SVG_NS}}}circle"
+RECT = f"{{{SVG_NS}}}rect"
+FIGURE_CURSOR = "arrow"

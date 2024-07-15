@@ -13,6 +13,7 @@ import tkinter.ttk
 
 import constants
 import utils
+import figure
 
 from utils import Tr
 
@@ -332,11 +333,14 @@ class Viewer:
 
     def render_fenced_code(self, ast):
         self.conditional_line_break()
-        first = self.view.index(tk.INSERT)
-        for child in ast["children"]:
-            self.render(child)
-        self.view.tag_add(constants.FENCED_CODE, first, tk.INSERT)
-        self.line_break()
+        if ast["lang"] == "figure":
+            figure.Figure(self.view, ast)
+        else:
+            first = self.view.index(tk.INSERT)
+            for child in ast["children"]:
+                self.render(child)
+            self.view.tag_add(constants.FENCED_CODE, first, tk.INSERT)
+            self.line_break()
         self.line_break()
 
     def render_literal(self, ast):

@@ -273,12 +273,6 @@ class ReferencesViewer(Viewer):
                     after_first = True
                 self.xref_create(fullname, position, constants.REFERENCE)
 
-    def reference_enter(self, event):
-        self.view.configure(cursor=constants.REFERENCE_CURSOR)
-
-    def reference_leave(self, event):
-        self.view.configure(cursor="")
-
     def highlight(self, refid):
         "Highlight and ensure that the reference and this pane is visible."
         try:

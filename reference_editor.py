@@ -27,6 +27,7 @@ class ReferenceEditor(Editor):
         self.menu_file.insert_command(
             0, label=Tr("Delete"), state=state, command=self.delete
         )
+        self.menubar.add_command(label=Tr("Reference"), command=self.reference_add)
 
     def delete(self):
         if not tk.messagebox.askokcancel(
