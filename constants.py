@@ -225,8 +225,9 @@ WRITE_CURSOR = "watch"
 
 EVENT_STATE_CONTROL = 0x0004
 
-SVG_NS = "http://www.w3.org/2000/svg"
-SVG = f"{{{SVG_NS}}}svg"
-CIRCLE = f"{{{SVG_NS}}}circle"
-RECT = f"{{{SVG_NS}}}rect"
-FIGURE_CURSOR = "arrow"
+CONCEPTMAP = "conceptmap"
+CONCEPTMAP_CURSOR = "arrow"
+CONCEPTMAP_WIDTH = 400
+CONCEPTMAP_HEIGHT = 300
+CONCEPTMAP_BACKGROUND = "white"
+
