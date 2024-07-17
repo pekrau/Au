@@ -11,11 +11,9 @@ import tkinter as tk
 import tkinter.messagebox
 import tkinter.ttk
 
-import yaml
-
 import constants
-import graphics
 import utils
+from graphics import Conceptmap
 
 from utils import Tr
 
@@ -60,6 +58,7 @@ class Viewer:
         )
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
+        self.graphics = {}      # Key: window id; value: Graphics instance
 
     def configure_tags(self):
         for h in constants.H_LOOKUP.values():
@@ -336,7 +335,8 @@ class Viewer:
     def render_fenced_code(self, ast):
         self.conditional_line_break()
         if ast["lang"] == constants.CONCEPTMAP:
-            graphics.Conceptmap(self, yaml.safe_load(ast["children"][0]["children"]))
+            graphic = Conceptmap(self, ast["children"][0]["children"])
+            self.graphics[str(graphic.canvas_frame)] = graphic
         else:
             first = self.view.index(tk.INSERT)
             for child in ast["children"]:

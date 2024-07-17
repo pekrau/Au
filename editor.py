@@ -851,6 +851,9 @@ class Editor(TextViewer):
     def markdown_mark(self, item):
         pass
 
+    def markdown_window(self, item):
+        self.outfile.write(repr(self.graphics[item[1]]))
+
     def markdown_tagon(self, item):
         try:
             method = getattr(self, f"markdown_tagon_{item[1]}")
