@@ -21,22 +21,29 @@ class Conceptmap:
         if text is None:
             self.data = {}
             self.concepts = []
+            self.relations = []
         else:
             self.data = yaml.safe_load(text)
             self.concepts = self.data.get("concepts", [])
+            self.relations = self.data.get("relations", [])
         self.cid_count = 0
+        self.rid_count = 0
         for concept in self.concepts:
             self.cid_count = max(int(concept["id"][3:]), self.cid_count)
+        for relation in self.relations:
+            self.rid_count = max(int(relation["id"][3:]), self.rid_count)
         self.concept_lookup = dict([(c["id"], c) for c in self.concepts])
         self.viewer = viewer
         self.edit = isinstance(self.viewer, editor.Editor)
         title = self.data.get("title")
         if title:
             self.canvas_frame = tk.ttk.LabelFrame(viewer.view,
+                                                  padding=4,
                                                   text=f" {title} ",
                                                   cursor=constants.CONCEPTMAP_CURSOR)
         else:
             self.canvas_frame = tk.ttk.Frame(viewer.view,
+                                             padding=4,
                                              cursor=constants.CONCEPTMAP_CURSOR)
         viewer.view.window_create(tk.INSERT, window=self.canvas_frame)
         self.canvas_frame.rowconfigure(0, weight=1)
@@ -45,23 +52,12 @@ class Conceptmap:
         width = canvas.get("width", constants.CONCEPTMAP_WIDTH)
         height = canvas.get("height", constants.CONCEPTMAP_HEIGHT)
         kwargs = dict(width=width, height=height, background="white")
-        extend = canvas.get("extend")
-        if extend:
-            kwargs["scrollregion"] = (-extend, -extend, width+extend, height+extend)
         self.canvas = tk.Canvas(self.canvas_frame, **kwargs)
         self.canvas.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
-        self.scroll_x = tk.ttk.Scrollbar(
-            self.canvas_frame, orient=tk.HORIZONTAL, command=self.canvas.xview
-        )
-        self.scroll_x.grid(row=1, column=0, sticky=(tk.W, tk.E))
-        self.canvas.configure(xscrollcommand=self.scroll_x.set)
-        self.scroll_y = tk.ttk.Scrollbar(
-            self.canvas_frame, orient=tk.VERTICAL, command=self.canvas.yview
-        )
-        self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.canvas.configure(yscrollcommand=self.scroll_y.set)
         for concept in self.concepts:
             self.draw_concept(concept)
+        for relation in self.relations:
+            self.draw_relation(relation)
         self.canvas.bind("<ButtonPress-1>", self.pick_concept)
         if self.edit:
             self.canvas.bind("<B1-Motion>", self.move_concept)
@@ -124,6 +120,7 @@ class Conceptmap:
         self.concepts.remove(concept)
         self.concepts.append(concept)
         self.draw_concept(concept)
+        self.draw_relations(concept)
         self.viewer.modified = True
 
     def draw_concept(self, concept):
@@ -133,7 +130,7 @@ class Conceptmap:
                                      concept["y"] - concept["height"] / 2,
                                      concept["x"] + concept["width"] / 2,
                                      concept["y"] + concept["height"] / 2,
-                                     outline="",
+                                     outline="black",
                                      fill=type["fill"],
                                      tags=concept["id"])
         self.canvas.create_text(concept["x"],
@@ -142,6 +139,47 @@ class Conceptmap:
                                 text=concept["text"],
                                 fill=type["stroke"],
                                 tags=concept["id"])
+
+    def draw_relations(self, concept):
+        id = concept["id"] 
+        for relation in self.relations:
+            if relation["from"] == id or relation["to"] == id:
+                self.draw_relation(relation)
+
+    def draw_relation(self, relation):
+        c1 = self.concept_lookup[relation["from"]]
+        c2 = self.concept_lookup[relation["to"]]
+        self.canvas.delete(f"{c1['id']}-{c2['id']}")
+        c1_xlo = c1["x"] - c1["width"] / 2
+        c1_xhi = c1["x"] + c1["width"] / 2
+        c2_xlo = c2["x"] - c2["width"] / 2
+        c2_xhi = c2["x"] + c2["width"] / 2
+        c1_ylo = c1["y"] - c1["height"] / 2
+        c1_yhi = c1["y"] + c1["height"] / 2
+        c2_ylo = c2["y"] - c2["height"] / 2
+        c2_yhi = c2["y"] + c2["height"] / 2
+        if c1_xhi < c2_xlo:
+            p1x = c1_xhi
+            p2x = c2_xlo
+        elif c1_xlo > c2_xhi:
+            p1x = c1_xlo
+            p2x = c2_xhi
+        else:
+            p1x = c1["x"]
+            p2x = c2["x"]
+        if c1_yhi < c2_ylo:
+            p1y = c1_yhi
+            p2y = c2_ylo
+        elif c1_ylo > c2_yhi:
+            p1y = c1_ylo
+            p2y = c2_yhi
+        else:
+            p1y = c1["y"]
+            p2y = c2["y"]
+        self.canvas.create_line(p1x, p1y, p2x, p2y,
+                                width=2,
+                                fill="black",
+                                tags=f"{c1['id']}-{c2['id']}")
 
     def resize_concept(self, concept):
         "Adjust the width and height according to the the bounding box of the text."
@@ -177,12 +215,14 @@ class Conceptmap:
         self.picked_concept["x"] += dx
         self.picked_concept["y"] += dy
         self.starting_coords = (event.x, event.y)
+        self.draw_relations(self.picked_concept)
         self.viewer.modified = True
 
     def remove_concept(self, concept):
         self.canvas.delete(concept["id"])
         self.concepts.remove(concept)
         self.concept_lookup.pop(concept["id"])
+
 
 class EditConcept(tk.simpledialog.Dialog):
     "Dialog window for editing or creating a concept."
@@ -191,9 +231,11 @@ class EditConcept(tk.simpledialog.Dialog):
         self.conceptmap = conceptmap
         self.concept = concept
         if self.concept is None:
-            super().__init__(conceptmap.viewer.toplevel, title="Create concept")
+            super().__init__(conceptmap.viewer.toplevel,
+                             title=Tr("Create concept"))
         else:
-            super().__init__(conceptmap.viewer.toplevel, title="Edit concept")
+            super().__init__(conceptmap.viewer.toplevel,
+                             title=f"{Tr('Edit concept')} {self.concept['id']}")
 
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("Concept"))
