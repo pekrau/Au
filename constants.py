@@ -3,7 +3,7 @@
 import functools
 import os
 
-VERSION = (0, 16, 2)
+VERSION = (0, 16, 3)
 __version__ = ".".join([str(n) for n in VERSION])
 
 
@@ -229,6 +229,39 @@ CONCEPTMAP = "conceptmap"
 CONCEPTMAP_CURSOR = "arrow"
 CONCEPTMAP_WIDTH = 400
 CONCEPTMAP_HEIGHT = 300
-CONCEPTMAP_BACKGROUND = "white"
-CONCEPT_WIDTH = 8
-CONCEPT_HEIGHT = 6
+CONCEPTMAP_XPADDING = 14
+CONCEPTMAP_YPADDING = 8
+CONCEPTMAP_TYPES = dict(
+    primary = dict(
+        fill="dodgerblue",
+        stroke="white"
+    ),
+    secondary = dict(
+        fill="gray",
+        stroke="white",
+    ),
+    success = dict(
+        fill="forestgreen",
+        stroke="white",
+    ),
+    danger = dict(
+        fill="crimson",
+        stroke="white",
+    ),
+    warning = dict(
+        fill="gold",
+        stroke="black",
+    ),
+    info = dict(
+        fill="cyan",
+        stroke="black",
+    ),
+    light = dict(
+        fill="gainsboro",
+        stroke="black",
+    ),
+    dark = dict(
+        fill="black",
+        stroke="white",
+    ),
+)

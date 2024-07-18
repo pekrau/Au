@@ -5,7 +5,6 @@ from icecream import ic
 import tkinter as tk
 import tkinter.ttk
 import tkinter.simpledialog
-import tkinter.colorchooser
 
 import yaml
 
@@ -45,9 +44,7 @@ class Conceptmap:
         canvas = self.data.get("canvas", {})
         width = canvas.get("width", constants.CONCEPTMAP_WIDTH)
         height = canvas.get("height", constants.CONCEPTMAP_HEIGHT)
-        kwargs = dict(width=width,
-                      height=height,
-                      background=canvas.get("background", constants.CONCEPTMAP_BACKGROUND))
+        kwargs = dict(width=width, height=height, background="white")
         extend = canvas.get("extend")
         if extend:
             kwargs["scrollregion"] = (-extend, -extend, width+extend, height+extend)
@@ -69,60 +66,89 @@ class Conceptmap:
         if self.edit:
             self.canvas.bind("<B1-Motion>", self.move_concept)
             self.canvas.bind("<Double-Button-1>", self.edit_concept)
+            self.canvas.bind("<Double-Button-3>", self.create_concept)
         self.canvas.bind("<ButtonRelease-1>", self.unpick_concept)
         self.picked_concept = None
 
     def __repr__(self):
         return f"```conceptmap\n{yaml.dump(self.data)}\n```\n"
 
-    def edit_concept(self, event):
-        "Edit or create a concept."
+    def create_concept(self, event):
+        "Create a concept from scratch, or copy the one picked."
         self.pick_concept(event)
-        editor = EditConcept(self, self.picked_concept)
-        if editor.result is None:
-            return
-        if self.picked_concept:
-            concept = self.picked_concept
-            concept.update(editor.result)
-        else:
+        # Create a new concept from scratch.
+        if self.picked_concept is None:
+            editor = EditConcept(self, self.picked_concept)
+            if editor.result is None:
+                return
             self.cid_count += 1
             concept = dict(id=f"cid{self.cid_count}",
+                           type="primary",
                            x=event.x,
                            y=event.y,
                            width=100,
-                           height=20,
-                           fill="white",
-                           stroke="black",
-                           text_color="black")
+                           height=20)
             concept.update(editor.result)
+            self.resize_concept(concept)
             self.concepts.append(concept)
             self.concept_lookup[concept["id"]] = concept
+        # Copy the picked concept.
+        else:
+            concept = self.picked_concept.copy()
+            self.cid_count += 1
+            concept["id"] = f"cid{self.cid_count}"
+            concept["x"] += 10
+            concept["y"] += 10
+            self.draw_concept(concept)
+            self.concepts.append(concept)
+            self.concept_lookup[concept["id"]] = concept
+            editor = EditConcept(self, concept)
+            if editor.result is None:
+                return
+            concept.update(editor.result)
+            self.resize_concept(concept)
+        self.draw_concept(concept)
+        self.viewer.modified = True
+
+    def edit_concept(self, event):
+        "Edit a concept."
+        self.pick_concept(event)
+        if self.picked_concept is None:
+            return
+        editor = EditConcept(self, self.picked_concept)
+        if editor.result is None:
+            return
+        concept = self.picked_concept
+        concept.update(editor.result)
         self.resize_concept(concept)
+        self.concepts.remove(concept)
+        self.concepts.append(concept)
         self.draw_concept(concept)
         self.viewer.modified = True
 
     def draw_concept(self, concept):
         self.canvas.delete(concept["id"])
+        type = constants.CONCEPTMAP_TYPES[concept["type"]]
         self.canvas.create_rectangle(concept["x"] - concept["width"] / 2,
                                      concept["y"] - concept["height"] / 2,
                                      concept["x"] + concept["width"] / 2,
                                      concept["y"] + concept["height"] / 2,
-                                     outline=concept["stroke"],
-                                     fill=concept["fill"],
+                                     outline="",
+                                     fill=type["fill"],
                                      tags=concept["id"])
         self.canvas.create_text(concept["x"],
                                 concept["y"],
-                                text=concept["text"],
-                                fill=concept["text_color"],
                                 justify=tk.CENTER,
+                                text=concept["text"],
+                                fill=type["stroke"],
                                 tags=concept["id"])
 
     def resize_concept(self, concept):
         "Adjust the width and height according to the the bounding box of the text."
         obj = self.canvas.create_text(0, 0, text=concept["text"])
         bbox = self.canvas.bbox(obj)
-        concept["width"] = bbox[2] - bbox[0] + constants.CONCEPT_WIDTH
-        concept["height"] = bbox[3] - bbox[1] + constants.CONCEPT_HEIGHT
+        concept["width"] = bbox[2] - bbox[0] + constants.CONCEPTMAP_XPADDING
+        concept["height"] = bbox[3] - bbox[1] + constants.CONCEPTMAP_YPADDING
         self.canvas.delete(obj)
 
     def pick_concept(self, event):
@@ -130,11 +156,12 @@ class Conceptmap:
         overlapping = self.canvas.find_overlapping(event.x, event.y, event.x, event.y)
         if not overlapping:
             return
-        for id in self.canvas.gettags(overlapping[0]):
-            if id.startswith("cid"):
-                self.picked_concept = self.concept_lookup[id]
-                self.starting_coords = (event.x, event.y)
-                break
+        for overlap in overlapping:
+            for id in self.canvas.gettags(overlap):
+                if id.startswith("cid"):
+                    self.picked_concept = self.concept_lookup[id]
+                    self.starting_coords = (event.x, event.y)
+                    break
 
     def unpick_concept(self, event):
         self.picked_concept = None
@@ -151,15 +178,22 @@ class Conceptmap:
         self.picked_concept["y"] += dy
         self.starting_coords = (event.x, event.y)
         self.viewer.modified = True
-        
+
+    def remove_concept(self, concept):
+        self.canvas.delete(concept["id"])
+        self.concepts.remove(concept)
+        self.concept_lookup.pop(concept["id"])
 
 class EditConcept(tk.simpledialog.Dialog):
-    "Dialog window for editing a concept."
+    "Dialog window for editing or creating a concept."
 
     def __init__(self, conceptmap, concept=None):
         self.conceptmap = conceptmap
         self.concept = concept
-        super().__init__(conceptmap.viewer.toplevel, title="Edit concept")
+        if self.concept is None:
+            super().__init__(conceptmap.viewer.toplevel, title="Create concept")
+        else:
+            super().__init__(conceptmap.viewer.toplevel, title="Edit concept")
 
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("Concept"))
@@ -169,51 +203,32 @@ class EditConcept(tk.simpledialog.Dialog):
             self.concept_entry.insert(0, self.concept["text"])
         self.concept_entry.grid(row=0, column=1)
 
-        label = tk.ttk.Label(body, text=Tr("Fill color"))
+        label = tk.ttk.Label(body, text=Tr("Type"))
         label.grid(row=1, column=0, padx=4, sticky=tk.E)
-        self.fill_color = self.concept.get("fill", "white")
-        button = tk.ttk.Button(body, text="Fill color", command=self.set_fill_color)
-        button.grid(row=1, column=1)
+        self.types_list = list(constants.CONCEPTMAP_TYPES.keys())
+        self.concept_type = tk.Listbox(body, 
+                                       listvariable=tk.StringVar(value=self.types_list),
+                                       height=len(self.types_list))
+        if self.concept:
+            self.concept_type.selection_set(self.types_list.index(self.concept["type"]))
+        else:
+            self.concept_type.selection_set(0)
+        self.concept_type.grid(row=1, column=1, sticky=(tk.W, tk.N))
 
-        label = tk.ttk.Label(body, text=Tr("Stroke color"))
-        label.grid(row=2, column=0, padx=4, sticky=tk.E)
-        self.stroke_color = self.concept.get("stroke", "white")
-        button = tk.ttk.Button(body, text="Stroke color", command=self.set_stroke_color)
-        button.grid(row=2, column=1)
-
-        label = tk.ttk.Label(body, text=Tr("Text color"))
-        label.grid(row=3, column=0, padx=4, sticky=tk.E)
-        self.text_color = self.concept.get("text_color", "black")
-        button = tk.ttk.Button(body, text="Text color", command=self.set_text_color)
-        button.grid(row=3, column=1)
         return self.concept_entry
-
-    def set_fill_color(self):
-        color = tk.colorchooser.askcolor(title="Fill color", color=self.fill_color)
-        if color:
-            self.fill_color = color[1]
-
-    def set_stroke_color(self):
-        color = tk.colorchooser.askcolor(title="Stroke color", color=self.stroke_color)
-        if color:
-            self.stroke_color = color[1]
-
-    def set_text_color(self):
-        color = tk.colorchooser.askcolor(title="Text color", color=self.text_color)
-        if color:
-            self.text_color = color[1]
 
     def remove(self):
         "Remove the concept."
-        self.conceptmap.concepts.remove(self.concept)
-        self.conceptmap.concept_lookup.pop(self.concept["id"])
+        self.conceptmap.remove_concept(self.concept)
         self.cancel()
 
     def apply(self):
-        self.result = dict(text=self.concept_entry.get(),
-                           fill=self.fill_color,
-                           stroke=self.stroke_color,
-                           text_color=self.text_color)
+        self.result = dict(text=self.concept_entry.get())
+        selected = self.concept_type.curselection()
+        if selected:
+            self.result["type"] = self.types_list[selected[0]]
+        else:
+            self.result["type"] = self.concept["type"]
 
     def buttonbox(self):
         box = tk.Frame(self)
