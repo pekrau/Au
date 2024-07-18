@@ -3,7 +3,7 @@
 import functools
 import os
 
-VERSION = (0, 16, 1)
+VERSION = (0, 16, 2)
 __version__ = ".".join([str(n) for n in VERSION])
 
 
@@ -230,4 +230,5 @@ CONCEPTMAP_CURSOR = "arrow"
 CONCEPTMAP_WIDTH = 400
 CONCEPTMAP_HEIGHT = 300
 CONCEPTMAP_BACKGROUND = "white"
-
+CONCEPT_WIDTH = 8
+CONCEPT_HEIGHT = 6
