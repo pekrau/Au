@@ -32,7 +32,7 @@ FOOTNOTES_DISPLAY = (
     EACH_CHAPTER,
     END_OF_BOOK,
 )
-    
+
 
 class Exporter:
     "DOCX exporter."
@@ -150,12 +150,12 @@ class Exporter:
         paragraph.alignment = docx.enum.text.WD_ALIGN_PARAGRAPH.RIGHT
         run = paragraph.add_run()
         fldChar1 = docx.oxml.OxmlElement("w:fldChar")
-        fldChar1.set(docx.oxml.ns.qn('w:fldCharType'), 'begin')
+        fldChar1.set(docx.oxml.ns.qn("w:fldCharType"), "begin")
         instrText = docx.oxml.OxmlElement("w:instrText")
-        instrText.set(docx.oxml.ns.qn('xml:space'), 'preserve')
+        instrText.set(docx.oxml.ns.qn("xml:space"), "preserve")
         instrText.text = "PAGE"
         fldChar2 = docx.oxml.OxmlElement("w:fldChar")
-        fldChar2.set(docx.oxml.ns.qn('w:fldCharType'), 'end')
+        fldChar2.set(docx.oxml.ns.qn("w:fldCharType"), "end")
         run._r.append(fldChar1)
         run._r.append(instrText)
         run._r.append(fldChar2)
@@ -624,7 +624,12 @@ class Dialog(tk.simpledialog.Dialog):
         )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        for label in (constants.NORMAL, constants.ITALIC, constants.BOLD, constants.UNDERLINE):
+        for label in (
+            constants.NORMAL,
+            constants.ITALIC,
+            constants.BOLD,
+            constants.UNDERLINE,
+        ):
             button = tk.ttk.Radiobutton(
                 frame,
                 text=Tr(label).capitalize(),
@@ -641,7 +646,12 @@ class Dialog(tk.simpledialog.Dialog):
         )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        for label in (constants.NORMAL, constants.ITALIC, constants.BOLD, constants.UNDERLINE):
+        for label in (
+            constants.NORMAL,
+            constants.ITALIC,
+            constants.BOLD,
+            constants.UNDERLINE,
+        ):
             button = tk.ttk.Radiobutton(
                 frame,
                 text=Tr(label).capitalize(),

@@ -33,8 +33,20 @@ SECTION = "section"
 SECTION_COLOR = "gainsboro"
 
 DATETIME_ISO_FORMAT = "%Y-%m-%d %H:%M:%S"
-MONTHS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-          "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+MONTHS = {
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "may": 5,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
+}
 EM_DASH = "\u2014"
 
 
@@ -232,35 +244,32 @@ CONCEPTMAP_HEIGHT = 500
 CONCEPTMAP_XPADDING = 14
 CONCEPTMAP_YPADDING = 8
 CONCEPTMAP_TYPES = dict(
-    primary = dict(
-        fill="dodgerblue",
-        stroke="white"
-    ),
-    secondary = dict(
+    primary=dict(fill="dodgerblue", stroke="white"),
+    secondary=dict(
         fill="gray",
         stroke="white",
     ),
-    success = dict(
+    success=dict(
         fill="forestgreen",
         stroke="white",
     ),
-    danger = dict(
+    danger=dict(
         fill="crimson",
         stroke="white",
     ),
-    warning = dict(
+    warning=dict(
         fill="gold",
         stroke="black",
     ),
-    info = dict(
+    info=dict(
         fill="cyan",
         stroke="black",
     ),
-    light = dict(
+    light=dict(
         fill="gainsboro",
         stroke="black",
     ),
-    dark = dict(
+    dark=dict(
         fill="black",
         stroke="white",
     ),

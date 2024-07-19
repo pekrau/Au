@@ -104,7 +104,7 @@ class Main:
 
         if self.interactive:
             # Set the sizes of the panes.
-            self.root.update_idletasks() # Required for this to work, for some reason.
+            self.root.update_idletasks()  # Required for this to work, for some reason.
             try:
                 panes = self.config["main"]["panes"]
             except KeyError:
@@ -1041,16 +1041,10 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        "--docx", action="store_true", help="Output texts as DOCX."
-    )
+    group.add_argument("--docx", action="store_true", help="Output texts as DOCX.")
     group.add_argument("--pdf", action="store_true", help="Output texts as PDF.")
-    group.add_argument(
-        "--epub", action="store_true", help="Output texts as EPUB."
-    )
-    group.add_argument(
-        "--html", action="store_true", help="Output texts as HTML."
-    )
+    group.add_argument("--epub", action="store_true", help="Output texts as EPUB.")
+    group.add_argument("--html", action="store_true", help="Output texts as HTML.")
     parser.add_argument(
         "-D",
         "--dirpath",

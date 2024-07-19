@@ -30,7 +30,7 @@ FOOTNOTES_DISPLAY = (
     EACH_CHAPTER,
     END_OF_BOOK,
 )
-    
+
 PAGE_NUMBER = "Page number"
 TEXT_FULL_NAME = "Text full name"
 TEXT_HEADING = "Text heading"
@@ -157,9 +157,7 @@ class Exporter:
         self.write_indexed()
 
         # This may fail if the number of content pages is wrong.
-        self.pdf.output(
-            os.path.join(self.config["dirpath"], self.config["filename"])
-        )
+        self.pdf.output(os.path.join(self.config["dirpath"], self.config["filename"]))
 
     def write_title_page(self):
         self.pdf.add_page()
@@ -349,7 +347,7 @@ class Exporter:
             self.state.write(" " + journal)
             self.state.reset()
         try:
-            self.state.write(" " + reference['volume'])
+            self.state.write(" " + reference["volume"])
         except KeyError:
             pass
         else:
@@ -826,9 +824,7 @@ class Dialog(tk.simpledialog.Dialog):
         label = tk.ttk.Label(body, text=Tr("Contents level"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
         self.contents_level_var = tk.IntVar(
-            value=min(
-                self.config.get("contents_level", 1), self.source.max_level
-            )
+            value=min(self.config.get("contents_level", 1), self.source.max_level)
         )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
@@ -844,14 +840,18 @@ class Dialog(tk.simpledialog.Dialog):
         row += 1
         label = tk.ttk.Label(body, text=Tr("Contents pages"))
         label.grid(row=row, column=0, padx=4, sticky=tk.NE)
-        self.contents_pages_var = tk.IntVar(value=self.config.get("contents_pages", True))
+        self.contents_pages_var = tk.IntVar(
+            value=self.config.get("contents_pages", True)
+        )
         frame = tk.ttk.Frame(body)
         frame.grid(row=row, column=1, padx=4, sticky=tk.W)
-        button = tk.ttk.Checkbutton(frame,
-                                    text=Tr("Display contents page(s)"),
-                                    onvalue=True,
-                                    offvalue=False,
-                                    variable=self.contents_pages_var)
+        button = tk.ttk.Checkbutton(
+            frame,
+            text=Tr("Display contents page(s)"),
+            onvalue=True,
+            offvalue=False,
+            variable=self.contents_pages_var,
+        )
         button.pack(anchor=tk.W)
 
         row += 1

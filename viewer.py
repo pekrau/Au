@@ -58,7 +58,7 @@ class Viewer:
         )
         self.scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.view.configure(yscrollcommand=self.scroll_y.set)
-        self.graphics = {}      # Key: window id; value: Graphics instance
+        self.graphics = {}  # Key: window id; value: Graphics instance
 
     def configure_tags(self):
         for h in constants.H_LOOKUP.values():

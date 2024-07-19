@@ -47,9 +47,9 @@ class Exporter:
 
         chapters = []
         for item in self.source.items:
-            chapter = epub.EpubHtml(title=item.name,
-                                    file_name=f"{item.name}.xhtml",
-                                    lang=self.main.language)
+            chapter = epub.EpubHtml(
+                title=item.name, file_name=f"{item.name}.xhtml", lang=self.main.language
+            )
             self.outfile = io.StringIO()
             if item.is_section:
                 self.write_section(item, level=1)
@@ -59,18 +59,20 @@ class Exporter:
             book.add_item(chapter)
             chapters.append(chapter)
 
-        chapter = epub.EpubHtml(title=Tr("References"),
-                                     file_name="_References.xhtml",
-                                     lang=self.main.language)
+        chapter = epub.EpubHtml(
+            title=Tr("References"),
+            file_name="_References.xhtml",
+            lang=self.main.language,
+        )
         self.outfile = io.StringIO()
         self.write_references()
         chapter.content = self.outfile.getvalue()
         chapters.append(chapter)
         book.add_item(chapter)
 
-        chapter = epub.EpubHtml(title=Tr("Index"),
-                                file_name="_Index.xhtml",
-                                lang=self.main.language)
+        chapter = epub.EpubHtml(
+            title=Tr("Index"), file_name="_Index.xhtml", lang=self.main.language
+        )
         self.outfile = io.StringIO()
         self.write_indexed()
         chapter.content = self.outfile.getvalue()
@@ -134,7 +136,7 @@ class Exporter:
         self.output_newline("</ol>")
 
     def write_heading(self, title, level):
-        self.output_newline(f'<h{level}>{title}</h{min(level, constants.MAX_H_LEVEL)}>')
+        self.output_newline(f"<h{level}>{title}</h{min(level, constants.MAX_H_LEVEL)}>")
 
     def write_references(self):
         self.write_heading(Tr("References"), 1)
@@ -227,7 +229,9 @@ class Exporter:
         if not links:
             return
         self.output_newline("<br/>")
-        self.output_newline(f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">')
+        self.output_newline(
+            f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">'
+        )
         for pos, (text, url) in enumerate(links):
             if pos != 0:
                 self.output(", ")
@@ -239,7 +243,9 @@ class Exporter:
         if not entries:
             return
         self.output_newline("<br/>")
-        self.output_newline(f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">')
+        self.output_newline(
+            f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">'
+        )
         entries = sorted(entries, key=lambda e: e["ordinal"])
         for pos, entry in enumerate(entries):
             if pos != 0:
@@ -289,7 +295,7 @@ class Exporter:
         pass
 
     def render_quote(self, ast):
-        self.output_newline('<blockquote>')
+        self.output_newline("<blockquote>")
         for child in ast["children"]:
             self.render(child)
         self.output_newline("</blockquote>")
@@ -298,13 +304,13 @@ class Exporter:
         self.output(f"<code>{ast['children']}</code>")
 
     def render_code_block(self, ast):
-        self.output('<pre><code>')
+        self.output("<pre><code>")
         for child in ast["children"]:
             self.render(child)
         self.output_newline("</code></pre>")
 
     def render_fenced_code(self, ast):
-        self.output('<pre><code>')
+        self.output("<pre><code>")
         for child in ast["children"]:
             self.render(child)
         self.output_newline("</code></pre>")

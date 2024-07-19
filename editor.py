@@ -65,13 +65,17 @@ class Editor(TextViewer):
         self.menu_edit.add_command(label=Tr("Paste"), command=self.clipboard_paste)
         self.menu_edit.add_separator()
         self.menu_edit.add_command(
-            label=Tr("Add ordered list"), command=functools.partial(self.list_add, ordered=True)
+            label=Tr("Add ordered list"),
+            command=functools.partial(self.list_add, ordered=True),
         )
         self.menu_edit.add_command(
-            label=Tr("Add unordered list"), command=functools.partial(self.list_add, ordered=False)
+            label=Tr("Add unordered list"),
+            command=functools.partial(self.list_add, ordered=False),
         )
         self.menu_edit.add_separator()
-        self.menu_edit.add_command(label=Tr("Add concept map"), command=self.conceptmap_add)
+        self.menu_edit.add_command(
+            label=Tr("Add concept map"), command=self.conceptmap_add
+        )
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(
@@ -139,7 +143,7 @@ class Editor(TextViewer):
     def get_modified(self):
         return self.view.edit_modified()
 
-    def set_modified(self, yes): # Set as callback in menu.
+    def set_modified(self, yes):  # Set as callback in menu.
         if not isinstance(yes, bool):
             raise ValueError("invalid value for 'modified'; must be bool")
         self.view.edit_modified(yes)
@@ -180,47 +184,52 @@ class Editor(TextViewer):
                     command=self.list_end,
                 )
             menu.add_command(
-                label=Tr("Add ordered list"), command=functools.partial(self.list_add, ordered=True)
+                label=Tr("Add ordered list"),
+                command=functools.partial(self.list_add, ordered=True),
             )
             menu.add_command(
-                label=Tr("Add unordered list"), command=functools.partial(self.list_add, ordered=False)
+                label=Tr("Add unordered list"),
+                command=functools.partial(self.list_add, ordered=False),
             )
             menu.add_separator()
             tags = self.view.tag_names(tk.CURRENT)
             if constants.BOLD in tags:
-                menu.add_command(label=Tr("Remove bold"),
-                                 command=self.bold_remove)
+                menu.add_command(label=Tr("Remove bold"), command=self.bold_remove)
             if constants.ITALIC in tags:
-                menu.add_command(label=Tr("Remove italic"),
-                                 command=self.italic_remove)
+                menu.add_command(label=Tr("Remove italic"), command=self.italic_remove)
             if constants.QUOTE in tags:
-                menu.add_command(label=Tr("Remove quote"),
-                                 command=self.quote_remove)
+                menu.add_command(label=Tr("Remove quote"), command=self.quote_remove)
             if constants.CODE_SPAN in tags:
-                menu.add_command(label=Tr("Remove code span"),
-                                 command=self.code_span_remove)
+                menu.add_command(
+                    label=Tr("Remove code span"), command=self.code_span_remove
+                )
             if constants.QUOTE in tags:
-                menu.add_command(label=Tr("Remove quote"),
-                                 command=self.quote_remove)
+                menu.add_command(label=Tr("Remove quote"), command=self.quote_remove)
             if constants.CODE_BLOCK in tags:
-                menu.add_command(label=Tr("Remove code block"),
-                                 command=self.code_block_remove)
+                menu.add_command(
+                    label=Tr("Remove code block"), command=self.code_block_remove
+                )
             if constants.FENCED_CODE in tags:
-                menu.add_command(label=Tr("Remove fenced code"),
-                                 command=self.fenced_code_remove)
+                menu.add_command(
+                    label=Tr("Remove fenced code"), command=self.fenced_code_remove
+                )
             term = self.get_indexed()
             if term:
-                menu.add_command(label=f"{Tr('Remove indexed')} '{term}'",
-                                 command=self.indexed_remove)
+                menu.add_command(
+                    label=f"{Tr('Remove indexed')} '{term}'",
+                    command=self.indexed_remove,
+                )
             for tag in tags:
                 if tag.startswith(constants.FOOTNOTE_REF_PREFIX):
-                    menu.add_command(label=Tr("Remove footnote"),
-                                     command=self.footnote_remove)
+                    menu.add_command(
+                        label=Tr("Remove footnote"), command=self.footnote_remove
+                    )
                     break
             reference = self.get_reference()
             if reference:
-                menu.add_command(label=Tr("Remove reference"),
-                                 command=self.reference_remove)
+                menu.add_command(
+                    label=Tr("Remove reference"), command=self.reference_remove
+                )
 
         else:  # There is current selection.
             try:
@@ -435,13 +444,18 @@ class Editor(TextViewer):
         if number is None:
             return
         tags.remove(constants.LIST_PREFIX + str(number))
-        tags = [t for t in tags
-                if not t.startswith(f"{constants.LIST_ITEM_PREFIX}{number}-")]
+        tags = [
+            t
+            for t in tags
+            if not t.startswith(f"{constants.LIST_ITEM_PREFIX}{number}-")
+        ]
         self.view.insert(tk.INSERT, "\n\n", tags)
 
     def conceptmap_add(self, event=None):
         title = tk.simpledialog.askstring(
-            parent=self.toplevel, title=Tr("Title?"), prompt=Tr("Give title for concept mapk:")
+            parent=self.toplevel,
+            title=Tr("Title?"),
+            prompt=Tr("Give title for concept mapk:"),
         )
         graphic = Conceptmap(self, title=title)
         self.graphics[str(graphic.canvas_frame)] = graphic

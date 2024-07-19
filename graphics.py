@@ -15,9 +15,9 @@ from utils import Tr
 
 
 class Conceptmap:
-
     def __init__(self, viewer, text=None, title=None):
         import editor
+
         if text is None:
             self.data = dict(concepts=[], relations=[])
         else:
@@ -36,23 +36,25 @@ class Conceptmap:
         self.viewer = viewer
         self.edit = isinstance(self.viewer, editor.Editor)
         if self.title:
-            self.canvas_frame = tk.ttk.LabelFrame(viewer.view,
-                                                  padding=4,
-                                                  text=f" {self.title} ",
-                                                  cursor=constants.CONCEPTMAP_CURSOR)
+            self.canvas_frame = tk.ttk.LabelFrame(
+                viewer.view,
+                padding=4,
+                text=f" {self.title} ",
+                cursor=constants.CONCEPTMAP_CURSOR,
+            )
         else:
-            self.canvas_frame = tk.ttk.Frame(viewer.view,
-                                             padding=4,
-                                             cursor=constants.CONCEPTMAP_CURSOR)
+            self.canvas_frame = tk.ttk.Frame(
+                viewer.view, padding=4, cursor=constants.CONCEPTMAP_CURSOR
+            )
         viewer.view.window_create(tk.INSERT, window=self.canvas_frame)
         self.canvas_frame.rowconfigure(0, weight=1)
         self.canvas_frame.columnconfigure(0, weight=1)
         canvas = self.data.get("canvas", {})
         self.canvas = tk.Canvas(
             self.canvas_frame,
-            width = canvas.get("width", constants.CONCEPTMAP_WIDTH),
-            height = canvas.get("height", constants.CONCEPTMAP_HEIGHT),
-            background="white"
+            width=canvas.get("width", constants.CONCEPTMAP_WIDTH),
+            height=canvas.get("height", constants.CONCEPTMAP_HEIGHT),
+            background="white",
         )
         self.canvas.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.W, tk.E))
         for concept in self.concepts:
@@ -79,12 +81,14 @@ class Conceptmap:
             if editor.result is None:
                 return
             self.cid_count += 1
-            new = dict(id=f"cid{self.cid_count}",
-                       type="primary",
-                       x=event.x,
-                       y=event.y,
-                       width=100,
-                       height=20)
+            new = dict(
+                id=f"cid{self.cid_count}",
+                type="primary",
+                x=event.x,
+                y=event.y,
+                width=100,
+                height=20,
+            )
             new.update(editor.result)
             self.resize_concept(new)
             self.concepts.append(new)
@@ -112,8 +116,9 @@ class Conceptmap:
         self.canvas.delete(cid)
         self.concepts.remove(concept)
         self.concepts_lookup.pop(cid)
-        relations = [r for r in self.relations
-                     if r["source"] == cid or r["target"] == cid]
+        relations = [
+            r for r in self.relations if r["source"] == cid or r["target"] == cid
+        ]
         for relation in relations:
             self.delete_relation(relation)
         self.viewer.modified = True
@@ -136,7 +141,7 @@ class Conceptmap:
                 return
             concept.update(editor.result)
             self.resize_concept(concept)
-            self.concepts.remove(concept) # Move to the top of the display list.
+            self.concepts.remove(concept)  # Move to the top of the display list.
             self.concepts.append(concept)
             self.draw_concept(concept)
             self.draw_relations(concept)
@@ -145,23 +150,27 @@ class Conceptmap:
     def draw_concept(self, concept):
         self.canvas.delete(concept["id"])
         type = constants.CONCEPTMAP_TYPES[concept["type"]]
-        self.canvas.create_rectangle(concept["x"] - concept["width"] / 2,
-                                     concept["y"] - concept["height"] / 2,
-                                     concept["x"] + concept["width"] / 2,
-                                     concept["y"] + concept["height"] / 2,
-                                     outline="",
-                                     fill=type["fill"],
-                                     tags=concept["id"])
-        self.canvas.create_text(concept["x"],
-                                concept["y"],
-                                justify=tk.CENTER,
-                                text=concept["text"],
-                                fill=type["stroke"],
-                                tags=concept["id"])
+        self.canvas.create_rectangle(
+            concept["x"] - concept["width"] / 2,
+            concept["y"] - concept["height"] / 2,
+            concept["x"] + concept["width"] / 2,
+            concept["y"] + concept["height"] / 2,
+            outline="",
+            fill=type["fill"],
+            tags=concept["id"],
+        )
+        self.canvas.create_text(
+            concept["x"],
+            concept["y"],
+            justify=tk.CENTER,
+            text=concept["text"],
+            fill=type["stroke"],
+            tags=concept["id"],
+        )
 
     def draw_relations(self, concept):
         "Draw all relations for a given concept."
-        cid = concept["id"] 
+        cid = concept["id"]
         for relation in self.relations:
             if relation["source"] == cid or relation["target"] == cid:
                 self.draw_relation(relation)
@@ -197,21 +206,28 @@ class Conceptmap:
             p1y = c1["y"]
             p2y = c2["y"]
         type = constants.CONCEPTMAP_TYPES[relation["type"]]
-        self.canvas.create_line(p1x, p1y, p2x, p2y,
-                                width=2,
-                                fill=type["fill"],
-                                arrow=tk.LAST,
-                                tags=relation["id"])
+        self.canvas.create_line(
+            p1x,
+            p1y,
+            p2x,
+            p2y,
+            width=2,
+            fill=type["fill"],
+            arrow=tk.LAST,
+            tags=relation["id"],
+        )
         if relation.get("text"):
-            tid = self.canvas.create_text((p1x + p2x) / 2, (p1y + p2y) / 2,
-                                          justify=tk.CENTER,
-                                          text=relation["text"],
-                                          fill="black",
-                                          tags=relation["id"])
-            rid = self.canvas.create_rectangle(*self.canvas.bbox(tid),
-                                               fill="white",
-                                               width=0,
-                                               tags=relation["id"])
+            tid = self.canvas.create_text(
+                (p1x + p2x) / 2,
+                (p1y + p2y) / 2,
+                justify=tk.CENTER,
+                text=relation["text"],
+                fill="black",
+                tags=relation["id"],
+            )
+            rid = self.canvas.create_rectangle(
+                *self.canvas.bbox(tid), fill="white", width=0, tags=relation["id"]
+            )
             self.canvas.tag_lower(rid, tid)
 
     def resize_concept(self, concept):
@@ -285,10 +301,12 @@ class Conceptmap:
         if source is target:
             return
         self.rid_count += 1
-        relation = {"id": f"rid{self.rid_count}",
-                    "source": source["id"],
-                    "target": target["id"],
-                    "type": "dark"}
+        relation = {
+            "id": f"rid{self.rid_count}",
+            "source": source["id"],
+            "target": target["id"],
+            "type": "dark",
+        }
         self.relations.append(relation)
         self.relations_lookup[relation["id"]] = relation
         self.draw_relation(relation)
@@ -309,11 +327,12 @@ class EditConcept(tk.simpledialog.Dialog):
         self.conceptmap = conceptmap
         self.concept = concept
         if self.concept is None:
-            super().__init__(conceptmap.viewer.toplevel,
-                             title=Tr("Create concept"))
+            super().__init__(conceptmap.viewer.toplevel, title=Tr("Create concept"))
         else:
-            super().__init__(conceptmap.viewer.toplevel,
-                             title=f"{Tr('Edit concept')} {self.concept['id']}")
+            super().__init__(
+                conceptmap.viewer.toplevel,
+                title=f"{Tr('Edit concept')} {self.concept['id']}",
+            )
 
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("Text"))
@@ -326,9 +345,11 @@ class EditConcept(tk.simpledialog.Dialog):
         label = tk.ttk.Label(body, text=Tr("Type"))
         label.grid(row=1, column=0, padx=4, sticky=(tk.E, tk.N))
         self.types_list = list(constants.CONCEPTMAP_TYPES.keys())
-        self.concept_type = tk.Listbox(body, 
-                                       listvariable=tk.StringVar(value=self.types_list),
-                                       height=len(self.types_list))
+        self.concept_type = tk.Listbox(
+            body,
+            listvariable=tk.StringVar(value=self.types_list),
+            height=len(self.types_list),
+        )
         if self.concept:
             self.concept_type.selection_set(self.types_list.index(self.concept["type"]))
         else:
@@ -343,8 +364,13 @@ class EditConcept(tk.simpledialog.Dialog):
             box, text=Tr("OK"), width=10, command=self.ok, default=tk.ACTIVE
         )
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.ttk.Button(box, text=Tr("Delete"), width=10, command=self.delete,
-                          state=tk.DISABLED if self.concept is None else tk.NORMAL)
+        w = tk.ttk.Button(
+            box,
+            text=Tr("Delete"),
+            width=10,
+            command=self.delete,
+            state=tk.DISABLED if self.concept is None else tk.NORMAL,
+        )
         w.pack(side=tk.LEFT, padx=5, pady=5)
         w = tk.ttk.Button(box, text=Tr("Cancel"), width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
@@ -358,8 +384,10 @@ class EditConcept(tk.simpledialog.Dialog):
         self.cancel()
 
     def apply(self):
-        self.result = dict(text=self.concept_entry.get(),
-                           type=self.types_list[self.concept_type.curselection()[0]])
+        self.result = dict(
+            text=self.concept_entry.get(),
+            type=self.types_list[self.concept_type.curselection()[0]],
+        )
 
 
 class EditRelation(tk.simpledialog.Dialog):
@@ -369,11 +397,12 @@ class EditRelation(tk.simpledialog.Dialog):
         self.conceptmap = conceptmap
         self.relation = relation
         if self.relation is None:
-            super().__init__(conceptmap.viewer.toplevel,
-                             title=Tr("Create relation"))
+            super().__init__(conceptmap.viewer.toplevel, title=Tr("Create relation"))
         else:
-            super().__init__(conceptmap.viewer.toplevel,
-                             title=f"{Tr('Edit relation')} {self.relation['id']}")
+            super().__init__(
+                conceptmap.viewer.toplevel,
+                title=f"{Tr('Edit relation')} {self.relation['id']}",
+            )
 
     def body(self, body):
         label = tk.ttk.Label(body, text=Tr("text"))
@@ -386,11 +415,15 @@ class EditRelation(tk.simpledialog.Dialog):
         label = tk.ttk.Label(body, text=Tr("Type"))
         label.grid(row=1, column=0, padx=4, sticky=(tk.E, tk.N))
         self.types_list = list(constants.CONCEPTMAP_TYPES.keys())
-        self.relation_type = tk.Listbox(body, 
-                                       listvariable=tk.StringVar(value=self.types_list),
-                                       height=len(self.types_list))
+        self.relation_type = tk.Listbox(
+            body,
+            listvariable=tk.StringVar(value=self.types_list),
+            height=len(self.types_list),
+        )
         if self.relation:
-            self.relation_type.selection_set(self.types_list.index(self.relation["type"]))
+            self.relation_type.selection_set(
+                self.types_list.index(self.relation["type"])
+            )
         else:
             self.relation_type.selection_set(0)
         self.relation_type.grid(row=1, column=1, sticky=(tk.W, tk.N))
@@ -403,8 +436,13 @@ class EditRelation(tk.simpledialog.Dialog):
             box, text=Tr("OK"), width=10, command=self.ok, default=tk.ACTIVE
         )
         w.pack(side=tk.LEFT, padx=5, pady=5)
-        w = tk.ttk.Button(box, text=Tr("Delete"), width=10, command=self.delete,
-                          state=tk.DISABLED if self.relation is None else tk.NORMAL)
+        w = tk.ttk.Button(
+            box,
+            text=Tr("Delete"),
+            width=10,
+            command=self.delete,
+            state=tk.DISABLED if self.relation is None else tk.NORMAL,
+        )
         w.pack(side=tk.LEFT, padx=5, pady=5)
         w = tk.ttk.Button(box, text=Tr("Cancel"), width=10, command=self.cancel)
         w.pack(side=tk.LEFT, padx=5, pady=5)
@@ -418,6 +456,7 @@ class EditRelation(tk.simpledialog.Dialog):
         self.cancel()
 
     def apply(self):
-        self.result = dict(text=self.relation_entry.get(),
-                           type=self.types_list[self.relation_type.curselection()[0]])
-
+        self.result = dict(
+            text=self.relation_entry.get(),
+            type=self.types_list[self.relation_type.curselection()[0]],
+        )

@@ -37,4 +37,3 @@ def get_normalized_mark(value):
 
 if __name__ == "__main__":
     print(cleanup("Zuberb\xFChler, Klaus"))
-    

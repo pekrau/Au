@@ -184,7 +184,9 @@ class Source:
         Return the archive filepath and the number of items written.
         Raise an OSError if any error.
         """
-        filename = time.strftime(constants.DATETIME_ISO_FORMAT, time.localtime()) + ".tgz"
+        filename = (
+            time.strftime(constants.DATETIME_ISO_FORMAT, time.localtime()) + ".tgz"
+        )
         archivefilepath = os.path.join(
             self.absdirpath, constants.ARCHIVE_DIRNAME, filename
         )
@@ -206,7 +208,12 @@ class Source:
         assert os.path.exists(self.abspath), (self, self.abspath)
         assert os.path.isdir(self.abspath), (self, self.abspath)
         assert len(self.lookup) == len(self.all_items), (
-            ic(len(self.lookup), len(self.all_items), self.lookup.keys(), self.all_items),
+            ic(
+                len(self.lookup),
+                len(self.all_items),
+                self.lookup.keys(),
+                self.all_items,
+            ),
         )
         for item in self.all_items:
             assert item.source is self, (self, item)

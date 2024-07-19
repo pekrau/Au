@@ -143,10 +143,14 @@ class Exporter:
         self.output_newline('<ul class="list-group">')
         for item in self.source.items:
             self.output_newline('<li class="list-group-item">')
-            self.output_newline(f'<a href="{self.get_url(item.fullname)}">{item.heading}</a>')
+            self.output_newline(
+                f'<a href="{self.get_url(item.fullname)}">{item.heading}</a>'
+            )
             self.output_newline("</li>")
         self.output_newline('<li class="list-group-item">')
-        self.output_newline(f'<a href="{self.get_url("_References")}">{Tr("References")}</a>')
+        self.output_newline(
+            f'<a href="{self.get_url("_References")}">{Tr("References")}</a>'
+        )
         self.output_newline("</li>")
         self.output_newline('<li class="list-group-item">')
         self.output_newline(f'<a href="{self.get_url("_Index")}">{Tr("Index")}</a>')
@@ -307,7 +311,9 @@ class Exporter:
         if not links:
             return
         self.output_newline("<br/>")
-        self.output_newline(f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">')
+        self.output_newline(
+            f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">'
+        )
         for pos, (text, url) in enumerate(links):
             if pos != 0:
                 self.output(", ")
@@ -319,7 +325,9 @@ class Exporter:
         if not entries:
             return
         self.output_newline("<br>")
-        self.output_newline(f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">')
+        self.output_newline(
+            f'<span style="margin-left: {constants.REFERENCE_INDENT}pt;">'
+        )
         entries = sorted(entries, key=lambda e: e["ordinal"])
         for pos, entry in enumerate(entries):
             if pos != 0:

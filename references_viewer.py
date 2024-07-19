@@ -150,7 +150,10 @@ class ReferencesViewer(Viewer):
             button = tk.ttk.Button(
                 self.view_frame,
                 text=Tr("Notes"),
-                command=functools.partial(self.main.open_reference_editor, self, reference))
+                command=functools.partial(
+                    self.main.open_reference_editor, self, reference
+                ),
+            )
             self.view.window_create(tk.INSERT, window=button)
             self.display_view_external_links(reference)
             self.display_view_xrefs(reference)
@@ -386,7 +389,9 @@ class BibtexImport(tk.simpledialog.Dialog):
                 self.result[key] = value
         # Split keywords into a list.
         try:
-            self.result["keywords"] = [k.strip() for k in self.result["keywords"].split(";")]
+            self.result["keywords"] = [
+                k.strip() for k in self.result["keywords"].split(";")
+            ]
         except KeyError:
             pass
         # Change month into date; sometimes has day number.
@@ -492,7 +497,9 @@ class RisImport(tk.simpledialog.Dialog):
             self.result["abstract"] = " ".join(self.result["abstract"])
         except KeyError:
             pass
-        id = self.viewer.get_unique_id(self.result["authors"][0], self.result.get("year"))
+        id = self.viewer.get_unique_id(
+            self.result["authors"][0], self.result.get("year")
+        )
         if id is None:
             tk.messagebox.showerror(
                 parent=self,
