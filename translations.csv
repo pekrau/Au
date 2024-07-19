@@ -9,6 +9,7 @@ close?,stänga?
 modifications will not be saved,förändringar sparas inte
 really close?,verkligen stänga?
 edit,editera
+text,text
 create text,skapa text
 create section,skapa sektion
 rename,ändra namn
@@ -154,5 +155,10 @@ after each text,efter varje text
 after each chapter,efter varje kapitel
 at end of book,i slutet av boken
 concept,begrepp
+concept map,begreppskarta
+add concept map,lägg till begreppskarta
 create concept,skapa begrepp
 edit concept,editera begrepp
+relation,relation
+create relation,skapa relation
+edit relation,editera relation

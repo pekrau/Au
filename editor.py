@@ -16,6 +16,7 @@ import constants
 import utils
 
 from utils import Tr
+from graphics import Conceptmap
 from text_viewer import TextViewer
 
 
@@ -69,6 +70,8 @@ class Editor(TextViewer):
         self.menu_edit.add_command(
             label=Tr("Add unordered list"), command=functools.partial(self.list_add, ordered=False)
         )
+        self.menu_edit.add_separator()
+        self.menu_edit.add_command(label=Tr("Add concept map"), command=self.conceptmap_add)
 
         self.menu_format = tk.Menu(self.menubar)
         self.menubar.add_cascade(
@@ -435,6 +438,13 @@ class Editor(TextViewer):
         tags = [t for t in tags
                 if not t.startswith(f"{constants.LIST_ITEM_PREFIX}{number}-")]
         self.view.insert(tk.INSERT, "\n\n", tags)
+
+    def conceptmap_add(self, event=None):
+        title = tk.simpledialog.askstring(
+            parent=self.toplevel, title=Tr("Title?"), prompt=Tr("Give title for concept mapk:")
+        )
+        graphic = Conceptmap(self, title=title)
+        self.graphics[str(graphic.canvas_frame)] = graphic
 
     def list_item_add(self, event=None, list_item_tag=None):
         data = self.list_lookup[list_item_tag]
