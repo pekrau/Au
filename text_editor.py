@@ -29,10 +29,7 @@ class TextEditor(Editor):
         )
         self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
         self.menubar.add_command(label=Tr("Reference"), command=self.reference_add)
-        self.menubar.add_command(
-            label=Tr("Footnote"), command=self.footnote_add, state=tk.DISABLED
-        )
-        self.menubar_changed_by_selection.add(self.menubar.index(tk.END))
+        self.menubar.add_command(label=Tr("Footnote"), command=self.footnote_add)
 
         self.menu_status = tk.Menu(self.menubar)
         self.menubar.add_cascade(menu=self.menu_status, label=Tr("Status"))

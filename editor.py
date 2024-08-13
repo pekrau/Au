@@ -644,7 +644,10 @@ class Editor(TextViewer):
             first, last = self.get_selection()
             self.check_broken_selection(first, last, showerror=True)
         except ValueError:
-            return
+            first = self.view.index(tk.INSERT)
+            self.view.insert(tk.INSERT, "  ")
+            last = self.view.index(tk.INSERT)
+            self.view.mark_set(tk.INSERT, last + "-1c")
         label = self.get_new_footnote_label()
         tag = constants.FOOTNOTE_DEF_PREFIX + label
         self.tag_elide(tag)

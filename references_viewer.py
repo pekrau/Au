@@ -531,28 +531,34 @@ class AddManually(tk.simpledialog.Dialog):
         super().__init__(viewer.view_frame, title=Tr("Add manually"))
 
     def body(self, body):
-        label = tk.ttk.Label(body, text=Tr("Author"))
+        label = tk.ttk.Label(body, text=Tr("Title"))
         label.grid(row=0, column=0, padx=4, sticky=tk.E)
+        self.title_entry = tk.Entry(body, width=40)
+        self.title_entry.grid(row=0, column=1, sticky=tk.W)
+
+        label = tk.ttk.Label(body, text=Tr("Author"))
+        label.grid(row=1, column=0, padx=4, sticky=tk.E)
         self.author_entry = tk.Entry(body, width=40)
-        self.author_entry.grid(row=0, column=1, sticky=tk.W)
+        self.author_entry.grid(row=1, column=1, sticky=tk.W)
 
         label = tk.ttk.Label(body, text=Tr("Year"))
-        label.grid(row=1, column=0, padx=4, sticky=tk.E)
+        label.grid(row=2, column=0, padx=4, sticky=tk.E)
         self.year_entry = tk.Entry(body)
-        self.year_entry.grid(row=1, column=1, sticky=tk.W)
+        self.year_entry.grid(row=2, column=1, sticky=tk.W)
         self.year_entry.bind("<Return>", self.ok)
 
         frame = tk.Frame(body)
-        frame.grid(row=2, column=1, sticky=(tk.W, tk.E))
+        frame.grid(row=3, column=1, sticky=(tk.W, tk.E))
         self.type_var = tk.StringVar(value=constants.ARTICLE)
         for type in constants.REFERENCE_TYPES:
             tk.ttk.Radiobutton(
                 frame, text=Tr(type.capitalize()), value=type, variable=self.type_var
             ).pack(anchor=tk.NW, padx=4)
 
-        return self.author_entry
+        return self.title_entry
 
     def validate(self):
+        title = self.title_entry.get().strip()
         author = self.author_entry.get().strip()
         year = self.year_entry.get().strip()
         id = self.viewer.get_unique_id(author, year)
@@ -563,7 +569,12 @@ class AddManually(tk.simpledialog.Dialog):
                 message="Could not create unique id for reference.",
             )
             return False
-        self.result = dict(id=id, type=self.type_var.get(), authors=[author], year=year)
+        self.result = dict(
+            id=id,
+            title=title,
+            type=self.type_var.get(),
+            authors=[author], year=year
+        )
         return True
 
     def apply(self):
