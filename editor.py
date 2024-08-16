@@ -136,6 +136,10 @@ class Editor(TextViewer):
                 self.list_item_add(list_item_tag=list_item_tag)
                 return "break"
 
+        # Add EM_DASH.
+        if event.keysym == "minus" and (event.state & constants.EVENT_STATE_CONTROL):
+            self.view.insert(tk.INSERT, constants.EM_DASH)
+
     def display_heading(self):
         "Do not display heading in text edit area."
         pass
